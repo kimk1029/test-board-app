@@ -4,7 +4,7 @@ import Main from "./view/main";
 import About from "./view/about";
 import Component_ui from "./view/component_ui";
 import "./App.scss";
-import { Link, Route, Switch, BrowserRouter as Router } from "react-router-dom";
+import { Route, Switch, BrowserRouter as Router } from "react-router-dom";
 
 function App() {
 	return (
