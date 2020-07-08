@@ -1,16 +1,14 @@
 import React from "react";
-const element = () => {
-	const number = 5;
-	for (let i = 0; i < number; i++) {
-		return <div class={number}> number</div>;
-	}
-};
+import "./assets/css/about.scss";
+
 function about() {
 	return (
 		<div className="App-about">
-			<p>about</p>
+			<p>about?</p>
 			<div className="contents">
-				<div>{element}</div>
+				<span className="age">age : 1989</span>
+				<div>direction : Seoul, seocho-gu</div>
+				<div>job : web dev</div>
 			</div>
 		</div>
 	);

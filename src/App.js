@@ -3,6 +3,7 @@ import Nav from "./view/nav";
 import Main from "./view/main";
 import About from "./view/about";
 import Component_ui from "./view/component_ui";
+import Board from "./view/board";
 import "./App.scss";
 import { Route, Switch, BrowserRouter as Router } from "react-router-dom";
 
@@ -15,6 +16,7 @@ function App() {
 					<Route exact path="/" component={Main} />
 					<Route path="/about" component={About} />
 					<Route path="/component_ui" component={Component_ui} />
+					<Route path="/board" component={Board} />
 				</Switch>
 			</div>
 		</Router>

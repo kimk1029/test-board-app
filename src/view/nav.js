@@ -1,9 +1,13 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import "./assets/css/nav.scss";
 function nav() {
 	return (
 		<div className="nav-header">
-			<p>home2</p>
+			<Link to="/home">
+				<p>KyuHyeon Kim</p>
+			</Link>
+
 			<div>
 				<ul className="nav_ul">
 					<Link to="/about">
@@ -11,6 +15,12 @@ function nav() {
 					</Link>
 					<Link to="/component_ui">
 						<li>comp</li>
+					</Link>
+					<Link to="/board">
+						<li>board</li>
+					</Link>
+					<Link to="/component_ui">
+						<li>contact</li>
 					</Link>
 				</ul>
 			</div>

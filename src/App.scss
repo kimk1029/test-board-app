@@ -1,7 +1,11 @@
 .App {
 	text-align: center;
-	background-color: grey;
+	background-color: black;
 	min-height: 100vh;
+	a {
+		text-decoration: none;
+		color: white;
+	}
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -34,11 +38,11 @@
 	color: #61dafb;
 }
 
-@keyframes App-logo-spin {
-	from {
-		transform: rotate(0deg);
-	}
-	to {
-		transform: rotate(360deg);
-	}
-}
+// @keyframes App-logo-spin {
+// 	from {
+// 		transform: rotate(0deg);
+// 	}
+// 	to {
+// 		transform: rotate(360deg);
+// 	}
+// }
