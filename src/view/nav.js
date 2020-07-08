@@ -4,8 +4,8 @@ import "./assets/css/nav.scss";
 function nav() {
 	return (
 		<div className="nav-header">
-			<Link to="/home">
-				<p>KyuHyeon Kim</p>
+			<Link to="/">
+				<p>TEAST</p>
 			</Link>
 
 			<div>
