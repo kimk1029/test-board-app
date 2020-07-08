@@ -1,1 +1,2 @@
-##Test mini React Responsive Frontend project
+## Test mini React Responsive Frontend project
+kyuhyeon kim
