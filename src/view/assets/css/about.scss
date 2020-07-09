@@ -1,13 +1,16 @@
-.contents {
-	padding: 0 20px;
-	text-align: left;
-	color: greenyellow;
-	font-family: Courier;
-	letter-spacing: 0.15em;
-	.age {
-		border-right: 0.15em solid orange; /* The typwriter cursor */
+.App-about {
+	background-color: black;
+	.contents {
+		padding: 0 20px;
+		text-align: left;
+		color: greenyellow;
+		font-family: Courier;
+		letter-spacing: 0.15em;
+		.age {
+			border-right: 0.15em solid orange; /* The typwriter cursor */
 
-		animation: typing 3.5s steps(30, end), blink-caret 0.5s step-end infinite;
+			animation: typing 3.5s steps(30, end), blink-caret 0.5s step-end infinite;
+		}
 	}
 }
 

@@ -2,9 +2,15 @@
 	text-align: center;
 	background-color: black;
 	min-height: 100vh;
+	background-image: url("../src/view/assets/images/back1.jpg");
+	background-size: cover;
 	a {
 		text-decoration: none;
 		color: white;
+	}
+	padding-top: 70px;
+	.view_container {
+		padding: 20px 30px;
 	}
 }
 
@@ -22,6 +28,10 @@
 	background-color: transparent;
 	border-bottom: azure solid 1px;
 	padding: 0 36px;
+	position: fixed;
+	top: 0;
+	width: 100%;
+	box-sizing: border-box;
 	.nav_ul {
 		list-style-type: none;
 		margin: 0;
