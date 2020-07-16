@@ -1,0 +1,14 @@
+.board-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 1050px;
+	margin: 20px auto;
+	border-radius: 15px;
+	.makeStyles-container-2 {
+		min-height: 689px;
+	}
+	.MuiTablePagination-root {
+		background-color: antiquewhite;
+	}
+}
