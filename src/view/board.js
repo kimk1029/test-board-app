@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import Table from "@material-ui/core/Table";
@@ -113,13 +114,25 @@ export default function Board() {
 										>
 											{columns.map((column) => {
 												const value = row[column.id];
-												return (
-													<TableCell key={column.id} align={column.align}>
-														{column.format && typeof value === "number"
-															? column.format(value)
-															: value}
-													</TableCell>
-												);
+												if (column.id === "population") {
+													return (
+														<TableCell key={column.id} align={column.align}>
+															<Link to="/">
+																{column.format && typeof value === "number"
+																	? column.format(value)
+																	: value}
+															</Link>
+														</TableCell>
+													);
+												} else {
+													return (
+														<TableCell key={column.id} align={column.align}>
+															{column.format && typeof value === "number"
+																? column.format(value)
+																: value}
+														</TableCell>
+													);
+												}
 											})}
 										</TableRow>
 									);

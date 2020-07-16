@@ -5,10 +5,19 @@
 	width: 1050px;
 	margin: 20px auto;
 	border-radius: 15px;
+
 	.makeStyles-container-2 {
 		min-height: 689px;
 	}
 	.MuiTablePagination-root {
 		background-color: antiquewhite;
+	}
+	.makeStyles-container-8 {
+		min-height: 80vh;
+	}
+	td {
+		a {
+			color: black;
+		}
 	}
 }
