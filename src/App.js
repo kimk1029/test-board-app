@@ -11,15 +11,18 @@ function App() {
 	return (
 		<Router>
 			<div className="App">
-				<Nav />
-				<div className="view_container">
+				<header>
+					<Nav />
+				</header>
+
+				<section className="view_container">
 					<Switch>
 						<Route exact path="/" component={Main} />
 						<Route path="/about" component={About} />
 						<Route path="/component_ui" component={Component_ui} />
 						<Route path="/board" component={Board} />
 					</Switch>
-				</div>
+				</section>
 			</div>
 		</Router>
 	);
