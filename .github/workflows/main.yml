@@ -18,3 +18,12 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: ${{ matrix.node-version }}
+    - name: Yarn Install
+      run: |
+        yarn install
+    - name: Production Build
+      run: |
+        yarn build
+    - name: Deploy to NAS
+      run: |
+          scp -P 1029 ./build 121.133.149.191@kimk1029:/volume1/web
