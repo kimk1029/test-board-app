@@ -34,6 +34,13 @@ jobs:
 
       - name: Check the path
         run: pwd
-
-      - name: Deploy to NAS
-        run: sshpass-p 'aormsja4' scp -P 1029 -o StrictHostKeyChecking=no ./build kimk1029@121.133.149.191:/volume1/web
+      - uses: actions/checkout@master
+      - name: copy file via ssh password
+        uses: appleboy/scp-action@master
+        with:
+          host: 121.133.149.191
+          username: kimk1029
+          password: aormsja4
+          port: 1029
+          source: "./build"
+          target: "/volume1/web"
