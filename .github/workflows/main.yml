@@ -38,7 +38,7 @@ jobs:
       - name: Run sshpass commands
         uses: matheusvanzan/sshpass-action@v1
         with:
-          host: 121.133.149.191
+          host: 121.133.149.191:1029
           username: kimk1029
           password: aormsja4
           run: sshpass -p 'aormsja4' scp -P 1029 -o StrictHostKeyChecking=no ./build kimk1029@121.133.149.191:/volume1/web
