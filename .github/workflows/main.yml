@@ -41,7 +41,7 @@ jobs:
           host: 121.133.149.191
           username: kimk1029
           password: aormsja4
-          run: sshpass -P 1029 -p 'aormsja4' scp -o StrictHostKeyChecking=no ./build kimk1029@121.133.149.191:/volume1/web
+          run: sshpass -p 'aormsja4' scp -P 1029 -o StrictHostKeyChecking=no ./build kimk1029@121.133.149.191:/volume1/web
 
       - name: Deploy to NAS
-        run: sshpass -P 1029 -p 'aormsja4' scp -o StrictHostKeyChecking=no ./build kimk1029@121.133.149.191:/volume1/web
+        run: sshpass-p 'aormsja4' scp -P 1029 -o StrictHostKeyChecking=no ./build kimk1029@121.133.149.191:/volume1/web
