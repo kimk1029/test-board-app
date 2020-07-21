@@ -26,5 +26,8 @@ jobs:
       - name: Production Build
         run: yarn build
 
+      - name: Check the path
+        run: pwd
+
       - name: Deploy to NAS
         run: scp -P 1029 ./build 121.133.149.191@kimk1029:/volume1/web
