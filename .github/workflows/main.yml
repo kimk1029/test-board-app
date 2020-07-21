@@ -6,7 +6,7 @@ on:
       - master
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
    steps:
       - name: Checkout source code.   # 레포지토리 체크아웃
         uses: actions/checkout@master
@@ -25,6 +25,6 @@ jobs:
 
       - name: Production Build
         run: yarn build
-        
+
       - name: Deploy to NAS
         run: scp -P 1029 ./build 121.133.149.191@kimk1029:/volume1/web
