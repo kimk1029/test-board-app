@@ -8,6 +8,11 @@ jobs:
   build:
     runs-on: ubuntu-18.04
     steps:
+      - name: Check the path
+        run: pwd
+      - name: Check the file
+        run: ls -al
+
       - name: Checkout source code. # 레포지토리 체크아웃
         uses: actions/checkout@master
 
@@ -26,8 +31,5 @@ jobs:
       - name: Production Build
         run: yarn build
 
-      - name: Check the path
-        run: pwd
-
       - name: Deploy to NAS
-        run: scp -P 1029 ./build 121.133.149.191@kimk1029:/volume1/web
+        run: scp -P 1029 ./build kimk1029@121.133.149.191:/volume1/web
