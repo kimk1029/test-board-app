@@ -7,19 +7,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+   steps:
+      - name: Checkout source code.   # 레포지토리 체크아웃
+        uses: actions/checkout@master
 
-    strategy:
-      matrix:
-        node-version: [8.x, 10.x, 12.x]
+      - name: Cache node modules      # node modules 캐싱
+        uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-build-
+            ${{ runner.OS }}-
 
-    steps:
-      - uses: actions/checkout@v1
       - name: Yarn Install
-      run: |
-        yarn install
-    - name: Production Build
-      run: |
-        yarn build
-    - name: Deploy to NAS
-      run: |
-          scp -P 1029 ./build 121.133.149.191@kimk1029:/volume1/web
+        run: yarn install
+
+      - name: Production Build
+        run: yarn build
+        
+      - name: Deploy to NAS
+        run: scp -P 1029 ./build 121.133.149.191@kimk1029:/volume1/web
