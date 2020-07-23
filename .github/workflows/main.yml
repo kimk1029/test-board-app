@@ -33,7 +33,7 @@ jobs:
         run: ls
         
       - name: Check the file
-        run: cd ..
+        run: cd /home/runner/work/res-ReactApp/res-ReactApp/build
 
       - name: Check the path
         run: ls
