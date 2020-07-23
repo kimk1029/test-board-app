@@ -26,11 +26,11 @@ jobs:
       ##- name: Production Build
       ##  run: yarn build
 
-      - name: Check the path
-        run: pwd
+   ##   - name: Check the path
+     ##   run: pwd
 
-      - name: Check the file
-        run: cd build
+      ## - name: Check the file
+        ## run: cd build
 
       - name: Check the path
         run: pwd
