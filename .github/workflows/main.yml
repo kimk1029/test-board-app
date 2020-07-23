@@ -53,6 +53,4 @@ jobs:
           password: aormsja4
           port: 1029
           command_timeout: 180
-          script: cd /volume1/web/res
-          script: pwd
-          script: yarn build
+          script: cd /volume1/web/res && pwd && yarn build
