@@ -43,4 +43,4 @@ jobs:
           password: aormsja4
           port: 1029
           source: "*"
-          target: "/volume1/web"
+          target: "/volume1/web/res"
