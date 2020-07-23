@@ -23,14 +23,14 @@ jobs:
       - name: Yarn Install
         run: yarn install
 
-      ##- name: Production Build
-      ##  run: yarn build
+      - name: Production Build
+        run: yarn build
 
-   ##   - name: Check the path
-     ##   run: pwd
+      - name: Check the path
+        run: pwd
 
-      ## - name: Check the file
-        ## run: cd build
+      - name: Check the file
+        run: cd ..
 
       - name: Check the path
         run: pwd
