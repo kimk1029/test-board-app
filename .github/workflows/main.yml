@@ -28,12 +28,15 @@ jobs:
 
       - name: Check the path
         run: pwd
-
+        
+      - name: Check the path
+        run: ls
+        
       - name: Check the file
         run: cd ..
 
       - name: Check the path
-        run: pwd
+        run: ls
 
       - uses: actions/checkout@master
       - name: copy file via ssh password
