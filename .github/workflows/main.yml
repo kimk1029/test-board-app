@@ -34,6 +34,7 @@ jobs:
 
       - name: Check the path
         run: pwd
+
       - uses: actions/checkout@master
       - name: copy file via ssh password
         uses: appleboy/scp-action@master
@@ -44,3 +45,12 @@ jobs:
           port: 1029
           source: "*"
           target: "/volume1/web/res"
+      - name: executing remote ssh commands using password
+        uses: appleboy/ssh-action@master
+        with:
+          host: 121.133.149.191
+          username: kimk1029
+          password: aormsja4
+          port: 1029
+          script: cd /volume1/web/res
+            yarn build
