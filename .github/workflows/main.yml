@@ -23,8 +23,8 @@ jobs:
       - name: Yarn Install
         run: yarn install
 
-      - name: Production Build
-        run: yarn build
+      ##- name: Production Build
+      ##  run: yarn build
 
       - name: Check the path
         run: pwd
@@ -52,5 +52,4 @@ jobs:
           username: kimk1029
           password: aormsja4
           port: 1029
-          command_timeout: 180
           script: cd /volume1/web/res && pwd && yarn build
