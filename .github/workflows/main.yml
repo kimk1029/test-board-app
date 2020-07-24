@@ -28,10 +28,10 @@ jobs:
 
       - name: Check the path
         run: pwd
-        
+
       - name: Check the path
         run: ls
-        
+
       - name: Check the file
         run: cd /home/runner/work/res-ReactApp/res-ReactApp/build
 
@@ -55,5 +55,4 @@ jobs:
           username: kimk1029
           password: aormsja4
           port: 1029
-          script: cd /volume1/web/res
-          yarn build
+          script: cd /volume1/web/res && pwd && ls && yarn build
