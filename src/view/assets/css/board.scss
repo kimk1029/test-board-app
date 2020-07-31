@@ -1,5 +1,6 @@
 .board-container {
 	display: flex;
+	flex-direction: column;
 	justify-content: center;
 	align-items: center;
 	width: 1050px;
@@ -19,5 +20,12 @@
 		a {
 			color: black;
 		}
+	}
+}
+#transition-modal-description {
+	display: flex;
+	flex-direction: column;
+	.MuiFormControl-root {
+		margin: 20px 0;
 	}
 }

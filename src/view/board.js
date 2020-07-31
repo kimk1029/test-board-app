@@ -1,87 +1,83 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Redirect } from "react-router-dom";
 import { makeStyles } from "@material-ui/core/styles";
-import Paper from "@material-ui/core/Paper";
-import Table from "@material-ui/core/Table";
-import TableBody from "@material-ui/core/TableBody";
-import TableCell from "@material-ui/core/TableCell";
-import TableContainer from "@material-ui/core/TableContainer";
-import TableHead from "@material-ui/core/TableHead";
-import TablePagination from "@material-ui/core/TablePagination";
-import TableRow from "@material-ui/core/TableRow";
+import {
+	Paper,
+	Button,
+	Modal,
+	Fade,
+	Backdrop,
+	TextField,
+	Table,
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TablePagination,
+	TableRow,
+} from "@material-ui/core";
 import "./assets/css/board.scss";
-
-const columns = [
-	{ id: "num", label: "Number", minWidth: 100 },
-	{ id: "code", label: "ISO\u00a0Code", minWidth: 50 },
-	{
-		id: "population",
-		label: "Population",
-		minWidth: 170,
-		align: "right",
-		format: (value) => value.toLocaleString("en-US"),
-	},
-	{
-		id: "size",
-		label: "Size\u00a0(km\u00b2)",
-		minWidth: 170,
-		align: "right",
-		format: (value) => value.toLocaleString("en-US"),
-	},
-	{
-		id: "density",
-		label: "Density",
-		minWidth: 170,
-		align: "right",
-		format: (value) => value.toFixed(2),
-	},
-];
-
-function createData(num, code, population, size) {
-	const density = population / size;
-	return { num, code, population, size, density };
-}
-
-const rows = [
-	createData(1, "IN", 1324171354, 3287263),
-	createData(2, "CN", 1403500365, 9596961),
-	createData("3", "IT", 60483973, 301340),
-	createData("4 ", "US", 327167434, 9833520),
-	createData("5", "CA", 37602103, 9984670),
-	createData("6", "AU", 25475400, 7692024),
-	createData(7, "DE", 83019200, 357578),
-	createData("Ireland", "IE", 4857000, 70273),
-	createData("Mexico", "MX", 126577691, 1972550),
-	createData("Japan", "JP", 126317000, 377973),
-	createData("France", "FR", 67022000, 640679),
-	createData("United Kingdom", "GB", 67545757, 242495),
-	createData("Russia", "RU", 146793744, 17098246),
-	createData("Nigeria", "NG", 200962417, 923768),
-	createData("Brazil", "BR", 210147125, 8515767),
-];
-
-const useStyles = makeStyles({
+import { useFetch } from "../hook/useFetch";
+const API_SERVER = "http://localhost:3000";
+const useStyles = makeStyles((theme) => ({
 	root: {
 		width: "100%",
 	},
 	container: {
 		maxHeight: 440,
 	},
-});
-
+	modal: {
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	paper: {
+		backgroundColor: theme.palette.background.paper,
+		border: "2px solid #000",
+		boxShadow: theme.shadows[5],
+		padding: theme.spacing(2, 4, 3),
+	},
+}));
 export default function Board() {
 	const classes = useStyles();
-	const [page, setPage] = React.useState(0);
-	const [rowsPerPage, setRowsPerPage] = React.useState(10);
+	const [page, setPage] = useState(0);
+	const [rowsPerPage, setRowsPerPage] = useState(10);
+	const [open, setOpen] = useState(false);
+	const [contents, setContents] = useState("");
+	const [name, setName] = useState("");
+	const [data, loading] = useFetch(API_SERVER + "/users");
 
 	const handleChangePage = (event, newPage) => {
 		setPage(newPage);
 	};
-
 	const handleChangeRowsPerPage = (event) => {
 		setRowsPerPage(+event.target.value);
 		setPage(0);
 	};
+	const handleOpen = () => {
+		setOpen(true);
+	};
+	const handleClose = () => {
+		setOpen(false);
+	};
+	const Add = ({ name, contents }) => {
+		const insert = () => {
+			fetch(API_SERVER + "/users", {
+				method: "post",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					name: name,
+					content: contents,
+				}),
+			}).then(() => {
+				handleClose();
+			});
+		};
+		insert();
+	};
+	const headKey = ["ID", "name", "content", "date"];
 
 	return (
 		<div className="board-container">
@@ -90,66 +86,81 @@ export default function Board() {
 					<Table stickyHeader aria-label="sticky table">
 						<TableHead>
 							<TableRow>
-								{columns.map((column) => (
-									<TableCell
-										key={column.id}
-										align={column.align}
-										style={{ minWidth: column.minWidth }}
-									>
-										{column.label}
-									</TableCell>
+								{headKey.map((column, i) => (
+									<TableCell key={i}>{column}</TableCell>
 								))}
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{rows
-								.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-								.map((row) => {
-									return (
-										<TableRow
-											hover
-											role="checkbox"
-											tabIndex={-1}
-											key={row.code}
-										>
-											{columns.map((column) => {
-												const value = row[column.id];
-												if (column.id === "population") {
-													return (
-														<TableCell key={column.id} align={column.align}>
-															<Link to="/">
-																{column.format && typeof value === "number"
-																	? column.format(value)
-																	: value}
-															</Link>
-														</TableCell>
-													);
-												} else {
-													return (
-														<TableCell key={column.id} align={column.align}>
-															{column.format && typeof value === "number"
-																? column.format(value)
-																: value}
-														</TableCell>
-													);
-												}
-											})}
-										</TableRow>
-									);
-								})}
+							{data.map((column) => {
+								return (
+									<TableRow hover role="checkbox" tabIndex={-1} key={column.id}>
+										{Object.values(column).map((item, i) => {
+											return <TableCell key={"key-" + i}>{item}</TableCell>;
+										})}
+									</TableRow>
+								);
+							})}
 						</TableBody>
 					</Table>
 				</TableContainer>
 				<TablePagination
 					rowsPerPageOptions={[10, 25, 100]}
 					component="div"
-					count={rows.length}
+					count={data.length}
 					rowsPerPage={rowsPerPage}
 					page={page}
 					onChangePage={handleChangePage}
 					onChangeRowsPerPage={handleChangeRowsPerPage}
 				/>
 			</Paper>
+			<Button variant="contained" onClick={handleOpen}>
+				Default
+			</Button>
+
+			<Modal
+				aria-labelledby="transition-modal-title"
+				aria-describedby="transition-modal-description"
+				className={classes.modal}
+				open={open}
+				onClose={handleClose}
+				closeAfterTransition
+				BackdropComponent={Backdrop}
+				BackdropProps={{
+					timeout: 500,
+				}}
+			>
+				<Fade in={open}>
+					<div className={classes.paper}>
+						<h2 id="transition-modal-title">Transition modal</h2>
+						<div id="transition-modal-description">
+							react-transition-group animates me.
+							<TextField
+								id="standard-basic"
+								label="글쓴이"
+								onChange={(event) => setName(event.target.value)}
+							/>
+							<TextField
+								id="standard-basic"
+								label="제목"
+								variant="outlined"
+								onChange={(event) => setContents(event.target.value)}
+							/>
+							이름은 : {name}
+							<br />
+							내용은 : {contents}
+						</div>
+						<Button
+							variant="contained"
+							onClick={() => {
+								Add({ name, contents });
+							}}
+						>
+							작성
+						</Button>
+					</div>
+				</Fade>
+			</Modal>
 		</div>
 	);
 }

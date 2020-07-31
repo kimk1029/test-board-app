@@ -1,59 +1,59 @@
-name: Production Build
-on:
-  pull_request:
-  push:
-    branches:
-      - master
-jobs:
-  build:
-    runs-on: ubuntu-18.04
-    steps:
-      - name: Checkout source code. # 레포지토리 체크아웃
-        uses: actions/checkout@master
+# name: Production Build
+# on:
+#   pull_request:
+#   push:
+#     branches:
+#       - master
+# jobs:
+#   build:
+#     runs-on: ubuntu-18.04
+#     steps:
+#       - name: Checkout source code. # 레포지토리 체크아웃
+#         uses: actions/checkout@master
 
-      - name: Cache node modules # node modules 캐싱
-        uses: actions/cache@v1
-        with:
-          path: node_modules
-          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-build-
-            ${{ runner.OS }}-
+#       - name: Cache node modules # node modules 캐싱
+#         uses: actions/cache@v1
+#         with:
+#           path: node_modules
+#           key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+#           restore-keys: |
+#             ${{ runner.OS }}-build-
+#             ${{ runner.OS }}-
 
-      - name: Yarn Install
-        run: yarn install
+#       - name: Yarn Install
+#         run: yarn install
 
-      - name: Production Build
-        run: yarn build
+#       - name: Production Build
+#         run: yarn build
 
-      - name: Check the path
-        run: pwd
+#       - name: Check the path
+#         run: pwd
 
-      - name: Check the path
-        run: ls
+#       - name: Check the path
+#         run: ls
 
-      - name: Check the file
-        run: cd /home/runner/work/res-ReactApp/res-ReactApp/build
+#       - name: Check the file
+#         run: cd /home/runner/work/res-ReactApp/res-ReactApp/build
 
-      - name: Check the path
-        run: ls
+#       - name: Check the path
+#         run: ls
 
-      - uses: actions/checkout@master
-      - name: copy file via ssh password
-        uses: appleboy/scp-action@master
-        with:
-          host: 121.133.149.191
-          username: kimk1029
-          password: aormsja4
-          port: 1029
-          source: "/home/runner/work/res-ReactApp/res-ReactApp/build"
-          target: "/volume1/web/res"
+#       - uses: actions/checkout@master
+#       - name: copy file via ssh password
+#         uses: appleboy/scp-action@master
+#         with:
+#           host: 121.133.149.191
+#           username: kimk1029
+#
+#           port: 1029
+#           source: "/home/runner/work/res-ReactApp/res-ReactApp/build"
+#           target: "/volume1/web/res"
 
-      - name: executing remote ssh commands using password
-        uses: appleboy/ssh-action@master
-        with:
-          host: 121.133.149.191
-          username: kimk1029
-          password: aormsja4
-          port: 1029
-          script: cd /volume1/web/res && pwd && ls &&react-scripts build
+#       - name: executing remote ssh commands using password
+#         uses: appleboy/ssh-action@master
+#         with:
+#           host: 121.133.149.191
+#           username: kimk1029
+#
+#           port: 1029
+#           script: cd /volume1/web/res && pwd && ls &&react-scripts build
