@@ -10,7 +10,7 @@ function useFetch(url) {
 			setLoading(false);
 		}
 		fetchUrl();
-	}, []);
-	return [data, loading];
+	});
+	return data;
 }
 export { useFetch };

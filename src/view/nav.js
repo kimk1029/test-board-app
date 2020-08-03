@@ -1,9 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import "./assets/css/nav.scss";
-function nav() {
+function Nav() {
+	const [scrollTopFlag, setScrollTop] = useState(false);
+	window.onscroll = () => {
+		if (document.documentElement.scrollTop > 0) {
+			setScrollTop(true);
+		} else {
+			setScrollTop(false);
+		}
+	};
 	return (
-		<div className="nav-header">
+		<div className={"nav-header " + (scrollTopFlag ? "scrollTop" : "scroll")}>
 			<Link to="/">
 				<p>TEAST</p>
 			</Link>
@@ -28,4 +36,4 @@ function nav() {
 	);
 }
 
-export default nav;
+export default Nav;

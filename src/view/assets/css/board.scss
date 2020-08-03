@@ -8,7 +8,6 @@
 	border-radius: 15px;
 
 	.makeStyles-container-2 {
-		min-height: 689px;
 	}
 	.MuiTablePagination-root {
 		background-color: antiquewhite;
@@ -21,11 +20,16 @@
 			color: black;
 		}
 	}
-}
-#transition-modal-description {
-	display: flex;
-	flex-direction: column;
-	.MuiFormControl-root {
-		margin: 20px 0;
+	#addNew {
+		margin: 15px 0;
+		background-color: skyblue;
+	}
+	#delete {
+		&.select {
+			background-color: greenyellow;
+		}
+		&.delete {
+			background-color: red;
+		}
 	}
 }

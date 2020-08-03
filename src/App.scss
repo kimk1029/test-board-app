@@ -14,33 +14,6 @@
 @media (prefers-reduced-motion: no-preference) {
 }
 
-.nav-header {
-	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-	align-items: center;
-	font-size: calc(10px + 2vmin);
-	color: white;
-	height: 70px;
-	background-color: transparent;
-	border-bottom: azure solid 1px;
-	padding: 0 36px;
-	position: fixed;
-	top: 0;
-	width: 100%;
-	box-sizing: border-box;
-	.nav_ul {
-		list-style-type: none;
-		margin: 0;
-		padding: 0;
-		overflow: hidden;
-		li {
-			display: inline;
-			margin: 0 10px;
-		}
-	}
-}
-
 .App-link {
 	color: #61dafb;
 }

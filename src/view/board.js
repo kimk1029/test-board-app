@@ -1,13 +1,9 @@
 import React, { useState } from "react";
-import { Redirect } from "react-router-dom";
 import { makeStyles } from "@material-ui/core/styles";
+import Add from "./board/Add";
 import {
 	Paper,
 	Button,
-	Modal,
-	Fade,
-	Backdrop,
-	TextField,
 	Table,
 	TableBody,
 	TableCell,
@@ -18,6 +14,7 @@ import {
 } from "@material-ui/core";
 import "./assets/css/board.scss";
 import { useFetch } from "../hook/useFetch";
+//const API_SERVER = "http://121.133.149.191:3000";
 const API_SERVER = "http://localhost:3000";
 const useStyles = makeStyles((theme) => ({
 	root: {
@@ -41,12 +38,11 @@ const useStyles = makeStyles((theme) => ({
 export default function Board() {
 	const classes = useStyles();
 	const [page, setPage] = useState(0);
-	const [rowsPerPage, setRowsPerPage] = useState(10);
 	const [open, setOpen] = useState(false);
-	const [contents, setContents] = useState("");
-	const [name, setName] = useState("");
-	const [data, loading] = useFetch(API_SERVER + "/users");
+	const [deleteBtn, setDeleteBtn] = useState(false);
 
+	const [rowsPerPage, setRowsPerPage] = useState(10);
+	const data = useFetch(API_SERVER + "/users");
 	const handleChangePage = (event, newPage) => {
 		setPage(newPage);
 	};
@@ -57,30 +53,27 @@ export default function Board() {
 	const handleOpen = () => {
 		setOpen(true);
 	};
-	const handleClose = () => {
-		setOpen(false);
-	};
-	const Add = ({ name, contents }) => {
-		const insert = () => {
-			fetch(API_SERVER + "/users", {
-				method: "post",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					name: name,
-					content: contents,
-				}),
-			}).then(() => {
-				handleClose();
-			});
-		};
-		insert();
+	const deleteFunc = () => {
+		deleteBtn ? setDeleteBtn(false) : setDeleteBtn(true);
 	};
 	const headKey = ["ID", "name", "content", "date"];
 
 	return (
 		<div className="board-container">
+			<div className="board-conponent">
+				<Button id="addNew" variant="contained" onClick={handleOpen}>
+					New
+				</Button>
+				<Button
+					id="delete"
+					className={deleteBtn ? "select" : "delete"}
+					variant="contained"
+					onClick={deleteFunc}
+				>
+					{deleteBtn ? "select" : "delete"}
+				</Button>
+			</div>
+
 			<Paper className={classes.root} id="board-contents">
 				<TableContainer className={classes.container}>
 					<Table stickyHeader aria-label="sticky table">
@@ -92,15 +85,30 @@ export default function Board() {
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{data.map((column) => {
-								return (
-									<TableRow hover role="checkbox" tabIndex={-1} key={column.id}>
-										{Object.values(column).map((item, i) => {
-											return <TableCell key={"key-" + i}>{item}</TableCell>;
-										})}
-									</TableRow>
-								);
-							})}
+							{data
+								.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+								.map((column) => {
+									return (
+										<TableRow
+											hover
+											role="checkbox"
+											tabIndex={-1}
+											key={column.id}
+										>
+											{Object.values(column).map((item, i) => {
+												return (
+													<TableCell key={"key-" + i}>
+														{i === 0 && deleteBtn ? (
+															<input type="checkbox"></input>
+														) : (
+															item
+														)}
+													</TableCell>
+												);
+											})}
+										</TableRow>
+									);
+								})}
 						</TableBody>
 					</Table>
 				</TableContainer>
@@ -114,53 +122,8 @@ export default function Board() {
 					onChangeRowsPerPage={handleChangeRowsPerPage}
 				/>
 			</Paper>
-			<Button variant="contained" onClick={handleOpen}>
-				Default
-			</Button>
 
-			<Modal
-				aria-labelledby="transition-modal-title"
-				aria-describedby="transition-modal-description"
-				className={classes.modal}
-				open={open}
-				onClose={handleClose}
-				closeAfterTransition
-				BackdropComponent={Backdrop}
-				BackdropProps={{
-					timeout: 500,
-				}}
-			>
-				<Fade in={open}>
-					<div className={classes.paper}>
-						<h2 id="transition-modal-title">Transition modal</h2>
-						<div id="transition-modal-description">
-							react-transition-group animates me.
-							<TextField
-								id="standard-basic"
-								label="글쓴이"
-								onChange={(event) => setName(event.target.value)}
-							/>
-							<TextField
-								id="standard-basic"
-								label="제목"
-								variant="outlined"
-								onChange={(event) => setContents(event.target.value)}
-							/>
-							이름은 : {name}
-							<br />
-							내용은 : {contents}
-						</div>
-						<Button
-							variant="contained"
-							onClick={() => {
-								Add({ name, contents });
-							}}
-						>
-							작성
-						</Button>
-					</div>
-				</Fade>
-			</Modal>
+			<Add open={open} setOpenFunc={setOpen} />
 		</div>
 	);
 }
