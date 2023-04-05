@@ -1,6 +1,7 @@
 import React from "react";
 import styled from "styled-components";
 import { makeStyles } from "@material-ui/core/styles";
+import { Link } from "react-router-dom"; // import Link component
 import {
   Table,
   TableBody,
@@ -68,9 +69,15 @@ const Board: React.FC<BoardProps> = ({ boardData }) => {
           </TableHead>
           <TableBody>
             {boardData.map((item) => (
-              <TableRow key={item.id} className={classes.tableRow}>
+              <TableRow className={classes.tableRow}>
                 <TableCell>{item.id}</TableCell>
-                <TableCell>{`${item.title} [${item.replies}]`}</TableCell>
+                <TableCell>
+                  {" "}
+                  <Link
+                    key={item.id}
+                    to={`/board/${item.id}`}
+                  >{`${item.title} [${item.replies}]`}</Link>
+                </TableCell>
                 <TableCell>{item.author}</TableCell>
                 <TableCell>{item.lastPost}</TableCell>
               </TableRow>

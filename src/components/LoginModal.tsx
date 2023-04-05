@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { Button, TextField, Modal, Box, Typography } from "@material-ui/core";
+import { Link } from "react-router-dom";
 
 const StyledModal = styled(Modal)`
   display: flex;
@@ -49,9 +50,29 @@ const CloseButton = styled(Button)`
     background-color: #d32f2f;
   }
 `;
+
+const SignUpButton = styled(Button)`
+  background-color: #2196f3;
+  color: #fff;
+  margin-right: 8px;
+
+  &:hover {
+    background-color: #1976d2;
+  }
+`;
+
+const SignUpModalBox = styled(ModalBox)`
+  height: 450px;
+`;
+
+const SignUpModalTitle = styled(Title)`
+  margin-top: 24px;
+`;
 const LoginModal = ({ open, onClose }: any) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
@@ -60,13 +81,48 @@ const LoginModal = ({ open, onClose }: any) => {
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
   };
-
+  const handleNicknameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNickname(e.target.value);
+  };
   const handleLogin = () => {
     // handle login logic here
   };
 
+  const handleSignUp = () => {
+    setIsSignUp(true);
+  };
+
+  const handleSignUpSubmit = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          nickname: nickname,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data);
+        // handle successful registration here (e.g., show a success message or redirect the user)
+        handleClose();
+      } else {
+        // handle errors here (e.g., show an error message)
+        console.log("Error during registration:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error during registration:", error);
+    }
+  };
+
   const handleClose = () => {
     onClose(false);
+    setIsSignUp(false);
   };
 
   return (
@@ -77,7 +133,11 @@ const LoginModal = ({ open, onClose }: any) => {
       }}
     >
       <ModalBox>
-        <Title variant="h5">Login</Title>
+        {isSignUp ? (
+          <Title variant="h5">Register</Title>
+        ) : (
+          <Title variant="h5">Login</Title>
+        )}
         <TextFieldContainer>
           <TextField
             label="Email"
@@ -97,14 +157,50 @@ const LoginModal = ({ open, onClose }: any) => {
             onChange={handlePasswordChange}
           />
         </TextFieldContainer>
+        {isSignUp && (
+          <TextFieldContainer>
+            <TextField
+              label="Nickname"
+              variant="outlined"
+              fullWidth
+              value={nickname}
+              onChange={handleNicknameChange}
+            />
+          </TextFieldContainer>
+        )}
         <LoginButtonContainer>
-          <LoginButton variant="contained" onClick={handleLogin}>
-            Login
-          </LoginButton>
+          {isSignUp ? (
+            <LoginButton variant="contained" onClick={handleSignUpSubmit}>
+              Register
+            </LoginButton>
+          ) : (
+            <LoginButton variant="contained" onClick={handleLogin}>
+              Login
+            </LoginButton>
+          )}
           <CloseButton variant="contained" onClick={handleClose}>
             Close
           </CloseButton>
         </LoginButtonContainer>
+        {isSignUp ? (
+          <TextFieldContainer>
+            <Typography variant="body2">
+              Already have an account?{" "}
+              <Link onClick={() => setIsSignUp(false)} to={""}>
+                Login
+              </Link>
+            </Typography>
+          </TextFieldContainer>
+        ) : (
+          <TextFieldContainer>
+            <Typography variant="body2">
+              Don't have an account?{" "}
+              <Link onClick={() => setIsSignUp(true)} to={""}>
+                Register
+              </Link>
+            </Typography>
+          </TextFieldContainer>
+        )}
       </ModalBox>
     </StyledModal>
   );
