@@ -3,8 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import styled from "styled-components";
 import logo from "../assets/logo.png";
 import LoginModal from "./LoginModal";
+import { useQueryClient } from "react-query";
 interface HeaderStyle {
   isScrolled: boolean;
+}
+interface DropdownMenuProps {
+  isOpen: boolean;
 }
 const Container = styled.div<HeaderStyle>`
   display: flex;
@@ -59,10 +63,36 @@ const LoginButton = styled.button`
   font-family: "Open Sans", sans-serif; /* apply custom font */
 `;
 
+const DropdownMenu = styled.div<DropdownMenuProps>`
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: #ffffff;
+  min-width: 150px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+  border-radius: 4px;
+  display: ${({ isOpen }) => (isOpen ? "block" : "none")};
+`;
+
+const DropdownItem = styled.div`
+  padding: 12px 16px;
+  cursor: pointer;
+  &:hover {
+    background-color: #f1f1f1;
+  }
+`;
+
+const EmailContainer = styled.div`
+  position: relative;
+`;
+
 const HeaderNavigator = () => {
   const [isVisibleLogin, setIsVisibleLogin] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-
+  const queryClient = useQueryClient();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const storedEmail = queryClient.getQueryData<string>("email") ?? "";
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 0) {
@@ -74,7 +104,13 @@ const HeaderNavigator = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("email");
+    queryClient.removeQueries("token");
+    queryClient.removeQueries("email");
+    setIsDropdownOpen(false);
+  };
   return (
     <Container isScrolled={isScrolled}>
       <Logo src={logo} alt="Logo" />
@@ -83,7 +119,18 @@ const HeaderNavigator = () => {
         <NavigationItem to="/board">Board</NavigationItem>
         <NavigationItem to="/contact">Contact</NavigationItem>
       </Navigation>
-      <LoginButton onClick={() => setIsVisibleLogin(true)}>Login</LoginButton>
+      {storedEmail ? (
+        <EmailContainer>
+          <span onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+            {storedEmail}
+          </span>
+          <DropdownMenu isOpen={isDropdownOpen}>
+            <DropdownItem onClick={handleLogout}>Logout</DropdownItem>
+          </DropdownMenu>
+        </EmailContainer>
+      ) : (
+        <LoginButton onClick={() => setIsVisibleLogin(true)}>Login</LoginButton>
+      )}
       <LoginModal open={isVisibleLogin} onClose={setIsVisibleLogin} />
     </Container>
   );

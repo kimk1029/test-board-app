@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import { Button, TextField, Modal, Box, Typography } from "@material-ui/core";
 import { Link } from "react-router-dom";
-
+import { useQueryClient } from "react-query";
 const StyledModal = styled(Modal)`
   display: flex;
   align-items: center;
@@ -73,7 +73,7 @@ const LoginModal = ({ open, onClose }: any) => {
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
-
+  const queryClient = useQueryClient();
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
   };
@@ -84,8 +84,41 @@ const LoginModal = ({ open, onClose }: any) => {
   const handleNicknameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNickname(e.target.value);
   };
-  const handleLogin = () => {
+  const handleLogin = async () => {
     // handle login logic here
+    try {
+      const response = await fetch("http://localhost:3000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data);
+
+        // Store the token in local storage with expiration time
+        const expiresIn = 60 * 60 * 1000; // 1 hour in milliseconds
+        const expirationTime = new Date().getTime() + expiresIn;
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("tokenExpiration", expirationTime.toString());
+        // Save the token and email information in the react-query store state
+        queryClient.setQueryData("token", data.token);
+        queryClient.setQueryData("email", email);
+        // Close the LoginModal component
+        handleClose();
+      } else {
+        // handle errors here (e.g., show an error message)
+        console.log("Error during login:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+    }
   };
 
   const handleSignUp = () => {
