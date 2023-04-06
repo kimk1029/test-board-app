@@ -4,11 +4,18 @@ import styled from "styled-components";
 import logo from "../assets/logo.png";
 import LoginModal from "./LoginModal";
 import { useQueryClient } from "react-query";
+import jwt_decode, { JwtPayload } from "jwt-decode";
 interface HeaderStyle {
   isScrolled: boolean;
 }
 interface DropdownMenuProps {
   isOpen: boolean;
+}
+interface DecodedToken {
+  email: string;
+  exp: number;
+  iat: number;
+  // add other claims here if necessary
 }
 const Container = styled.div<HeaderStyle>`
   display: flex;
@@ -92,7 +99,7 @@ const HeaderNavigator = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const queryClient = useQueryClient();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const storedEmail = queryClient.getQueryData<string>("email") ?? "";
+  const storedEmail = queryClient.getQueryData<string>("email");
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 0) {
@@ -104,8 +111,23 @@ const HeaderNavigator = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    const tokenExpiry = localStorage.getItem("tokenExpiration");
+    if (storedToken && tokenExpiry) {
+      const expiryDate = new Date(Number(tokenExpiry));
+      const currentDate = new Date();
+      if (expiryDate > currentDate) {
+        const decodedToken: DecodedToken = jwt_decode(storedToken);
+        const userEmail = decodedToken.email;
+        queryClient.setQueryData("email", userEmail);
+        queryClient.setQueryData("token", storedToken);
+      }
+    }
+  }, [queryClient]);
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("tokenExpiration"); // remove token expiry as well
     localStorage.removeItem("email");
     queryClient.removeQueries("token");
     queryClient.removeQueries("email");

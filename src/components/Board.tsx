@@ -11,16 +11,13 @@ import {
   TableRow,
   Paper,
 } from "@material-ui/core";
-
-interface BoardProps {
-  boardData: {
-    id: number;
-    title: string;
-    author: string;
-    replies: number;
-    views: number;
-    lastPost: string;
-  }[];
+import { useQuery } from "react-query";
+import { fetchJSON } from "../apiService";
+interface BoardData {
+  uid: number;
+  title: string;
+  author: string;
+  creation_date: string;
 }
 
 const useStyles = makeStyles({
@@ -45,9 +42,24 @@ const useStyles = makeStyles({
   },
 });
 
-const Board: React.FC<BoardProps> = ({ boardData }) => {
+const Board: React.FC = () => {
   const classes = useStyles();
+  const {
+    data: boardData,
+    isLoading,
+    error,
+  } = useQuery<BoardData[], Error>("boardData", () => fetchJSON("/bbs"));
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
+  if (error) {
+    return <div>Error fetching board data: {error.message}</div>;
+  }
+
+  if (!boardData) {
+    return <div>No data available</div>;
+  }
   // sort the boardData array in descending order based on the id value
   console.log(boardData);
   boardData.reverse();
@@ -68,18 +80,17 @@ const Board: React.FC<BoardProps> = ({ boardData }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {boardData.map((item) => (
+            {boardData.map((item: BoardData) => (
               <TableRow className={classes.tableRow}>
-                <TableCell>{item.id}</TableCell>
+                <TableCell>{item.uid}</TableCell>
                 <TableCell>
-                  {" "}
                   <Link
-                    key={item.id}
-                    to={`/board/${item.id}`}
-                  >{`${item.title} [${item.replies}]`}</Link>
+                    key={item.uid}
+                    to={`/board/${item.uid}`}
+                  >{`${item.title}`}</Link>
                 </TableCell>
                 <TableCell>{item.author}</TableCell>
-                <TableCell>{item.lastPost}</TableCell>
+                <TableCell>{item.creation_date}</TableCell>
               </TableRow>
             ))}
           </TableBody>

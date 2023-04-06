@@ -42,7 +42,7 @@ function App() {
         <HeaderNavigator />
         <Routes>
           <Route path="/" element={<HomeScreen />}></Route>
-          <Route path="/board" element={<Board boardData={boardData} />} />
+          <Route path="/board" element={<Board />} />
           <Route path="/board/:id" element={<BoardView />} />
         </Routes>
       </div>

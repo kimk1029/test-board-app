@@ -3,6 +3,8 @@ import styled from "styled-components";
 import { Button, TextField, Modal, Box, Typography } from "@material-ui/core";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "react-query";
+import { fetchJSON } from "../apiService";
+const API = "http://112.169.230.149:8000";
 const StyledModal = styled(Modal)`
   display: flex;
   align-items: center;
@@ -85,9 +87,8 @@ const LoginModal = ({ open, onClose }: any) => {
     setNickname(e.target.value);
   };
   const handleLogin = async () => {
-    // handle login logic here
     try {
-      const response = await fetch("http://localhost:3000/login", {
+      const data = await fetchJSON("/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -98,24 +99,16 @@ const LoginModal = ({ open, onClose }: any) => {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log(data);
-
-        // Store the token in local storage with expiration time
-        const expiresIn = 60 * 60 * 1000; // 1 hour in milliseconds
-        const expirationTime = new Date().getTime() + expiresIn;
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("tokenExpiration", expirationTime.toString());
-        // Save the token and email information in the react-query store state
-        queryClient.setQueryData("token", data.token);
-        queryClient.setQueryData("email", email);
-        // Close the LoginModal component
-        handleClose();
-      } else {
-        // handle errors here (e.g., show an error message)
-        console.log("Error during login:", response.statusText);
-      }
+      // Store the token in local storage with expiration time
+      const expiresIn = 60 * 60 * 1000; // 1 hour in milliseconds
+      const expirationTime = new Date().getTime() + expiresIn;
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("tokenExpiration", expirationTime.toString());
+      // Save the token and email information in the react-query store state
+      queryClient.setQueryData("token", data.token);
+      queryClient.setQueryData("email", email);
+      // Close the LoginModal component
+      handleClose();
     } catch (error) {
       console.error("Error during login:", error);
     }
@@ -124,10 +117,9 @@ const LoginModal = ({ open, onClose }: any) => {
   const handleSignUp = () => {
     setIsSignUp(true);
   };
-
   const handleSignUpSubmit = async () => {
     try {
-      const response = await fetch("http://localhost:3000/register", {
+      const data = await fetchJSON("/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,15 +131,8 @@ const LoginModal = ({ open, onClose }: any) => {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log(data);
-        // handle successful registration here (e.g., show a success message or redirect the user)
-        handleClose();
-      } else {
-        // handle errors here (e.g., show an error message)
-        console.log("Error during registration:", response.statusText);
-      }
+      // handle successful registration here (e.g., show a success message or redirect the user)
+      handleClose();
     } catch (error) {
       console.error("Error during registration:", error);
     }
