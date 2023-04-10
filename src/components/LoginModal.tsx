@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import styled from "styled-components";
 import { Button, TextField, Modal, Box, Typography } from "@material-ui/core";
 import { Link } from "react-router-dom";
-import { useQueryClient } from "react-query";
+import { useSelector, useDispatch } from "react-redux";
+import { loginUser } from "../store/authSlice";
 import { fetchJSON } from "../apiService";
-const API = "http://112.169.230.149:8000";
+import styled from "styled-components";
+import { AppDispatch } from "../store";
 const StyledModal = styled(Modal)`
   display: flex;
   align-items: center;
@@ -53,29 +54,19 @@ const CloseButton = styled(Button)`
   }
 `;
 
-const SignUpButton = styled(Button)`
-  background-color: #2196f3;
-  color: #fff;
-  margin-right: 8px;
-
-  &:hover {
-    background-color: #1976d2;
-  }
-`;
-
-const SignUpModalBox = styled(ModalBox)`
-  height: 450px;
-`;
-
-const SignUpModalTitle = styled(Title)`
-  margin-top: 24px;
-`;
 const LoginModal = ({ open, onClose }: any) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
-  const queryClient = useQueryClient();
+  const dispatch = useDispatch<AppDispatch>();
+  const storeEmail = useSelector(
+    (state: { auth: { email: string } }) => state.auth.email
+  );
+  const storeToken = useSelector(
+    (state: { auth: { token: string } }) => state.auth.token
+  );
+
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
   };
@@ -83,30 +74,23 @@ const LoginModal = ({ open, onClose }: any) => {
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
   };
+
   const handleNicknameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNickname(e.target.value);
   };
+
   const handleLogin = async () => {
     try {
-      const data = await fetchJSON("/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
-      });
-
-      // Store the token in local storage with expiration time
-      const expiresIn = 60 * 60 * 1000; // 1 hour in milliseconds
-      const expirationTime = new Date().getTime() + expiresIn;
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("tokenExpiration", expirationTime.toString());
-      // Save the token and email information in the react-query store state
-      queryClient.setQueryData("token", data.token);
-      queryClient.setQueryData("email", email);
+      const { payload } = await dispatch(loginUser({ email, password }));
+      const storeEmail = payload.user.email;
+      const storeToken = payload.token;
+      if (storeEmail && storeToken) {
+        const expiresIn = 60 * 60 * 1000; // 1 hour in milliseconds
+        const expirationTime = new Date().getTime() + expiresIn;
+        localStorage.setItem("token", storeToken);
+        localStorage.setItem("tokenExpiration", expirationTime.toString());
+        setEmail(storeEmail);
+      }
       // Close the LoginModal component
       handleClose();
     } catch (error) {
@@ -114,9 +98,6 @@ const LoginModal = ({ open, onClose }: any) => {
     }
   };
 
-  const handleSignUp = () => {
-    setIsSignUp(true);
-  };
   const handleSignUpSubmit = async () => {
     try {
       const data = await fetchJSON("/register", {

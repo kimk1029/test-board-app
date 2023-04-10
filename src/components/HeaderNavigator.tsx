@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import styled from "styled-components";
 import logo from "../assets/logo.png";
 import LoginModal from "./LoginModal";
-import { useQueryClient } from "react-query";
+import { logout, updateEmail } from "../store/authSlice";
 import jwt_decode, { JwtPayload } from "jwt-decode";
 interface HeaderStyle {
   isScrolled: boolean;
@@ -97,9 +98,13 @@ const EmailContainer = styled.div`
 const HeaderNavigator = () => {
   const [isVisibleLogin, setIsVisibleLogin] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const queryClient = useQueryClient();
+  const dispatch = useDispatch();
+  const storedEmail = useSelector(
+    (state: { auth: { email: string | null } }) => state.auth.email
+  );
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const storedEmail = queryClient.getQueryData<string>("email");
+
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 0) {
@@ -109,30 +114,36 @@ const HeaderNavigator = () => {
       }
     };
     window.addEventListener("scroll", handleScroll);
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const tokenExpiry = localStorage.getItem("tokenExpiration");
-    if (storedToken && tokenExpiry) {
-      const expiryDate = new Date(Number(tokenExpiry));
-      const currentDate = new Date();
-      if (expiryDate > currentDate) {
-        const decodedToken: DecodedToken = jwt_decode(storedToken);
+    const token = localStorage.getItem("token");
+    const tokenExpiration = localStorage.getItem("tokenExpiration");
+
+    if (token && tokenExpiration) {
+      const currentTime = new Date().getTime();
+      const expirationTime = parseInt(tokenExpiration);
+
+      if (currentTime < expirationTime) {
+        const decodedToken = jwt_decode<DecodedToken>(token);
         const userEmail = decodedToken.email;
-        queryClient.setQueryData("email", userEmail);
-        queryClient.setQueryData("token", storedToken);
+
+        if (userEmail && userEmail !== storedEmail) {
+          dispatch(updateEmail(userEmail)); // updateEmail action from the authSlice
+        }
+      } else {
+        // Token has expired, clear it from local storage
+        localStorage.removeItem("token");
+        localStorage.removeItem("tokenExpiration");
       }
     }
-  }, [queryClient]);
+  }, [storedEmail, dispatch]);
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("tokenExpiration"); // remove token expiry as well
-    localStorage.removeItem("email");
-    queryClient.removeQueries("token");
-    queryClient.removeQueries("email");
+    dispatch(logout());
     setIsDropdownOpen(false);
   };
+
   return (
     <Container isScrolled={isScrolled}>
       <Logo src={logo} alt="Logo" />

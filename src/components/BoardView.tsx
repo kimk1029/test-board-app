@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { AppDispatch, RootState } from "../store";
+import { fetchBoardDetails } from "../store/bbsSlice";
 import styled from "styled-components";
 
 interface BoardViewProps {
@@ -49,6 +52,15 @@ const CommentInput = styled.textarea`
 
 const BoardView: React.FC = () => {
   const { id } = useParams();
+  const dispatch = useDispatch<AppDispatch>();
+  const boardDetails = useSelector(
+    (state: RootState) => state.bbs.boardDetails
+  );
+
+  useEffect(() => {
+    dispatch(fetchBoardDetails(Number(id)));
+  }, [id, dispatch]);
+
   const [name, setName] = useState("");
   const [comment, setComment] = useState("");
 
@@ -66,11 +78,15 @@ const BoardView: React.FC = () => {
     // Submit the comment to the server
   };
 
+  if (!boardDetails) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <Container>
-      <Title>title + {id}</Title>
-      <Content>content</Content>
-      <Date>Posted on: </Date>
+      <Title>{boardDetails.title}</Title>
+      <Content>{boardDetails.contents}</Content>
+      <Date>Posted on: {boardDetails.creation_date}</Date>
       <CommentSection>
         <NameInput
           type="text"
