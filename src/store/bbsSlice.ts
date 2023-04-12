@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { useDispatch } from "react-redux";
 import { deleteJSON, fetchJSON, postJSON } from "../apiService";
-
+import { AppDispatch } from "../store";
 export interface BoardData {
   bbs_uid: number;
   title: string;
@@ -37,8 +38,12 @@ export const fetchBoardDetails = createAsyncThunk(
 );
 export const createPost = createAsyncThunk(
   "bbs/createPost",
-  async (newPost: Omit<BoardData, "bbs_uid">) => {
-    const data = await postJSON("/bbs", newPost);
+  async (payload: {
+    title: string;
+    contents: string;
+    author: string | null;
+  }) => {
+    const data = await postJSON("/bbs", payload);
     return data as BoardData;
   }
 );
@@ -92,7 +97,6 @@ const bbsSlice = createSlice({
         createPost.fulfilled,
         (state, action: PayloadAction<BoardData>) => {
           state.status = "succeeded";
-          state.boardData.push(action.payload);
         }
       )
       .addCase(createPost.rejected, (state, action) => {

@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import styled from "styled-components";
 import logo from "../assets/logo.png";
 import LoginModal from "./LoginModal";
-import { logout, updateEmail } from "../store/authSlice";
+import { logout, updateAuth } from "../store/authSlice";
 import jwt_decode, { JwtPayload } from "jwt-decode";
 interface HeaderStyle {
   isScrolled: boolean;
@@ -130,7 +130,7 @@ const HeaderNavigator = () => {
         const userEmail = decodedToken.email;
 
         if (userEmail && userEmail !== storedEmail) {
-          dispatch(updateEmail(userEmail)); // updateEmail action from the authSlice
+          dispatch(updateAuth({ user: { email: userEmail }, token: token })); // updateEmail action from the authSlice
         }
       } else {
         // Token has expired, clear it from local storage

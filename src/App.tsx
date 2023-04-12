@@ -3,11 +3,9 @@ import logo from "./logo.svg";
 import { Route, Link, Routes, BrowserRouter as Router } from "react-router-dom";
 import "./App.css";
 import HeaderNavigator from "./components/HeaderNavigator";
-import BulletinBoardList from "./components/BulletinBoardList";
 import HomeScreen from "./components/HomeScreen";
-import Board from "./components/Board";
-import BoardView from "./components/BoardView";
-
+import Board from "./components/board/Board";
+import BoardView from "./components/board/BoardView";
 function App() {
   const boardData = [
     {
