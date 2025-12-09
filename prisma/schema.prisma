@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  nickname      String?
+  points        Int       @default(0)
+  level         Int       @default(1)
+  lastLoginDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  posts         Post[]
+  comments      Comment[]
+}
+
+model Post {
+  id        Int       @id @default(autoincrement())
+  title     String
+  content   String   @db.Text
+  authorId  Int
+  author    User      @relation(fields: [authorId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  comments  Comment[]
+}
+
+model Comment {
+  id        Int       @id @default(autoincrement())
+  content   String    @db.Text
+  postId    Int
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User      @relation(fields: [authorId], references: [id])
+  parentId  Int?      // 대댓글을 위한 부모 댓글 ID
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model KujiBox {
+  id        Int       @id @default(autoincrement())
+  boxNumber Int       @default(1) // 박스 번호
+  isActive  Boolean   @default(true) // 현재 활성 박스인지
+  tickets   KujiTicket[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model KujiTicket {
+  id        Int      @id @default(autoincrement())
+  boxId     Int
+  box       KujiBox  @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  ticketId  Int      // 티켓 번호 (0-79)
+  rank      String   // 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'LAST_ONE'
+  isTaken   Boolean  @default(false) // 뽑혔는지 여부
+  takenBy   Int?     // 뽑은 사용자 ID (선택사항)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([boxId, ticketId])
+}
+
+model EmailVerification {
+  id        Int      @id @default(autoincrement())
+  email     String
+  code      String   // 인증 코드 (6자리)
+  verified  Boolean  @default(false) // 인증 완료 여부
+  expiresAt DateTime // 만료 시간 (10분)
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+  @@index([email])
+}
+
