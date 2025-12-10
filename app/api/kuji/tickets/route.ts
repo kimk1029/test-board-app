@@ -70,6 +70,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // GameLog 생성 (당첨 내역 통계용)
+    const logs = updatedTickets.map(ticket => ({
+      userId: payload.userId,
+      gameType: 'kuji',
+      betAmount: 0, // 이미 구매 단계에서 기록됨
+      payout: 0,    // 현물 경품이므로 포인트 payout은 0
+      profit: 0,
+      result: 'WIN',
+      metadata: { rank: ticket.rank, ticketId: ticket.ticketId, boxId: ticket.boxId } // 상세 정보 저장
+    }))
+
+    await prisma.gameLog.createMany({
+      data: logs
+    })
+
     return NextResponse.json({
       success: true,
       tickets: updatedTickets.map((t) => ({
@@ -86,4 +101,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
