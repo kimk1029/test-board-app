@@ -132,16 +132,48 @@ export default function Home() {
           {/* 헤더 */}
           <div className="text-center space-y-3 sm:space-y-4">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-              게시판 애플리케이션
+              KH플레이그라운드
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-muted-foreground">
-              포인트를 모아 레벨을 올려보세요!
+              게임과 게시판을 통해 포인트를 모아 레벨을 올려보세요!
             </p>
           </div>
 
           {/* 대시보드 그리드 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* 나의 포인트 그래프 카드 */}
+          <div className="space-y-6">
+            {/* 시작하기 카드 */}
+            <Card className="w-full">
+              <CardHeader>
+                <CardTitle className="text-lg sm:text-xl">시작하기</CardTitle>
+                <CardDescription className="text-sm sm:text-base">
+                  게시판에 글을 작성하고 포인트를 획득하세요
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-2 text-xs sm:text-sm text-left">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">✨ 게시글 작성:</span>
+                      <span>+10 포인트</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">🎁 일일 로그인:</span>
+                      <span>+5 포인트</span>
+                    </div>
+                  </div>
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto text-sm sm:text-base px-8"
+                    onClick={() => router.push('/board')}
+                  >
+                    게시판 보기
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* 나의 포인트 그래프 카드 */}
             <Card className="md:col-span-1 lg:col-span-3">
               <CardHeader>
                 <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
@@ -334,38 +366,10 @@ export default function Home() {
                 )}
               </CardContent>
             </Card>
-
-            {/* 시작하기 카드 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl">시작하기</CardTitle>
-                <CardDescription className="text-sm sm:text-base">
-                  게시판에 글을 작성하고 포인트를 획득하세요
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-xs sm:text-sm text-left">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold">✨ 게시글 작성:</span>
-                    <span>+10 포인트</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold">🎁 일일 로그인:</span>
-                    <span>+5 포인트</span>
-                  </div>
-                </div>
-                <Button
-                  size="lg"
-                  className="w-full text-sm sm:text-base"
-                  onClick={() => router.push('/board')}
-                >
-                  게시판 보기
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
     </div>
+  </div>
   )
 }

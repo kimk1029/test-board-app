@@ -54,20 +54,17 @@ function BlackjackGameComponent() {
       setMessage(msg)
     })
 
-    // 이미지 로딩 시뮬레이션 (실제로는 BlackjackGame 내부에서 처리)
-    const checkLoading = setInterval(() => {
-      // 게임이 시작되면 로딩 완료
-      if (gameRef.current) {
-        setLoading(false)
-        clearInterval(checkLoading)
+    game.setLoadingProgressCallback((progress: number) => {
+      setLoadingProgress(progress)
+      if (progress >= 100) {
+        setTimeout(() => setLoading(false), 500) // 100% 도달 후 잠시 뒤 로딩 해제
       }
-    }, 100)
+    })
 
     gameRef.current = game
     game.start()
 
     return () => {
-      clearInterval(checkLoading)
       if (gameRef.current) {
         gameRef.current.destroy()
         gameRef.current = null

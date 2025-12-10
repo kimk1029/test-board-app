@@ -490,11 +490,45 @@ class MainScene extends Phaser.Scene {
         const betAmount = this.isX5Mode ? 0.5 : 0.1
         if (this.playerPoints < betAmount) { this.showFloatingText(640, 600, '포인트 부족!', '#ff0000'); return }
 
+        // [수정] 스핀 시작 전 서버 확인 및 잠금
+        this.isSpinning = true // 중복 실행 방지
+        const previousPoints = this.playerPoints
+        
+        // 낙관적 업데이트
         this.playerPoints = parseFloat((this.playerPoints - betAmount).toFixed(1))
         this.updatePointsText()
-        this.addLog('bet', `${this.isX5Mode ? 'MAX' : '기본'} 스핀 구매`, -betAmount, this.playerPoints)
+        
+        const token = localStorage.getItem('token')
+        if (token) {
+            try {
+                const res = await fetch('/api/game/bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ action: 'bet', amount: betAmount })
+                })
+                
+                if (!res.ok) {
+                    throw new Error('Bet failed')
+                }
+                
+                const data = await res.json()
+                if (data && data.points !== undefined) {
+                    // 서버 데이터로 정확하게 동기화
+                    this.playerPoints = parseFloat(data.points.toFixed(1))
+                    this.updatePointsText()
+                    this.addLog('bet', `${this.isX5Mode ? 'MAX' : '기본'} 스핀 구매`, -betAmount, this.playerPoints)
+                }
+            } catch (err) {
+                console.error(err)
+                // 실패 시 롤백 및 중단
+                this.playerPoints = previousPoints
+                this.updatePointsText()
+                this.showFloatingText(640, 600, '통신 오류!', '#ff0000')
+                this.isSpinning = false
+                return 
+            }
+        }
 
-        this.isSpinning = true
         this.paylineGraphics.clear()
 
         const finalResult = [
@@ -553,11 +587,15 @@ class MainScene extends Phaser.Scene {
         }
     }
 
-    private processWin(amount: number, isJackpot: boolean) {
+    private async processWin(amount: number, isJackpot: boolean) {
+        // 우선 시각적 업데이트 (낙관적)
         this.playerPoints = parseFloat((this.playerPoints + amount).toFixed(1))
         this.updatePointsText()
+        
         const msg = isJackpot ? `잭팟!` : `당첨!`
-        this.addLog('win', msg, amount, this.playerPoints)
+        
+        // 서버 동기화 및 정확한 포인트 반영
+        await this.syncWinToServer(amount, msg)
 
         if (isJackpot) {
             this.showFloatingText(640, 360, `JACKPOT\n+${amount}`, '#ff00ff', 100)
@@ -565,17 +603,30 @@ class MainScene extends Phaser.Scene {
         } else {
             this.showFloatingText(640, 360, `+${amount.toFixed(1)}`, '#ffff00', 60)
         }
-        this.syncWinToServer(amount)
     }
 
-    private async syncWinToServer(amount: number) {
+    private async syncWinToServer(amount: number, msg: string) {
         const token = localStorage.getItem('token')
         if (token) {
-            fetch('/api/game/bet', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ action: 'settle', amount, result: 'win' })
-            }).catch(err => console.error(err))
+            try {
+                const res = await fetch('/api/game/bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ action: 'settle', amount, result: 'win' })
+                })
+                const data = await res.json()
+                if (data && data.points !== undefined) {
+                    // 서버 데이터로 덮어쓰기 (가장 정확함)
+                    this.playerPoints = parseFloat(data.points.toFixed(1))
+                    this.updatePointsText()
+                    this.addLog('win', msg, amount, this.playerPoints)
+                }
+            } catch (err) {
+                console.error(err)
+                // 에러 처리 로직 (필요 시 재시도 등)
+            }
+        } else {
+            this.addLog('win', msg, amount, this.playerPoints)
         }
     }
 

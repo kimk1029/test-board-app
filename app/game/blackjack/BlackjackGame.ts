@@ -116,6 +116,7 @@ export class BlackjackGame {
   // 이벤트 콜백
   private onStateChange?: (state: GameState) => void
   private onMessage?: (message: string) => void
+  private onLoadingProgress?: (progress: number) => void // [신규]
 
   constructor(canvas: HTMLCanvasElement, betAmount: number = 0, width: number = 1200, height: number = 800) {
     this.canvas = canvas
@@ -155,6 +156,10 @@ export class BlackjackGame {
 
   setMessageCallback(callback: (message: string) => void) {
     this.onMessage = callback
+  }
+
+  setLoadingProgressCallback(callback: (progress: number) => void) {
+    this.onLoadingProgress = callback
   }
 
   private changeState(newState: GameState) {
@@ -307,6 +312,9 @@ export class BlackjackGame {
     const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
     const suitMap: Record<string, string> = { hearts: 'H', diamonds: 'D', clubs: 'C', spades: 'S' }
 
+    this.totalImages = suits.length * values.length + 2 // 카드 52장 + 뒷면 + 테이블
+    this.imagesLoaded = 0
+
     // 비동기로 빠르게 로드
     const promises = []
     for (const suit of suits) {
@@ -316,12 +324,52 @@ export class BlackjackGame {
         const cardKey = `card-${suit}-${value}`
         const url = `https://deckofcardsapi.com/static/img/${valueCode}${suitCode}.png`
         
-        promises.push(this.loadImage(url).then(img => this.cardImages.set(cardKey, img)))
+        promises.push(
+          this.loadImage(url).then(img => {
+            this.cardImages.set(cardKey, img)
+            this.updateLoadingProgress()
+          })
+        )
       }
     }
+    
+    // 테이블 이미지 로드 (진행률 포함)
+    promises.push(
+      this.loadImage('https://media.istockphoto.com/id/479815970/photo/green-felt-fabric-texture-background.jpg?s=612x612&w=0&k=20&c=NbC-xQk6-X4-lQ3aD6A5D6Q3A5d6Q3aD6A5D6Q3A5d6Q3aD6A5D6Q3A5d6=')
+      .then(img => {
+        this.tableImage = img
+        this.updateLoadingProgress()
+      })
+      .catch(() => {
+        this.updateLoadingProgress()
+        return null
+      })
+    )
+
+    // 카드 뒷면 로드 (진행률 포함)
+    promises.push(
+      this.loadImage('https://deckofcardsapi.com/static/img/back.png')
+      .then(img => {
+        this.cardBackImage = img
+        this.updateLoadingProgress()
+      })
+      .catch(() => {
+        this.updateLoadingProgress()
+        return null
+      })
+    )
+
     await Promise.all(promises)
 
     this.loadUserPoints()
+  }
+
+  private updateLoadingProgress() {
+    this.imagesLoaded++
+    if (this.onLoadingProgress) {
+      const progress = Math.min(100, Math.round((this.imagesLoaded / this.totalImages) * 100))
+      this.onLoadingProgress(progress)
+    }
   }
 
   private loadImage(url: string): Promise<HTMLImageElement> {
@@ -443,10 +491,13 @@ export class BlackjackGame {
       width: w,
       height: h,
       text: 'DEAL',
-      onClick: () => {
+      onClick: async () => {
         if (this.currentBet > 0) {
-          this.confirmBet()
-          this.changeState(GameState.DEAL_START)
+          // [수정] 서버 확정 후에만 게임 시작
+          const success = await this.confirmBet()
+          if (success) {
+             this.changeState(GameState.DEAL_START)
+          }
         } else {
           this.showMessage('베팅을 해주세요!')
         }
@@ -498,12 +549,15 @@ export class BlackjackGame {
       if (this.currentBet === 0 && this.dealButton) this.dealButton.visible = false;
   }
 
-  private async confirmBet() {
+  private async confirmBet(): Promise<boolean> {
     const token = localStorage.getItem('token')
     if (!token) {
       this.showMessage('로그인이 필요합니다.')
-      return
+      return false
     }
+    
+    // [신규] 중복 요청 방지용 잠금 (UI 레벨에서 버튼을 숨기더라도 이중 안전장치)
+    if (this.dealButton) this.dealButton.visible = false
 
     try {
       const response = await fetch('/api/game/bet', {
@@ -522,6 +576,7 @@ export class BlackjackGame {
         const data = await response.json()
         this.playerPoints = data.points
         this.addLog('bet', `베팅: ${this.currentBet} 포인트`, -this.currentBet, data.points)
+        return true
       } else {
         const errorData = await response.json()
         this.showMessage(errorData.error || '베팅에 실패했습니다.')
@@ -529,7 +584,8 @@ export class BlackjackGame {
         this.playerPoints += this.currentBet
         this.currentBet = 0
         this.betChips = []
-        if (this.dealButton) this.dealButton.visible = false
+        if (this.dealButton) this.dealButton.visible = false // 칩 다시 선택하게 유도
+        return false
       }
     } catch (error) {
       console.error('Betting error:', error)
@@ -539,6 +595,7 @@ export class BlackjackGame {
       this.currentBet = 0
       this.betChips = []
       if (this.dealButton) this.dealButton.visible = false
+      return false
     }
   }
 

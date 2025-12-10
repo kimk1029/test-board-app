@@ -283,8 +283,10 @@ export class BustabitGame {
     };
   }
 
+  private isProcessing: boolean = false; // [신규] API 처리 중 플래그
+
   private async startBet() {
-    if (this.isRunning) return;
+    if (this.isRunning || this.isProcessing) return; // [수정] 중복 방지
 
     if (this.selectedBetAmount === 0) {
       this.showMessage('베팅 금액을 선택해주세요!');
@@ -295,8 +297,13 @@ export class BustabitGame {
       return;
     }
 
+    this.isProcessing = true; // 잠금
     this.betAmount = this.selectedBetAmount;
 
+    // 낙관적 업데이트 (UI 반응성)
+    const prevPoints = this.playerPoints;
+    this.playerPoints -= this.betAmount; 
+    
     const token = localStorage.getItem('token');
     if (token) {
       try {
@@ -314,20 +321,25 @@ export class BustabitGame {
 
         if (response.ok) {
           const data = await response.json();
-          this.playerPoints = data.points;
+          // 서버 데이터로 정확한 동기화
+          this.playerPoints = data.points; 
           this.addLog('bet', `베팅: ${this.betAmount.toLocaleString()} P`, -this.betAmount, data.points);
           this.startGame();
         } else {
           const errorData = await response.json();
           this.showMessage(errorData.error || '베팅에 실패했습니다.');
+          this.playerPoints = prevPoints; // 롤백
         }
       } catch (error) {
         console.error('Bet error:', error);
         this.showMessage('베팅 중 오류가 발생했습니다.');
+        this.playerPoints = prevPoints; // 롤백
       }
     } else {
       this.showMessage('로그인이 필요합니다.');
+      this.playerPoints = prevPoints; // 롤백
     }
+    this.isProcessing = false; // 잠금 해제
   }
 
   // [수정] 애니메이션 프레임을 확실히 취소
@@ -362,13 +374,17 @@ export class BustabitGame {
   }
 
   private async cashOut() {
-    if (!this.isRunning || this.hasCashedOut || this.crashed) return;
+    if (!this.isRunning || this.hasCashedOut || this.crashed || this.isProcessing) return; // [수정] 중복 방지
 
+    this.isProcessing = true; // 잠금
     this.hasCashedOut = true;
     this.cashOutMultiplier = this.multiplier;
     
     const totalWinnings = Math.floor(this.betAmount * this.cashOutMultiplier);
     const profit = totalWinnings - this.betAmount;
+
+    // 낙관적 업데이트
+    this.playerPoints += totalWinnings;
 
     this.updateButtonStates();
     this.showMessage(`캐시아웃! ${this.cashOutMultiplier.toFixed(2)}x (크래시 대기중...)`);
@@ -392,13 +408,23 @@ export class BustabitGame {
 
         if (response.ok) {
           const data = await response.json();
-          this.playerPoints = data.points;
+          // 서버 데이터로 정확한 동기화
+          this.playerPoints = data.points; 
           this.addLog('win', `승리: ${this.cashOutMultiplier.toFixed(2)}x (+${profit} P)`, profit, data.points);
+        } else {
+             // 실패 시?? (이미 게임은 끝났고 돈은 받았다고 쳤는데...)
+             // 사실상 서버 오류면 사용자에게 돈을 못 준 셈.
+             // 롤백 필요
+             this.playerPoints -= totalWinnings;
+             this.showMessage('서버 통신 오류! 포인트가 지급되지 않았습니다.');
         }
       } catch (error) {
         console.error('Cash out error:', error);
+        this.playerPoints -= totalWinnings; // 롤백
+        this.showMessage('네트워크 오류! 포인트가 지급되지 않았습니다.');
       }
     }
+    this.isProcessing = false; // 잠금 해제
   }
 
   private update() {
@@ -469,9 +495,11 @@ export class BustabitGame {
           
           if (response.ok) {
             const data = await response.json();
-            this.playerPoints = data.points;
+            // 서버 데이터 동기화
+            this.playerPoints = data.points; 
             this.addLog('lose', `패배: ${this.crashPoint.toFixed(2)}x (-${this.betAmount} P)`, -this.betAmount, data.points);
           } else {
+            // 실패해도 이미 포인트는 깎였으므로(베팅 시) 그냥 현재 포인트 유지
             this.addLog('lose', `패배: ${this.crashPoint.toFixed(2)}x (-${this.betAmount} P)`, -this.betAmount, this.playerPoints);
           }
         } catch (error) {
