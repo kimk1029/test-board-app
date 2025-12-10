@@ -474,6 +474,7 @@ export class BustabitGame {
             result: 'win',
             betAmount: this.betAmount,
             multiplier: this.cashOutMultiplier,
+            gameType: 'bustabit',
           }),
         });
 
@@ -544,6 +545,7 @@ export class BustabitGame {
               action: 'settle',
               result: 'lose',
               betAmount: this.betAmount,
+              gameType: 'bustabit',
             }),
           });
           

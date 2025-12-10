@@ -504,7 +504,7 @@ class MainScene extends Phaser.Scene {
                 const res = await fetch('/api/game/bet', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ action: 'bet', amount: betAmount })
+                    body: JSON.stringify({ action: 'bet', amount: betAmount, gameType: 'cloverpit' })
                 })
                 
                 if (!res.ok) {
@@ -542,7 +542,8 @@ class MainScene extends Phaser.Scene {
         })
 
         await Promise.all(promises)
-        this.checkWin(finalResult, this.isX5Mode ? 5 : 1)
+        const currentBet = this.isX5Mode ? 0.5 : 0.1
+        this.checkWin(finalResult, this.isX5Mode ? 5 : 1, currentBet)
         this.isSpinning = false
     }
 
@@ -556,7 +557,7 @@ class MainScene extends Phaser.Scene {
         return SYMBOL_DATA[0].icon
     }
 
-    private checkWin(matrix: string[][], multiplier: number) {
+    private checkWin(matrix: string[][], multiplier: number, betAmount: number) {
         const lines = []
         for (let r = 0; r < 3; r++) { if (matrix[0][r] === matrix[1][r] && matrix[1][r] === matrix[2][r]) lines.push({ type: 'row', index: r, symbol: matrix[0][r] }) }
         for (let c = 0; c < 3; c++) { if (matrix[c][0] === matrix[c][1] && matrix[c][1] === matrix[c][2]) lines.push({ type: 'col', index: c, symbol: matrix[c][0] }) }
@@ -577,25 +578,63 @@ class MainScene extends Phaser.Scene {
 
         if (isJackpot) {
             const jackpotWin = 100 * multiplier
-            this.processWin(jackpotWin, true)
+            this.processWin(jackpotWin, true, betAmount)
         } else if (totalWin > 0) {
-            this.processWin(totalWin, false)
+            this.processWin(totalWin, false, betAmount)
             this.highlightLines(lines)
             if (lines.length > 1) {
                 this.time.delayedCall(500, () => this.showFloatingText(640, 300, `${lines.length} COMBO!\nx${lines.length}`, '#ffaa00', 80))
             }
+        } else {
+            this.syncResultToServer(0, betAmount, 'lose')
         }
     }
 
-    private async processWin(amount: number, isJackpot: boolean) {
+    private async syncResultToServer(amount: number, betAmount: number, result: 'win' | 'lose', msg: string = '') {
+        const token = localStorage.getItem('token')
+        if (token) {
+            try {
+                const res = await fetch('/api/game/bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ 
+                        action: 'settle', 
+                        amount, 
+                        betAmount, // 원금 정보 전달
+                        result, 
+                        gameType: 'cloverpit' 
+                    })
+                })
+                const data = await res.json()
+                if (data && data.points !== undefined) {
+                    this.playerPoints = parseFloat(data.points.toFixed(1))
+                    this.updatePointsText()
+                    if (result === 'win') {
+                        this.addLog('win', msg, amount, this.playerPoints)
+                    } else {
+                        // 패배 로그는 선택 사항 (너무 많아질 수 있음)
+                        // this.addLog('lose', '꽝', 0, this.playerPoints)
+                    }
+                }
+            } catch (err) {
+                console.error(err)
+            }
+        } else {
+            if (result === 'win') {
+                this.addLog('win', msg, amount, this.playerPoints)
+            }
+        }
+    }
+
+    private async processWin(amount: number, isJackpot: boolean, betAmount: number) {
         // 우선 시각적 업데이트 (낙관적)
         this.playerPoints = parseFloat((this.playerPoints + amount).toFixed(1))
         this.updatePointsText()
         
         const msg = isJackpot ? `잭팟!` : `당첨!`
         
-        // 서버 동기화 및 정확한 포인트 반영
-        await this.syncWinToServer(amount, msg)
+        // 서버 동기화
+        await this.syncResultToServer(amount, betAmount, 'win', msg)
 
         if (isJackpot) {
             this.showFloatingText(640, 360, `JACKPOT\n+${amount}`, '#ff00ff', 100)
@@ -605,30 +644,7 @@ class MainScene extends Phaser.Scene {
         }
     }
 
-    private async syncWinToServer(amount: number, msg: string) {
-        const token = localStorage.getItem('token')
-        if (token) {
-            try {
-                const res = await fetch('/api/game/bet', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ action: 'settle', amount, result: 'win' })
-                })
-                const data = await res.json()
-                if (data && data.points !== undefined) {
-                    // 서버 데이터로 덮어쓰기 (가장 정확함)
-                    this.playerPoints = parseFloat(data.points.toFixed(1))
-                    this.updatePointsText()
-                    this.addLog('win', msg, amount, this.playerPoints)
-                }
-            } catch (err) {
-                console.error(err)
-                // 에러 처리 로직 (필요 시 재시도 등)
-            }
-        } else {
-            this.addLog('win', msg, amount, this.playerPoints)
-        }
-    }
+    // private async syncWinToServer... 메서드 제거 (대체됨)
 
     private showFloatingText(x: number, y: number, msg: string, color: string, size: number = 48) {
         const text = this.add.text(x, y, msg, {

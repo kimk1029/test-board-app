@@ -937,6 +937,7 @@ export class BlackjackGame {
           action: 'settle',
           result: result,
           betAmount: this.currentBet,
+          gameType: 'blackjack',
         }),
       })
 
