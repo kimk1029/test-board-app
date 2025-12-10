@@ -130,13 +130,13 @@ export class BlackjackScene extends Phaser.Scene {
     this.playerScoreText = this.add.text(this.playerPosition.x, this.playerPosition.y + 130, '점수: 0', {
       fontSize: '24px',
       color: '#ffd700',
-      fontWeight: 'bold',
+      fontStyle: 'bold',
     }).setOrigin(0.5)
 
     this.dealerScoreText = this.add.text(this.dealerPosition.x, this.dealerPosition.y - 130, '점수: 0', {
       fontSize: '24px',
       color: '#ffd700',
-      fontWeight: 'bold',
+      fontStyle: 'bold',
     }).setOrigin(0.5)
   }
 
@@ -216,15 +216,16 @@ export class BlackjackScene extends Phaser.Scene {
     const dealText = this.add.text(0, 0, '게임 시작', {
       fontSize: '24px',
       color: '#ffffff',
-      fontWeight: 'bold',
+      fontStyle: 'bold',
     }).setOrigin(0.5)
 
     // 배경에 직접 interactive 설정 (Container 내부 좌표계)
     dealBg.setInteractive(
       new Phaser.Geom.Rectangle(-90, -30, 180, 60),
-      Phaser.Geom.Rectangle.Contains,
-      { useHandCursor: true }
+      Phaser.Geom.Rectangle.Contains
     )
+    dealBg.input!.cursor = 'pointer'
+
     dealBg.on('pointerdown', () => {
       if (this.currentBet > 0) {
         // 베팅 확정
@@ -284,7 +285,7 @@ export class BlackjackScene extends Phaser.Scene {
     const text = this.add.text(0, 0, amount.toString(), {
       fontSize: '18px',
       color: '#ffffff',
-      fontWeight: 'bold',
+      fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 3,
     }).setOrigin(0.5)
@@ -294,9 +295,9 @@ export class BlackjackScene extends Phaser.Scene {
     // Graphics 객체에 직접 interactive 설정 (Container 내부 좌표계 사용)
     chipGraphics.setInteractive(
       new Phaser.Geom.Circle(0, 0, chipRadius),
-      Phaser.Geom.Circle.Contains,
-      { useHandCursor: true }
+      Phaser.Geom.Circle.Contains
     )
+    chipGraphics.input!.cursor = 'pointer'
 
     if (isButton) {
       // 버튼으로 사용할 때
@@ -633,15 +634,16 @@ export class BlackjackScene extends Phaser.Scene {
       const text = this.add.text(0, 0, btn.text, {
         fontSize: '18px',
         color: '#ffffff',
-        fontWeight: 'bold',
+        fontStyle: 'bold',
       }).setOrigin(0.5)
 
       // 배경에 직접 interactive 설정 (Container 내부 좌표계)
       bg.setInteractive(
         new Phaser.Geom.Rectangle(-60, -25, 120, 50),
-        Phaser.Geom.Rectangle.Contains,
-        { useHandCursor: true }
+        Phaser.Geom.Rectangle.Contains
       )
+      bg.input!.cursor = 'pointer'
+
       bg.on('pointerdown', () => {
         // 게임 상태 확인 - 플레이어 턴이고 버스트가 아닐 때만 실행
         this.updateScores()
