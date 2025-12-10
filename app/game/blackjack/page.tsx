@@ -11,58 +11,44 @@ function BlackjackGameComponent() {
   const betAmount = parseInt(searchParams.get('bet') || '0')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<BlackjackGame | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(0)
-  const [dimensions, setDimensions] = useState({ width: 1200, height: 800 })
 
-  useEffect(() => {
-    const updateDimensions = () => {
-      const width = window.innerWidth
-      const height = window.innerHeight
-      
-      // 모바일: 세로 모드 (사이드바 없음, 전체 화면 사용)
-      if (width < 768) {
-        setDimensions({ width: width, height: height - 80 }) // 헤더 높이 제외
-      }
-      // 태블릿: 사이드바 축소
-      else if (width < 1024) {
-        setDimensions({ width: width - 20, height: height - 100 })
-      }
-      // PC: 고정 크기
-      else {
-        setDimensions({ width: 1200, height: 800 })
-      }
-    }
-
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
-  }, [])
-
+  // 게임 초기화
   useEffect(() => {
     if (!canvasRef.current) return
 
+    // 초기 크기 설정 (화면 꽉 차게)
+    const initialWidth = window.innerWidth
+    const initialHeight = window.innerHeight - 80 // 헤더 고려
+
     const canvas = canvasRef.current
-    const game = new BlackjackGame(canvas, betAmount, dimensions.width, dimensions.height)
+    const game = new BlackjackGame(canvas, betAmount, initialWidth, initialHeight)
 
     game.setStateChangeCallback((state: GameState) => {
-      console.log('State change:', state)
+      // console.log('State change:', state)
     })
 
     game.setMessageCallback((msg: string) => {
       setMessage(msg)
+      // 메시지는 3초 후 사라짐
+      setTimeout(() => setMessage(''), 3000)
     })
 
     game.setLoadingProgressCallback((progress: number) => {
       setLoadingProgress(progress)
       if (progress >= 100) {
-        setTimeout(() => setLoading(false), 500) // 100% 도달 후 잠시 뒤 로딩 해제
+        setTimeout(() => setLoading(false), 500)
       }
     })
 
     gameRef.current = game
     game.start()
+    
+    // 초기 리사이즈 한 번 수행
+    handleResize();
 
     return () => {
       if (gameRef.current) {
@@ -70,42 +56,66 @@ function BlackjackGameComponent() {
         gameRef.current = null
       }
     }
-  }, [betAmount, dimensions])
+  }, [betAmount])
+
+  // 리사이즈 핸들러
+  const handleResize = () => {
+      if (!gameRef.current || !containerRef.current) return;
+
+      const width = window.innerWidth;
+      const height = window.innerHeight - 70; // 헤더 높이 제외
+
+      // 게임 인스턴스에 새 크기 전달
+      gameRef.current.resize(width, height);
+  };
+
+  useEffect(() => {
+    window.addEventListener('resize', handleResize);
+    // 모바일 주소창 숨김/보임 등으로 높이 변할 때 대응
+    window.addEventListener('orientationchange', () => setTimeout(handleResize, 100));
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    }
+  }, []);
 
   return (
-    <div>
+    <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
       <HeaderNavigator />
-      <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-900 pt-16 sm:pt-20">
+      <div 
+        ref={containerRef}
+        className="relative flex-1 flex items-center justify-center w-full overflow-hidden"
+      >
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-75 z-10">
-            <div className="w-96 bg-gray-800 rounded-lg p-8">
-              <h2 className="text-white text-2xl mb-4 text-center">Loading...</h2>
-              <div className="w-full bg-gray-700 rounded-full h-4 mb-2">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 z-20">
+            <div className="w-64 sm:w-96 bg-gray-800 rounded-lg p-6 sm:p-8 border border-gray-700">
+              <h2 className="text-white text-xl sm:text-2xl mb-4 text-center font-bold">Loading Resources...</h2>
+              <div className="w-full bg-gray-700 rounded-full h-4 mb-2 overflow-hidden">
                 <div
-                  className="bg-green-500 h-4 rounded-full transition-all duration-300"
+                  className="bg-green-500 h-4 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${loadingProgress}%` }}
                 />
               </div>
-              <p className="text-white text-center">{loadingProgress}%</p>
+              <p className="text-gray-300 text-center text-sm">{loadingProgress}%</p>
             </div>
           </div>
         )}
-        <div className="relative w-full flex-1 flex items-center justify-center p-2 sm:p-4">
-          <canvas
-            ref={canvasRef}
-            className="border-2 border-yellow-500 rounded-lg max-w-full max-h-full"
-            style={{ 
-              display: 'block',
-              width: `${dimensions.width}px`,
-              height: `${dimensions.height}px`
-            }}
-          />
-          {message && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white px-6 py-3 rounded-lg text-xl font-bold">
-              {message}
-            </div>
-          )}
-        </div>
+        
+        <canvas
+          ref={canvasRef}
+          className="shadow-2xl"
+          style={{ 
+            display: 'block',
+            touchAction: 'none' // 캔버스 내 터치 제스처 브라우저 기본 동작 방지
+          }}
+        />
+        
+        {message && (
+          <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-80 text-white px-6 py-3 rounded-full text-lg font-bold z-10 animate-fade-in-down border border-gray-600 shadow-lg whitespace-nowrap">
+            {message}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -113,7 +123,7 @@ function BlackjackGameComponent() {
 
 export default function BlackjackGamePage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">로딩 중...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-gray-900 text-white">로딩 중...</div>}>
       <BlackjackGameComponent />
     </Suspense>
   )
