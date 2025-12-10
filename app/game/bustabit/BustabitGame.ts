@@ -8,21 +8,21 @@ interface Button {
   text: string;
   onClick: () => void;
   visible: boolean;
+  disabled?: boolean; // [신규] 비활성화 속성
 }
 
 interface GameLog {
   type: 'bet' | 'win' | 'lose' | 'info';
   message: string;
   time: string;
-  pointsChange?: number; // 포인트 변화량
-  balance?: number; // 잔액
+  pointsChange?: number; 
+  balance?: number; 
 }
 
 export class BustabitGame {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   
-  // [핵심] 인스턴스 고유 ID 및 캔버스 소유권 확인용
   private readonly instanceId: number; 
 
   // 게임 상태 변수
@@ -47,14 +47,22 @@ export class BustabitGame {
   private gameAreaWidth: number = 900; 
 
   private logs: GameLog[] = [];
-  private logScrollOffset: number = 0; // 로그 스크롤 오프셋
+  private logScrollOffset: number = 0;
 
   private betButton: Button | null = null;
   private cashOutButton: Button | null = null;
   private betAmountButtons: Button[] = [];
+  
+  // [신규] 속도 조절 버튼
+  private speedButtons: Button[] = [];
 
-  private readonly GAME_SPEED = 0.085; 
+  // [수정] 게임 속도 변수화 (기본 0.085)
+  private gameSpeed: number = 0.085; 
+  
   private onMessage?: (message: string) => void;
+  private onLoadingProgress?: (progress: number) => void; // [신규] 로딩 콜백
+
+  private isProcessing: boolean = false;
 
   constructor(canvas: HTMLCanvasElement, betAmount: number = 0, width: number = 1200, height: number = 800) {
     this.canvas = canvas;
@@ -63,21 +71,16 @@ export class BustabitGame {
     this.canvasWidth = width;
     this.canvasHeight = height;
     
-    // [중요] 캔버스 소유권 등록 (좀비 루프 방지)
     this.instanceId = Math.random();
     (this.canvas as any).__activeBustabitInstance = this.instanceId;
 
-    // 반응형 레이아웃: 모바일/태블릿/PC
     if (width < 768) {
-      // 모바일: 사이드바 없음
       this.sidebarWidth = 0;
       this.gameAreaWidth = width;
     } else if (width < 1024) {
-      // 태블릿: 사이드바 축소
       this.sidebarWidth = width * 0.2;
       this.gameAreaWidth = width - this.sidebarWidth;
     } else {
-      // PC: 고정 레이아웃
       this.sidebarWidth = width * 0.25;
       this.gameAreaWidth = width - this.sidebarWidth;
     }
@@ -87,13 +90,37 @@ export class BustabitGame {
 
     this.createButtons(); 
     this.setupEventListeners();
-    this.loadUserPoints();
     
-    this.resetGame(true); 
+    // 초기화 및 로딩 시작
+    this.initializeGame();
+  }
+
+  // [신규] 초기화 및 로딩 시뮬레이션
+  private async initializeGame() {
+      this.updateLoading(10);
+      await this.loadUserPoints();
+      this.updateLoading(50);
+      
+      // UI 준비 시뮬레이션 (짧은 대기)
+      setTimeout(() => {
+          this.updateLoading(80);
+          this.resetGame(true);
+          this.updateLoading(100);
+      }, 500);
+  }
+
+  private updateLoading(progress: number) {
+      if (this.onLoadingProgress) {
+          this.onLoadingProgress(progress);
+      }
   }
 
   setMessageCallback(callback: (message: string) => void) {
     this.onMessage = callback;
+  }
+
+  setLoadingProgressCallback(callback: (progress: number) => void) {
+      this.onLoadingProgress = callback;
   }
 
   private showMessage(text: string) {
@@ -113,7 +140,6 @@ export class BustabitGame {
       balance: balance !== undefined ? balance : this.playerPoints
     });
     if (this.logs.length > 50) this.logs.pop();
-    // 새 로그 추가 시 스크롤 초기화
     this.logScrollOffset = 0;
   }
 
@@ -134,11 +160,12 @@ export class BustabitGame {
         const data = await response.json();
         this.playerPoints = data.points || 0;
       } else {
-        this.playerPoints = 0;
+        // [수정] 실패 시 0으로 초기화하지 않음 (기존 값 유지하거나 에러 처리)
+        console.warn('Failed to fetch points, keeping previous value');
       }
     } catch (error) {
       console.error('Failed to load user points:', error);
-      this.playerPoints = 0;
+      // [수정] 실패 시 0으로 초기화하지 않음
     }
     this.render();
   }
@@ -158,12 +185,10 @@ export class BustabitGame {
       this.canvas.style.cursor = this.getCursorAt(x, y);
     });
 
-    // 로그 영역 스크롤 (마우스 휠)
     this.canvas.addEventListener('wheel', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       
-      // 사이드바 영역에서만 스크롤
       if (x > this.gameAreaWidth) {
         e.preventDefault();
         const scrollAmount = e.deltaY > 0 ? 35 : -35;
@@ -175,12 +200,12 @@ export class BustabitGame {
   }
 
   private getCursorAt(x: number, y: number): string {
-    const allButtons = [...this.betAmountButtons];
+    const allButtons = [...this.betAmountButtons, ...this.speedButtons]; // 속도 버튼 추가
     if (this.betButton) allButtons.push(this.betButton);
     if (this.cashOutButton) allButtons.push(this.cashOutButton);
 
     for (const button of allButtons) {
-      if (button.visible) {
+      if (button.visible && !button.disabled) {
         if (x >= button.x && x <= button.x + button.width && y >= button.y && y <= button.y + button.height) {
           return 'pointer';
         }
@@ -192,28 +217,19 @@ export class BustabitGame {
   private handleClick(x: number, y: number) {
     let stateChanged = false;
 
-    for (const button of this.betAmountButtons) {
-      if (button.visible) {
-        if (x >= button.x && x <= button.x + button.width && y >= button.y && y <= button.y + button.height) {
-          button.onClick();
-          stateChanged = true;
-          break; 
+    // 통합 버튼 처리
+    const allButtons = [...this.betAmountButtons, ...this.speedButtons];
+    if (this.betButton) allButtons.push(this.betButton);
+    if (this.cashOutButton) allButtons.push(this.cashOutButton);
+
+    for (const button of allButtons) {
+        if (button.visible && !button.disabled) {
+            if (x >= button.x && x <= button.x + button.width && y >= button.y && y <= button.y + button.height) {
+                button.onClick();
+                stateChanged = true;
+                break;
+            }
         }
-      }
-    }
-
-    if (!stateChanged && this.betButton && this.betButton.visible) {
-      if (x >= this.betButton.x && x <= this.betButton.x + this.betButton.width && y >= this.betButton.y && y <= this.betButton.y + this.betButton.height) {
-        this.betButton.onClick();
-        stateChanged = true;
-      }
-    }
-
-    if (!stateChanged && this.cashOutButton && this.cashOutButton.visible) {
-      if (x >= this.cashOutButton.x && x <= this.cashOutButton.x + this.cashOutButton.width && y >= this.cashOutButton.y && y <= this.cashOutButton.y + this.cashOutButton.height) {
-        this.cashOutButton.onClick();
-        stateChanged = true;
-      }
     }
 
     if (stateChanged) {
@@ -225,14 +241,22 @@ export class BustabitGame {
   private updateButtonStates() {
     this.betAmountButtons.forEach(btn => {
       btn.visible = !this.isRunning && this.isGameEnded;
+      btn.disabled = this.isProcessing;
+    });
+
+    // 속도 버튼은 게임 중에도 조절 가능하게 할지? -> 보통 가능
+    this.speedButtons.forEach(btn => {
+        btn.visible = true;
     });
 
     if (this.betButton) {
       this.betButton.visible = !this.isRunning && this.isGameEnded && this.selectedBetAmount > 0;
+      this.betButton.disabled = this.isProcessing;
     }
 
     if (this.cashOutButton) {
       this.cashOutButton.visible = this.isRunning && !this.hasCashedOut && !this.crashed;
+      this.cashOutButton.disabled = this.isProcessing;
     }
   }
 
@@ -262,6 +286,29 @@ export class BustabitGame {
       visible: true, 
     }));
 
+    // [신규] 속도 조절 버튼 생성 (좌측 하단)
+    const speeds = [
+        { label: 'x1', value: 0.085 },
+        { label: 'x2', value: 0.17 },
+        { label: 'x3', value: 0.255 }
+    ];
+    const speedBtnW = 60;
+    const speedBtnH = 40;
+    const speedStartX = 20;
+    const speedBottomY = bottomY;
+
+    this.speedButtons = speeds.map((speed, i) => ({
+        x: speedStartX + i * (speedBtnW + 10),
+        y: speedBottomY,
+        width: speedBtnW,
+        height: speedBtnH,
+        text: speed.label,
+        onClick: () => {
+            this.gameSpeed = speed.value;
+        },
+        visible: true
+    }));
+
     this.betButton = {
       x: centerX - (this.gameAreaWidth * 0.3) / 2,
       y: bottomY - this.canvasHeight * 0.02,
@@ -283,10 +330,8 @@ export class BustabitGame {
     };
   }
 
-  private isProcessing: boolean = false; // [신규] API 처리 중 플래그
-
   private async startBet() {
-    if (this.isRunning || this.isProcessing) return; // [수정] 중복 방지
+    if (this.isRunning || this.isProcessing) return; 
 
     if (this.selectedBetAmount === 0) {
       this.showMessage('베팅 금액을 선택해주세요!');
@@ -297,10 +342,12 @@ export class BustabitGame {
       return;
     }
 
-    this.isProcessing = true; // 잠금
+    this.isProcessing = true;
+    this.updateButtonStates(); // UI 즉시 반영 (버튼 비활성화)
+    
     this.betAmount = this.selectedBetAmount;
 
-    // 낙관적 업데이트 (UI 반응성)
+    // 낙관적 업데이트
     const prevPoints = this.playerPoints;
     this.playerPoints -= this.betAmount; 
     
@@ -321,28 +368,31 @@ export class BustabitGame {
 
         if (response.ok) {
           const data = await response.json();
-          // 서버 데이터로 정확한 동기화
           this.playerPoints = data.points; 
           this.addLog('bet', `베팅: ${this.betAmount.toLocaleString()} P`, -this.betAmount, data.points);
           this.startGame();
         } else {
           const errorData = await response.json();
           this.showMessage(errorData.error || '베팅에 실패했습니다.');
-          this.playerPoints = prevPoints; // 롤백
+          this.playerPoints = prevPoints; 
         }
       } catch (error) {
         console.error('Bet error:', error);
         this.showMessage('베팅 중 오류가 발생했습니다.');
-        this.playerPoints = prevPoints; // 롤백
+        this.playerPoints = prevPoints; 
       }
     } else {
       this.showMessage('로그인이 필요합니다.');
-      this.playerPoints = prevPoints; // 롤백
+      this.playerPoints = prevPoints; 
     }
-    this.isProcessing = false; // 잠금 해제
+    
+    // 성공 시 startGame에서 isProcessing 풀림, 실패 시 여기서 풀림
+    if (!this.isRunning) {
+        this.isProcessing = false;
+        this.updateButtonStates();
+    }
   }
 
-  // [수정] 애니메이션 프레임을 확실히 취소
   private stopAnimation() {
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
@@ -354,6 +404,7 @@ export class BustabitGame {
     this.stopAnimation();
 
     this.isRunning = true;
+    this.isProcessing = false; // 베팅 처리 완료, 게임 시작
     this.isGameEnded = false; 
     this.crashed = false;
     this.hasCashedOut = false;
@@ -374,9 +425,9 @@ export class BustabitGame {
   }
 
   private async cashOut() {
-    if (!this.isRunning || this.hasCashedOut || this.crashed || this.isProcessing) return; // [수정] 중복 방지
+    if (!this.isRunning || this.hasCashedOut || this.crashed || this.isProcessing) return;
 
-    this.isProcessing = true; // 잠금
+    this.isProcessing = true;
     this.hasCashedOut = true;
     this.cashOutMultiplier = this.multiplier;
     
@@ -408,67 +459,51 @@ export class BustabitGame {
 
         if (response.ok) {
           const data = await response.json();
-          // 서버 데이터로 정확한 동기화
           this.playerPoints = data.points; 
           this.addLog('win', `승리: ${this.cashOutMultiplier.toFixed(2)}x (+${profit} P)`, profit, data.points);
         } else {
-             // 실패 시?? (이미 게임은 끝났고 돈은 받았다고 쳤는데...)
-             // 사실상 서버 오류면 사용자에게 돈을 못 준 셈.
-             // 롤백 필요
              this.playerPoints -= totalWinnings;
              this.showMessage('서버 통신 오류! 포인트가 지급되지 않았습니다.');
         }
       } catch (error) {
         console.error('Cash out error:', error);
-        this.playerPoints -= totalWinnings; // 롤백
+        this.playerPoints -= totalWinnings;
         this.showMessage('네트워크 오류! 포인트가 지급되지 않았습니다.');
       }
     }
-    this.isProcessing = false; // 잠금 해제
+    this.isProcessing = false;
   }
 
   private update() {
-    // [철벽 방어] 크래시 상태면 무조건 멈춤
     if (this.crashed) {
-        this.isRunning = false; // 다시 한 번 확인 사살
+        this.isRunning = false;
         return;
     }
     if (!this.isRunning) return;
 
     const currentTime = Date.now();
     const elapsedSeconds = (currentTime - this.startTime) / 1000;
-    const nextMultiplier = Math.pow(Math.E, this.GAME_SPEED * elapsedSeconds);
+    // [수정] gameSpeed 변수 사용
+    const nextMultiplier = Math.pow(Math.E, this.gameSpeed * elapsedSeconds);
 
     if (nextMultiplier >= this.crashPoint) {
-      // 크래시 발생! 동기적으로 즉시 처리
       this.handleCrash();
     } else {
       this.multiplier = nextMultiplier;
     }
   }
 
-  // [핵심] 완전 동기식 크래시 핸들러
   private handleCrash() {
-    // 1. 상태 즉시 동결 (가장 중요)
     this.crashed = true;
     this.isRunning = false; 
-    this.multiplier = this.crashPoint; // 배율 강제 고정
+    this.multiplier = this.crashPoint; 
 
-    // 2. 애니메이션 프레임 정지
     this.stopAnimation();
-    
-    // 3. UI 업데이트
     this.updateButtonStates();
-
-    // 4. 결과 처리 (비동기 작업은 분리)
     this.processCrashResult();
-
-    // 5. 강제 렌더링 (멈춘 화면 그리기)
     this.render();
 
-    // 6. 5초 후 리셋
     setTimeout(() => {
-        // 리셋 하기 전에도 내가 여전히 이 캔버스의 주인인지 확인
         if ((this.canvas as any).__activeBustabitInstance === this.instanceId) {
             this.resetGame();
         }
@@ -495,11 +530,9 @@ export class BustabitGame {
           
           if (response.ok) {
             const data = await response.json();
-            // 서버 데이터 동기화
             this.playerPoints = data.points; 
             this.addLog('lose', `패배: ${this.crashPoint.toFixed(2)}x (-${this.betAmount} P)`, -this.betAmount, data.points);
           } else {
-            // 실패해도 이미 포인트는 깎였으므로(베팅 시) 그냥 현재 포인트 유지
             this.addLog('lose', `패배: ${this.crashPoint.toFixed(2)}x (-${this.betAmount} P)`, -this.betAmount, this.playerPoints);
           }
         } catch (error) {
@@ -539,16 +572,14 @@ export class BustabitGame {
 
   private startLoop() {
     const animate = () => {
-      // [초강력 방어] 내가 이 캔버스의 현재 주인이 아니면 즉시 자살 (좀비 루프 방지)
       if ((this.canvas as any).__activeBustabitInstance !== this.instanceId) {
           return;
       }
 
-      // 실행 중이 아니면 렌더링 중단
       if (!this.isRunning) return; 
 
       this.update();
-      this.render(); // update 후 즉시 그리기
+      this.render(); 
 
       if (this.isRunning) {
         this.animationFrameId = requestAnimationFrame(animate);
@@ -562,7 +593,6 @@ export class BustabitGame {
   }
 
   private render() {
-    // 렌더링 시에도 주인 확인
     if ((this.canvas as any).__activeBustabitInstance !== this.instanceId) return;
 
     this.ctx.fillStyle = '#0f172a'; 
@@ -579,12 +609,11 @@ export class BustabitGame {
     const originX = padding;
     const originY = this.canvasHeight - padding;
 
-    // [핵심] 렌더링 시에도 크래시 상태면 무조건 crashPoint 기준으로 그림
-    // multiplier가 혹시라도 증가했더라도 무시함
     const renderMultiplier = this.crashed ? this.crashPoint : this.multiplier;
 
     const currentMaxY = Math.max(2.0, renderMultiplier * 1.1);
-    const currentRequiredTime = Math.log(currentMaxY) / this.GAME_SPEED;
+    // [수정] gameSpeed 변수 사용
+    const currentRequiredTime = Math.log(currentMaxY) / this.gameSpeed;
     const timeMaxX = Math.max(6.0, currentRequiredTime); 
 
     this.drawGrid(originX, originY, graphWidth, graphHeight, currentMaxY, timeMaxX);
@@ -599,7 +628,6 @@ export class BustabitGame {
   }
 
   private renderSidebar() {
-    // 모바일에서는 사이드바 숨김
     if (this.sidebarWidth === 0) return;
     
     const startX = this.gameAreaWidth;
@@ -624,7 +652,6 @@ export class BustabitGame {
     const rowHeight = 35;
 
     this.logs.forEach((log) => {
-      // 화면 밖이면 스킵
       if (currentY + rowHeight < logStartY || currentY > logEndY) {
         currentY += rowHeight;
         return;
@@ -642,7 +669,6 @@ export class BustabitGame {
       this.ctx.fillText(`[${log.time}]`, startX + 20, currentY);
       this.ctx.globalAlpha = 1.0;
 
-      // 메시지와 포인트 정보 표시
       let logText = log.message;
       if (log.pointsChange !== undefined && log.balance !== undefined) {
         const changeText = log.pointsChange >= 0 ? `+${log.pointsChange.toLocaleString()}` : log.pointsChange.toLocaleString();
@@ -693,16 +719,14 @@ export class BustabitGame {
     this.ctx.beginPath();
     this.ctx.moveTo(ox, oy); 
 
-    // [중요] 그릴 때 사용할 배율 결정 (크래시 났으면 무조건 crashPoint 고정)
     const targetMultiplier = this.crashed ? this.crashPoint : this.multiplier;
-    const drawTime = Math.log(targetMultiplier) / this.GAME_SPEED;
+    const drawTime = Math.log(targetMultiplier) / this.gameSpeed;
 
     const resolution = 50; 
     for (let i = 1; i <= resolution; i++) {
         const t = (drawTime * i) / resolution;
-        const m = Math.pow(Math.E, this.GAME_SPEED * t);
+        const m = Math.pow(Math.E, this.gameSpeed * t);
         
-        // 좌표 변환
         const x = ox + (t / maxX) * w;
         const y = oy - ((m - 1) / (maxY - 1)) * h;
         this.ctx.lineTo(x, y);
@@ -761,19 +785,35 @@ export class BustabitGame {
   }
 
   private renderButtons() {
-    this.betAmountButtons.forEach(button => {
+    // 속도 버튼도 렌더링
+    const buttonsToRender = [...this.betAmountButtons, ...this.speedButtons];
+    
+    buttonsToRender.forEach(button => {
       if (button.visible) {
-        const isSelected = this.selectedBetAmount === parseInt(button.text.replace('P', ''));
-        this.drawButton(button, isSelected ? '#22c55e' : '#334155', isSelected);
+        // [수정] 속도 버튼 선택 상태 표시 로직 추가
+        let isSelected = false;
+        if (this.betAmountButtons.includes(button)) {
+            isSelected = this.selectedBetAmount === parseInt(button.text.replace('P', ''));
+        } else if (this.speedButtons.includes(button)) {
+            // 라벨(x1, x2) 매핑으로 확인
+            if (button.text === 'x1' && this.gameSpeed === 0.085) isSelected = true;
+            if (button.text === 'x2' && this.gameSpeed === 0.17) isSelected = true;
+            if (button.text === 'x3' && this.gameSpeed === 0.255) isSelected = true;
+        }
+
+        const btnColor = button.disabled ? '#475569' : (isSelected ? '#22c55e' : '#334155');
+        this.drawButton(button, btnColor, isSelected);
       }
     });
 
     if (this.betButton && this.betButton.visible) {
-      this.drawButton(this.betButton, '#22c55e'); 
+      const btnColor = this.betButton.disabled ? '#475569' : '#22c55e';
+      this.drawButton(this.betButton, btnColor); 
     }
 
     if (this.cashOutButton && this.cashOutButton.visible) {
-      this.drawButton(this.cashOutButton, '#fbbf24'); 
+      const btnColor = this.cashOutButton.disabled ? '#475569' : '#fbbf24';
+      this.drawButton(this.cashOutButton, btnColor); 
     }
   }
 
@@ -798,7 +838,7 @@ export class BustabitGame {
     this.ctx.shadowBlur = 0;
     this.ctx.shadowOffsetY = 0;
 
-    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillStyle = button.disabled ? '#94a3b8' : '#ffffff';
     this.ctx.font = `bold ${button.height * 0.4}px sans-serif`;
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
