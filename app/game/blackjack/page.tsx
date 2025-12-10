@@ -15,6 +15,11 @@ function BlackjackGameComponent() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [isDemo, setIsDemo] = useState(false)
+
+  useEffect(() => {
+    setIsDemo(!localStorage.getItem('token'))
+  }, [])
 
   // [수정] 캔버스 크기 계산 (공통 로직)
   const getCanvasSize = () => {
@@ -83,7 +88,7 @@ function BlackjackGameComponent() {
   return (
     <div className="h-screen bg-gray-900 overflow-hidden">
       <HeaderNavigator />
-      <GameContainer className="relative">
+      <GameContainer className="relative" isDemo={isDemo}>
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 backdrop-blur-sm">
             <div className="w-64 sm:w-96 bg-gray-800 rounded-xl p-8 border border-white/10 shadow-2xl">

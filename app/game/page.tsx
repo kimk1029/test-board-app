@@ -35,7 +35,7 @@ const games = [
   {
     id: 'bustabit',
     name: 'BUSTABIT',
-    description: '그래프가 터지기 전 탈출하라! 심장 쫄깃한 배율 게임.',
+    description: '그래프가 터지기 전 탈출하라!',
     icon: TrendingUp,
     path: '/game/bustabit',
     color: 'from-orange-600 to-red-700',
@@ -45,7 +45,7 @@ const games = [
   {
     id: 'cloverpit',
     name: 'CLOVER PIT',
-    description: '행운의 클로버를 찾아라! 슬롯 머신의 짜릿함.',
+    description: '행운의 클로버를 찾아라!',
     icon: Clover,
     path: '/game/cloverpit',
     color: 'from-green-600 to-emerald-800',
@@ -55,7 +55,7 @@ const games = [
   {
     id: 'kuji',
     name: 'ICHIBAN KUJI',
-    description: '원하는 경품을 뽑아보세요! 이치방 쿠지.',
+    description: '원하는 경품을 뽑아보세요!',
     icon: Gift,
     path: '/game/kuji',
     color: 'from-blue-600 to-indigo-700',
@@ -117,8 +117,54 @@ export default function GamePage() {
             </motion.div>
         </section>
 
-        {/* --- 통계 대시보드 --- */}
+        {/* --- Game List (1 Row) --- */}
         <section className="mb-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {games.map((game, idx) => (
+                    <Link href={game.path} key={game.id} className="group relative block h-64">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5, delay: idx * 0.1 }}
+                            whileHover={{ y: -5 }}
+                            className="h-full w-full"
+                        >
+                            {/* Background Glow */}
+                            <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-30 blur-2xl transition-opacity duration-500 rounded-3xl -z-10`} />
+                            
+                            {/* Card Content */}
+                            <div className="h-full bg-[#131316]/80 backdrop-blur-md border border-white/5 rounded-3xl p-6 flex flex-col justify-between hover:border-white/20 transition-all duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl group-hover:bg-[#131316]/60">
+                                
+                                <div className="relative z-10 flex flex-col h-full">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500`}>
+                                            <game.icon className="w-6 h-6 text-white" />
+                                        </div>
+                                        <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-white transition-colors" />
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-2xl font-black text-white mb-2 tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all">
+                                            {game.name}
+                                        </h3>
+                                        <p className="text-slate-400 text-xs leading-relaxed group-hover:text-slate-200 transition-colors line-clamp-2">
+                                            {game.description}
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="mt-auto pt-4">
+                                        <div className={`h-1 w-full rounded-full bg-gradient-to-r ${game.color} opacity-50`} />
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </Link>
+                ))}
+            </div>
+        </section>
+
+        {/* --- 통계 대시보드 --- */}
+        <section>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -240,53 +286,6 @@ export default function GamePage() {
               </div>
             )}
           </motion.div>
-        </section>
-
-        {/* Game Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto">
-            {games.map((game, idx) => (
-                <Link href={game.path} key={game.id} className="group relative block h-64 md:h-80">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.5, delay: idx * 0.1 + 0.4 }}
-                        whileHover={{ y: -5 }}
-                        className="h-full w-full"
-                    >
-                        {/* Background Glow */}
-                        <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-30 blur-2xl transition-opacity duration-500 rounded-3xl -z-10`} />
-                        
-                        {/* Card Content */}
-                        <div className="h-full bg-[#131316]/80 backdrop-blur-md border border-white/5 rounded-3xl p-8 flex flex-col justify-between hover:border-white/20 transition-all duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl group-hover:bg-[#131316]/60">
-                            
-                            {/* Decorative Background */}
-                            <div className={`absolute -top-20 -right-20 w-60 h-60 bg-gradient-to-br ${game.color} opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-opacity`} />
-
-                            <div className="relative z-10 flex items-start justify-between">
-                                <div>
-                                    <h3 className="text-3xl font-black text-white mb-2 tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all">
-                                        {game.name}
-                                    </h3>
-                                    <div className={`h-1 w-12 rounded-full bg-gradient-to-r ${game.color}`} />
-                                </div>
-                                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500`}>
-                                    <game.icon className="w-8 h-8 text-white" />
-                                </div>
-                            </div>
-
-                            <div className="relative z-10">
-                                <p className="text-slate-400 text-sm md:text-base leading-relaxed mb-6 group-hover:text-slate-200 transition-colors">
-                                    {game.description}
-                                </p>
-                                <div className="flex items-center gap-2 text-sm font-bold text-white group-hover:gap-4 transition-all">
-                                    ENTER GAME
-                                    <ArrowRight className="w-4 h-4" />
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
-                </Link>
-            ))}
         </section>
 
       </main>

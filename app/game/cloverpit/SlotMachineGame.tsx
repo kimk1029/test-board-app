@@ -464,8 +464,8 @@ class MainScene extends Phaser.Scene {
     private async loadUserPoints() {
         const token = localStorage.getItem('token')
         if (!token) {
-            this.playerPoints = 100.0; this.updatePointsText();
-            this.addLog('info', '테스트 모드 (100P 지급)', 0, 100.0)
+            this.playerPoints = 10000.0; this.updatePointsText();
+            this.addLog('info', '체험판(데모) 모드 - 10,000P 지급됨', 0, 10000.0) // 로그 수정
             return;
         }
         try {
@@ -527,6 +527,9 @@ class MainScene extends Phaser.Scene {
                 this.isSpinning = false
                 return 
             }
+        } else {
+            // 데모 모드일 경우 (토큰 없음)
+            this.addLog('bet', `${this.isX5Mode ? 'MAX' : '기본'} 스핀 구매(데모)`, -betAmount, this.playerPoints)
         }
 
         this.paylineGraphics.clear()
@@ -683,8 +686,11 @@ class MainScene extends Phaser.Scene {
 export default function SlotGamePage() {
     const gameRef = useRef<HTMLDivElement>(null)
     const gameInstance = useRef<Phaser.Game | null>(null)
+    const [isDemo, setIsDemo] = useState(false)
 
     useEffect(() => {
+        setIsDemo(!localStorage.getItem('token'))
+        
         if (gameInstance.current) return
         if (!gameRef.current) return
 
@@ -704,14 +710,30 @@ export default function SlotGamePage() {
 
         return () => {
             if (gameInstance.current) {
-                gameInstance.current.destroy(true)
-                gameInstance.current = null
+                try {
+                    if (gameInstance.current.sound && 'context' in gameInstance.current.sound && gameInstance.current.sound.context) {
+                         try {
+                             (gameInstance.current.sound.context as AudioContext).close()
+                         } catch (e) { }
+                    }
+                    gameInstance.current.destroy(true)
+                    gameInstance.current = null
+                } catch (e) {
+                    console.warn('Phaser game cleanup error:', e)
+                }
             }
         }
     }, [])
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-black">
+        <div className="flex items-center justify-center min-h-screen bg-black relative">
+            {isDemo && (
+                <div className="absolute top-[30px] left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+                    <div className="bg-yellow-500/90 text-black px-6 py-2 rounded-full font-black shadow-[0_0_20px_rgba(234,179,8,0.6)] animate-pulse border-2 border-yellow-300 text-lg tracking-widest uppercase">
+                    Demo Mode
+                    </div>
+                </div>
+            )}
             <div ref={gameRef} className="shadow-2xl" />
         </div>
     )

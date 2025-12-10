@@ -440,6 +440,7 @@ export class BlackjackGame {
     const token = localStorage.getItem('token')
     if (!token) {
         this.playerPoints = 10000;
+        this.addLog('info', '체험판(데모) 모드 - 10,000P 지급됨', 0, 10000);
         this.changeState(GameState.SHUFFLE)
         return
     }

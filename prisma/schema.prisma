@@ -23,7 +23,8 @@ model User {
   updatedAt     DateTime  @updatedAt
   posts         Post[]
   comments      Comment[]
-  gameLogs      GameLog[] // 게임 기록 관계 추가
+  gameLogs      GameLog[] // 게임 기록 관계
+  achievements  UserAchievement[] // 획득한 업적 관계
 }
 
 model Post {
@@ -97,9 +98,34 @@ model GameLog {
   profit    Int      // 순수익 (payout - betAmount)
   result    String   // 'WIN', 'LOSE', 'DRAW', 'JACKPOT' 등
   multiplier Float?  // 배당률 (옵션)
+  metadata  Json?    // 추가 상세 정보 (쿠지 등급 등)
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([gameType])
   @@index([createdAt])
+}
+
+// 업적 정의
+model Achievement {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique // 예: 'FIRST_WIN', 'LEVEL_10'
+  name        String
+  description String
+  icon        String   // 이모지 또는 이미지 URL
+  condition   Json?    // 달성 조건 (선택 사항)
+  users       UserAchievement[]
+}
+
+// 사용자 획득 업적
+model UserAchievement {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  achievementId Int
+  earnedAt      DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id])
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@index([userId])
 }

@@ -15,7 +15,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import LoginModal from './LoginModal'
 import { getLevelProgress, getPointsForNextLevel, getPointsForCurrentLevel } from '@/lib/points'
-import { Menu, X, User as UserIcon, Gamepad2, LayoutDashboard, Crown } from 'lucide-react'
+import { Menu, X, User as UserIcon, Gamepad2, LayoutDashboard, Crown, Bell } from 'lucide-react'
 
 interface User {
   id: number
@@ -74,7 +74,7 @@ const HeaderNavigator = () => {
     updateUserPoints = loadUserData
     return () => { updateUserPoints = null }
   }, [])
-
+  
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10)
@@ -82,7 +82,7 @@ const HeaderNavigator = () => {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
-
+  
   useEffect(() => {
     loadUserData()
   }, [])
@@ -91,7 +91,7 @@ const HeaderNavigator = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setUser(null)
-    window.location.reload()
+    window.location.href = '/'
   }
 
   const handleLoginSuccess = () => {
@@ -115,7 +115,8 @@ const HeaderNavigator = () => {
   const navLinks = [
     { href: '/', label: 'HOME', icon: LayoutDashboard },
     { href: '/game', label: 'GAME LOBBY', icon: Gamepad2 },
-    { href: '/board', label: 'BOARD', icon: Crown }, // 임시 아이콘
+    { href: '/board', label: 'BOARD', icon: Crown },
+    { href: '/notice', label: 'NOTICE', icon: Bell },
   ]
 
   if (isTestAccount) {
@@ -192,6 +193,13 @@ const HeaderNavigator = () => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="w-full cursor-pointer font-bold flex items-center gap-2 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white">
+                        <UserIcon className="w-4 h-4" />
+                        MY PROFILE
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem 
                     onClick={handleLogout} 
                     className="text-red-400 focus:text-red-300 focus:bg-red-500/10 cursor-pointer font-bold"
@@ -237,6 +245,16 @@ const HeaderNavigator = () => {
                         {link.label}
                     </Link>
                 ))}
+                {user && (
+                    <Link
+                        href="/profile"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-lg font-bold py-2 px-4 rounded-lg flex items-center gap-3 text-slate-400 hover:bg-white/5 hover:text-white"
+                    >
+                        <UserIcon className="w-5 h-5" />
+                        MY PROFILE
+                    </Link>
+                )}
             </div>
         )}
       </header>

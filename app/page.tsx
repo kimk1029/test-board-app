@@ -4,10 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { motion } from 'framer-motion'
-import { Gift, TrendingUp, Clover, Club, Trophy, Crown, Activity } from 'lucide-react'
+import { Trophy, Crown, Activity, Gamepad2, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
 interface RankingUser {
@@ -19,48 +18,8 @@ interface RankingUser {
   rank: number
 }
 
-const games = [
-  {
-    id: 'bustabit',
-    name: 'BUSTABIT',
-    description: '그래프가 터지기 전에 탈출하세요! 실시간 배율 게임.',
-    icon: TrendingUp,
-    path: '/game/bustabit',
-    color: 'from-orange-500 to-red-600',
-    shadow: 'shadow-orange-500/20'
-  },
-  {
-    id: 'blackjack',
-    name: 'BLACKJACK',
-    description: '딜러와의 짜릿한 승부! 21을 향한 전략 게임.',
-    icon: Club, // Lucide doesn't have a specific Spade icon that looks good, Club works or use an image
-    path: '/game/blackjack',
-    color: 'from-slate-700 to-slate-900',
-    shadow: 'shadow-slate-500/20'
-  },
-  {
-    id: 'cloverpit',
-    name: 'CLOVER PIT',
-    description: '행운의 클로버를 찾아라! 슬롯 머신.',
-    icon: Clover,
-    path: '/game/cloverpit',
-    color: 'from-green-500 to-emerald-700',
-    shadow: 'shadow-green-500/20'
-  },
-  {
-    id: 'kuji',
-    name: 'ICHIBAN KUJI',
-    description: '최고의 경품을 뽑아보세요! 이치방 쿠지.',
-    icon: Gift,
-    path: '/game/kuji',
-    color: 'from-blue-500 to-indigo-600',
-    shadow: 'shadow-blue-500/20'
-  }
-]
-
 export default function Home() {
   const router = useRouter()
-  const [rankings, setRankings] = useState<RankingUser[]>([])
   const [dailyRankings, setDailyRankings] = useState<RankingUser[]>([])
   const [weeklyRankings, setWeeklyRankings] = useState<RankingUser[]>([])
   const [monthlyRankings, setMonthlyRankings] = useState<RankingUser[]>([])
@@ -93,13 +52,6 @@ export default function Home() {
                 const historyData = await historyResponse.json()
                 setPointsHistory(historyData.history || [])
             }
-        }
-
-        // 전체 랭킹
-        const response = await fetch('/api/ranking?limit=5') // 로비에서는 5개만
-        if (response.ok) {
-          const data = await response.json()
-          setRankings(data.rankings || [])
         }
 
         // 기간별 랭킹 (초기 로딩 시 다 가져옴)
@@ -146,7 +98,7 @@ export default function Home() {
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 pb-20">
         
         {/* Hero / Welcome Section */}
-        <section className="mb-16">
+        <section className="mb-12">
             <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -155,10 +107,10 @@ export default function Home() {
             >
                 <div>
                     <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-2 bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">
-                        GAME LOBBY
+                        DASHBOARD
                     </h1>
                     <p className="text-slate-400 text-lg">
-                        Welcome back, <span className="text-purple-400 font-bold">{currentUser?.nickname || 'Guest'}</span>. Ready to play?
+                        Welcome back, <span className="text-purple-400 font-bold">{currentUser?.nickname || 'Guest'}</span>.
                     </p>
                 </div>
                 
@@ -182,42 +134,41 @@ export default function Home() {
             </motion.div>
         </section>
 
-        {/* Game Grid Section */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-            {games.map((game, idx) => (
-                <Link href={game.path} key={game.id} className="group relative">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: idx * 0.1 }}
-                        whileHover={{ y: -5, scale: 1.02 }}
-                        className="h-full"
-                    >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 rounded-3xl -z-10`} />
-                        <div className="h-full bg-[#131316] border border-white/5 rounded-3xl p-6 flex flex-col justify-between hover:border-white/20 transition-colors duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl">
-                            
-                            {/* Background Pattern */}
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-white/10 transition-colors" />
-
-                            <div className="relative z-10">
-                                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center mb-6 shadow-lg ${game.shadow}`}>
-                                    <game.icon className="w-7 h-7 text-white" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white mb-2 tracking-tight group-hover:text-purple-300 transition-colors">{game.name}</h3>
-                                <p className="text-slate-400 text-sm leading-relaxed mb-6">{game.description}</p>
+        {/* Enter Game Lobby Button - New Section */}
+        <section className="mb-16">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+            >
+                <Link href="/game" className="group relative block w-full">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-20 group-hover:opacity-30 blur-2xl transition-opacity duration-500 rounded-3xl -z-10" />
+                    <div className="h-32 md:h-40 bg-[#131316] border border-white/10 rounded-3xl flex items-center justify-between px-8 md:px-16 hover:border-purple-500/50 transition-all duration-300 shadow-2xl overflow-hidden relative group-hover:scale-[1.01]">
+                         <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+                         
+                         <div className="flex items-center gap-6 md:gap-8 relative z-10">
+                            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-purple-500/30 transition-all">
+                                <Gamepad2 className="w-8 h-8 md:w-10 md:h-10 text-white" />
                             </div>
-
-                            <div className="relative z-10">
-                                <div className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-center text-sm font-bold text-slate-300 group-hover:bg-white/10 group-hover:text-white transition-all flex items-center justify-center gap-2">
-                                    PLAY NOW
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                                </div>
+                            <div>
+                                <h2 className="text-2xl md:text-3xl font-black text-white mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-purple-300 transition-all">
+                                    ENTER GAME LOBBY
+                                </h2>
+                                <p className="text-slate-400 text-sm md:text-base group-hover:text-slate-200">
+                                    다양한 미니게임이 기다리고 있습니다. 지금 입장하세요!
+                                </p>
                             </div>
-                        </div>
-                    </motion.div>
+                         </div>
+
+                         <div className="hidden md:flex items-center gap-2 text-purple-400 font-bold group-hover:translate-x-2 transition-transform">
+                            PLAY NOW
+                            <ArrowRight className="w-5 h-5" />
+                         </div>
+                    </div>
                 </Link>
-            ))}
+            </motion.div>
         </section>
+
 
         {/* Dashboard Widgets Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

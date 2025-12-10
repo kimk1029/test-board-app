@@ -80,6 +80,7 @@ export default function IchibanKujiGame() {
     const [loading, setLoading] = useState(true);
     const [userPoints, setUserPoints] = useState<number>(0);
     const [purchaseLoading, setPurchaseLoading] = useState(false);
+    const [isDemo, setIsDemo] = useState(false); // 데모 모드 상태
 
     // 초기화 - 서버에서 티켓 상태 가져오기
     useEffect(() => {
@@ -91,7 +92,8 @@ export default function IchibanKujiGame() {
     const loadUserPoints = async () => {
         const token = localStorage.getItem('token');
         if (!token) {
-            setUserPoints(0);
+            setUserPoints(10000); // 데모 포인트
+            setIsDemo(true);
             return;
         }
 
@@ -152,12 +154,6 @@ export default function IchibanKujiGame() {
 
     // 구매 처리
     const handlePurchase = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            alert('로그인이 필요합니다.');
-            return;
-        }
-
         const totalCost = purchaseCount * 10;
 
         if (userPoints < totalCost) {
@@ -172,6 +168,15 @@ export default function IchibanKujiGame() {
 
         if (purchaseCount > totalRemaining) {
             alert("남은 수량보다 많이 구매할 수 없습니다!");
+            return;
+        }
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            // 데모 구매 처리 (로컬)
+            setUserPoints(prev => prev - totalCost);
+            setGameState('SELECTING');
+            setSelectedIds([]);
             return;
         }
 
@@ -269,6 +274,11 @@ export default function IchibanKujiGame() {
                 alert('티켓 업데이트 중 오류가 발생했습니다.');
                 return;
             }
+        } else {
+            // 데모 모드일 경우 로컬 업데이트 (실제로는 다른 사람이 뽑으면 충돌나지만 데모니까 무시)
+             setTickets(prev => prev.map(t =>
+                t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
+            ));
         }
 
         const currentTicket = tickets.find(t => t.id === currentTicketId)!;
@@ -312,7 +322,17 @@ export default function IchibanKujiGame() {
     return (
         <div>
             <HeaderNavigator />
-            <div className="min-h-screen bg-gradient-to-br from-pink-50 via-yellow-50 to-orange-50 text-gray-900 font-sans p-2 sm:p-4 md:p-8 pt-20 sm:pt-24">
+            <div className="min-h-screen bg-gradient-to-br from-pink-50 via-yellow-50 to-orange-50 text-gray-900 font-sans p-2 sm:p-4 md:p-8 pt-20 sm:pt-24 relative">
+                
+                {/* 데모 모드 배지 */}
+                {isDemo && (
+                    <div className="absolute top-[90px] left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+                        <div className="bg-yellow-500/90 text-black px-6 py-2 rounded-full font-black shadow-[0_0_20px_rgba(234,179,8,0.6)] animate-pulse border-2 border-yellow-300 text-lg tracking-widest uppercase">
+                        Demo Mode
+                        </div>
+                    </div>
+                )}
+
                 <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 mt-10">
 
                     {/* --- Header --- */}
