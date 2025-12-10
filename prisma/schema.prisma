@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // 6543 포트 (데이터 조회용)
+  directUrl = env("DIRECT_URL")    // 5432 포트 (이 줄이 있어야 db push가 멈추지 않음!)
 }
 
 model User {
