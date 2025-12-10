@@ -58,35 +58,40 @@ export async function POST(request: NextRequest) {
     })
 
     // 이메일 발송
+    const hasSmtpConfig = !!(process.env.SMTP_USER && process.env.SMTP_PASS)
+    
     try {
       await sendVerificationEmail(email, code)
     } catch (error) {
       console.error('이메일 발송 실패:', error)
-      // 개발 환경이거나 SMTP 설정이 없으면 코드를 반환
-      if (process.env.NODE_ENV === 'development' || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      // SMTP 설정이 없으면 개발 모드로 코드를 반환
+      if (!hasSmtpConfig) {
         return NextResponse.json(
           {
             message: '인증 코드가 생성되었습니다. (개발 모드 - 이메일 설정이 없습니다)',
-            code: code, // 개발 환경에서만 코드 반환
+            code: code, // 개발 모드에서만 코드 반환
           },
           { status: 200 }
         )
       }
+      // SMTP 설정이 있는데 발송 실패한 경우
       return NextResponse.json(
         { error: '이메일 발송에 실패했습니다.' },
         { status: 500 }
       )
     }
 
-    // SMTP 설정이 있으면 정상 메시지, 없으면 개발 모드 메시지
-    const message = (process.env.SMTP_USER && process.env.SMTP_PASS)
+    // SMTP 설정이 있으면 정상 메시지만 반환 (코드 포함 안 함)
+    // SMTP 설정이 없으면 개발 모드 메시지와 코드 반환
+    const message = hasSmtpConfig
       ? '인증 코드가 발송되었습니다. 이메일을 확인해주세요.'
       : '인증 코드가 생성되었습니다. (개발 모드)'
 
     return NextResponse.json(
       {
         message,
-        ...(process.env.NODE_ENV === 'development' || (!process.env.SMTP_USER || !process.env.SMTP_PASS) ? { code } : {}),
+        // SMTP 설정이 없을 때만 코드 반환 (실제 이메일 발송 시에는 코드 반환 안 함)
+        ...(!hasSmtpConfig ? { code } : {}),
       },
       { status: 200 }
     )

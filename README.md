@@ -30,12 +30,28 @@ yarn install
 
 ### 2. 환경 변수 설정
 
-`.env` 파일을 생성하고 다음 내용을 추가하세요:
+**중요**: 프로젝트를 처음 클론받은 경우, `.env` 파일이 없어서 데이터베이스 연결 오류가 발생합니다.
+
+`.env.example` 파일을 복사하여 `.env` 파일을 생성하세요:
+
+```bash
+cp .env.example .env
+```
+
+그 다음 `.env` 파일을 열어서 실제 데이터베이스 정보로 수정하세요:
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/test_board_db?schema=public"
 JWT_SECRET="your-secret-key-change-this-in-production"
 ```
+
+**또는** 자동 설정 스크립트를 사용할 수 있습니다 (Linux/macOS):
+
+```bash
+./setup-db-manual.sh
+```
+
+자세한 데이터베이스 설정 방법은 [DATABASE_SETUP.md](./DATABASE_SETUP.md)를 참고하세요.
 
 ### 3. 데이터베이스 설정
 
