@@ -222,50 +222,48 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] bg-[#0a0a0c]/95 border-white/10 backdrop-blur-xl text-slate-100 shadow-2xl">
         <DialogHeader>
-          <DialogTitle>{isSignUp ? '회원가입' : '로그인'}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-2xl font-black text-white">{isSignUp ? 'JOIN US' : 'WELCOME BACK'}</DialogTitle>
+          <DialogDescription className="text-slate-400">
             {isSignUp
-              ? '새 계정을 만들어주세요'
-              : '계정에 로그인하세요'}
+              ? '새로운 계정으로 여정을 시작하세요'
+              : '다시 오신 것을 환영합니다'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+            <div className="rounded-md bg-red-900/30 border border-red-500/30 p-3 text-sm text-red-300">
               {error}
             </div>
           )}
           {!isSignUp ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="email">이메일</Label>
+                <Label htmlFor="email" className="text-slate-300">이메일</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="이메일을 입력하세요"
+                  placeholder="name@example.com"
+                  className="bg-black/30 border-white/10 text-white focus:border-violet-500 transition-colors"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleLogin()
-                    }
+                    if (e.key === 'Enter') handleLogin()
                   }}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">비밀번호</Label>
+                <Label htmlFor="password" className="text-slate-300">비밀번호</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="비밀번호를 입력하세요"
+                  placeholder="••••••••"
+                  className="bg-black/30 border-white/10 text-white focus:border-violet-500 transition-colors"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleLogin()
-                    }
+                    if (e.key === 'Enter') handleLogin()
                   }}
                 />
               </div>
@@ -273,12 +271,13 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
           ) : (
             <>
               <div className="space-y-2">
-                <Label htmlFor="email-signup">이메일</Label>
+                <Label htmlFor="email-signup" className="text-slate-300">이메일</Label>
                 <div className="flex gap-2">
                   <Input
                     id="email-signup"
                     type="email"
-                    placeholder="이메일을 입력하세요"
+                    placeholder="name@example.com"
+                    className="bg-black/30 border-white/10 text-white focus:border-violet-500 transition-colors"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isEmailSent}
@@ -289,20 +288,22 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
                       variant="outline"
                       onClick={handleSendVerificationCode}
                       disabled={loading || !email}
+                      className="bg-violet-600 border-none hover:bg-violet-700 text-white"
                     >
-                      인증코드 발송
+                      인증
                     </Button>
                   )}
                 </div>
               </div>
               {isEmailSent && !isEmailVerified && (
-                <div className="space-y-2">
-                  <Label htmlFor="verification-code">인증 코드</Label>
+                <div className="space-y-2 animate-in slide-in-from-top-2">
+                  <Label htmlFor="verification-code" className="text-slate-300">인증 코드</Label>
                   <div className="flex gap-2">
                     <Input
                       id="verification-code"
                       type="text"
-                      placeholder="6자리 인증 코드를 입력하세요"
+                      placeholder="000000"
+                      className="bg-black/30 border-white/10 text-white focus:border-violet-500 transition-colors tracking-widest text-center font-bold"
                       value={verificationCode}
                       onChange={(e) => setVerificationCode(e.target.value)}
                       maxLength={6}
@@ -312,53 +313,52 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
                       variant="outline"
                       onClick={handleVerifyEmail}
                       disabled={loading || !verificationCode}
+                      className="bg-emerald-600 border-none hover:bg-emerald-700 text-white"
                     >
-                      인증 확인
+                      확인
                     </Button>
                   </div>
-                  {countdown > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      남은 시간: {formatTime(countdown)}
-                    </p>
-                  )}
-                  {countdown === 0 && codeSent && (
-                    <div className="flex gap-2">
-                      <p className="text-xs text-red-500">인증 코드가 만료되었습니다.</p>
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="sm"
+                  <div className="flex justify-between items-center text-xs">
+                    {countdown > 0 ? (
+                      <span className="text-violet-400">
+                        남은 시간: {formatTime(countdown)}
+                      </span>
+                    ) : (
+                      codeSent && <span className="text-red-400">시간 초과</span>
+                    )}
+                    {countdown === 0 && codeSent && (
+                       <button
                         onClick={handleSendVerificationCode}
-                        className="p-0 h-auto text-xs"
+                        className="text-slate-400 hover:text-white underline"
                       >
-                        다시 발송
-                      </Button>
-                    </div>
-                  )}
+                        재발송
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
               {isEmailVerified && (
-                <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
-                  ✓ 이메일 인증이 완료되었습니다.
+                <div className="rounded-md bg-emerald-900/30 border border-emerald-500/30 p-3 text-sm text-emerald-300 animate-in fade-in">
+                  ✓ 이메일 인증 완료
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="password-signup">비밀번호</Label>
+                <Label htmlFor="password-signup" className="text-slate-300">비밀번호</Label>
                 <Input
                   id="password-signup"
                   type="password"
-                  placeholder="비밀번호를 입력하세요"
+                  className="bg-black/30 border-white/10 text-white focus:border-violet-500 transition-colors"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={!isEmailVerified}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nickname">닉네임 (선택)</Label>
+                <Label htmlFor="nickname" className="text-slate-300">닉네임 (선택)</Label>
                 <Input
                   id="nickname"
                   type="text"
-                  placeholder="닉네임을 입력하세요"
+                  className="bg-black/30 border-white/10 text-white focus:border-violet-500 transition-colors"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   disabled={!isEmailVerified}
@@ -366,45 +366,44 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
               </div>
             </>
           )}
-          <div className="flex justify-between gap-2">
+          
+          <div className="pt-2">
             {isSignUp ? (
               <Button
                 onClick={handleSignUpSubmit}
                 disabled={loading || !isEmailVerified}
-                className="flex-1"
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold h-11"
               >
-                {loading ? '처리 중...' : '회원가입'}
+                {loading ? '처리 중...' : '계정 생성하기'}
               </Button>
             ) : (
               <Button
                 onClick={handleLogin}
                 disabled={loading}
-                className="flex-1"
+                className="w-full bg-white text-black hover:bg-slate-200 font-bold h-11"
               >
                 {loading ? '로그인 중...' : '로그인'}
               </Button>
             )}
-            <Button variant="outline" onClick={handleClose} disabled={loading}>
-              닫기
-            </Button>
           </div>
-          <div className="text-center text-sm">
+          
+          <div className="text-center text-sm pt-2">
             {isSignUp ? (
-              <span>
+              <span className="text-slate-500">
                 이미 계정이 있으신가요?{' '}
                 <button
                   onClick={() => setIsSignUp(false)}
-                  className="text-primary hover:underline"
+                  className="text-violet-400 hover:text-violet-300 font-bold ml-1"
                 >
                   로그인
                 </button>
               </span>
             ) : (
-              <span>
+              <span className="text-slate-500">
                 계정이 없으신가요?{' '}
                 <button
                   onClick={() => setIsSignUp(true)}
-                  className="text-primary hover:underline"
+                  className="text-violet-400 hover:text-violet-300 font-bold ml-1"
                 >
                   회원가입
                 </button>

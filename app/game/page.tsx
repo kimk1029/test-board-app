@@ -1,148 +1,132 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import HeaderNavigator from '@/components/HeaderNavigator'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { motion } from 'framer-motion'
+import { Gift, TrendingUp, Clover, Club, ArrowRight } from 'lucide-react'
+
+const games = [
+  {
+    id: 'blackjack',
+    name: 'BLACKJACK',
+    description: '전략과 운의 승부! 딜러를 이겨라.',
+    icon: Club,
+    path: '/game/blackjack',
+    color: 'from-slate-700 to-slate-900',
+    accent: 'text-slate-400',
+    shadow: 'shadow-slate-500/20'
+  },
+  {
+    id: 'bustabit',
+    name: 'BUSTABIT',
+    description: '그래프가 터지기 전 탈출하라! 심장 쫄깃한 배율 게임.',
+    icon: TrendingUp,
+    path: '/game/bustabit',
+    color: 'from-orange-600 to-red-700',
+    accent: 'text-orange-500',
+    shadow: 'shadow-orange-500/20'
+  },
+  {
+    id: 'cloverpit',
+    name: 'CLOVER PIT',
+    description: '행운의 클로버를 찾아라! 슬롯 머신의 짜릿함.',
+    icon: Clover,
+    path: '/game/cloverpit',
+    color: 'from-green-600 to-emerald-800',
+    accent: 'text-green-500',
+    shadow: 'shadow-green-500/20'
+  },
+  {
+    id: 'kuji',
+    name: 'ICHIBAN KUJI',
+    description: '원하는 경품을 뽑아보세요! 이치방 쿠지.',
+    icon: Gift,
+    path: '/game/kuji',
+    color: 'from-blue-600 to-indigo-700',
+    accent: 'text-blue-500',
+    shadow: 'shadow-blue-500/20'
+  }
+]
 
 export default function GamePage() {
-  const router = useRouter()
-  const [userPoints, setUserPoints] = useState(0)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    loadUserPoints()
+    setIsClient(true)
   }, [])
 
-  const loadUserPoints = async () => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      return
-    }
-
-    try {
-      const response = await fetch('/api/user/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const userData = await response.json()
-        setUserPoints(userData.points || 0)
-      }
-    } catch (error) {
-      console.error('Failed to load user points:', error)
-    }
-  }
-
   return (
-    <div>
+    <div className="min-h-screen bg-transparent text-slate-100 overflow-x-hidden">
       <HeaderNavigator />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-8 sm:pb-12 lg:pb-20">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-center mb-2">
-            게임 선택
-          </h1>
-          <p className="text-center text-muted-foreground text-sm sm:text-base">
-            보유 포인트: <span className="font-bold text-primary">{userPoints.toLocaleString()} P</span>
-          </p>
-        </div>
+      
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-32 pb-20">
+        
+        {/* Header Section */}
+        <section className="mb-16 text-center">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+            >
+                <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-6 bg-gradient-to-b from-white via-white to-slate-500 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                    GAME LOBBY
+                </h1>
+                <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                    최고의 승부사를 위한 프리미엄 게임 라운지입니다.<br/>
+                    원하시는 게임을 선택하여 입장해주세요.
+                </p>
+            </motion.div>
+        </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
-          {/* 블랙잭 게임 */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl">🎰 블랙잭</CardTitle>
-              <CardDescription className="text-sm sm:text-base">
-                전통적인 카드 게임
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <div>• 승리: 베팅 금액의 2배</div>
-                <div>• 블랙잭: 베팅 금액의 2.5배</div>
-                <div>• 무승부: 베팅 금액 반환</div>
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => router.push('/game/blackjack')}
-              >
-                게임 시작
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Game Grid */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto">
+            {games.map((game, idx) => (
+                <Link href={game.path} key={game.id} className="group relative block h-64 md:h-80">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5, delay: idx * 0.1 }}
+                        whileHover={{ y: -5 }}
+                        className="h-full w-full"
+                    >
+                        {/* Background Glow */}
+                        <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-30 blur-2xl transition-opacity duration-500 rounded-3xl -z-10`} />
+                        
+                        {/* Card Content */}
+                        <div className="h-full bg-[#131316]/80 backdrop-blur-md border border-white/5 rounded-3xl p-8 flex flex-col justify-between hover:border-white/20 transition-all duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl group-hover:bg-[#131316]/60">
+                            
+                            {/* Decorative Background */}
+                            <div className={`absolute -top-20 -right-20 w-60 h-60 bg-gradient-to-br ${game.color} opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-opacity`} />
 
-          {/* Bustabit 게임 */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl">📈 Bustabit</CardTitle>
-              <CardDescription className="text-sm sm:text-base">
-                크래시 그래프 게임
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <div>• 그래프가 올라가는 동안 캐시아웃</div>
-                <div>• 크래시 전 캐시아웃 시 승리</div>
-                <div>• 배당 = 캐시아웃 시점의 배율</div>
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => router.push('/game/bustabit')}
-              >
-                게임 시작
-              </Button>
-            </CardContent>
-          </Card>
+                            <div className="relative z-10 flex items-start justify-between">
+                                <div>
+                                    <h3 className="text-3xl font-black text-white mb-2 tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all">
+                                        {game.name}
+                                    </h3>
+                                    <div className={`h-1 w-12 rounded-full bg-gradient-to-r ${game.color}`} />
+                                </div>
+                                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500`}>
+                                    <game.icon className="w-8 h-8 text-white" />
+                                </div>
+                            </div>
 
-          {/* 이치방 쿠지 게임 */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl">🎫 이치방 쿠지</CardTitle>
-              <CardDescription className="text-sm sm:text-base">
-                복권 추첨 게임
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <div>• 1장당 10 포인트</div>
-                <div>• 다양한 등급의 경품 획득</div>
-                <div>• 라스트원 특별 경품</div>
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => router.push('/game/kuji')}
-              >
-                게임 시작
-              </Button>
-            </CardContent>
-          </Card>
+                            <div className="relative z-10">
+                                <p className="text-slate-400 text-sm md:text-base leading-relaxed mb-6 group-hover:text-slate-200 transition-colors">
+                                    {game.description}
+                                </p>
+                                <div className="flex items-center gap-2 text-sm font-bold text-white group-hover:gap-4 transition-all">
+                                    ENTER GAME
+                                    <ArrowRight className="w-4 h-4" />
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </Link>
+            ))}
+        </section>
 
-          {/* 미니 클로버핏 게임 */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl">♣ 미니 클로버핏</CardTitle>
-              <CardDescription className="text-sm sm:text-base">
-                슬롯 머신 로그라이크 게임
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <div>• 슬롯 머신으로 돈 벌기</div>
-                <div>• 빚을 갚고 다음 라운드로</div>
-                <div>• 상점에서 아이템 구매</div>
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => router.push('/game/cloverpit')}
-              >
-                게임 시작
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      </main>
     </div>
   )
 }

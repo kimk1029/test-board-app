@@ -9,15 +9,14 @@ import {
   isSameValue,
 } from '../utils'
 
-// [수정] 로그 인터페이스 개선
 interface GameLog {
   type: 'bet' | 'win' | 'lose' | 'draw' | 'blackjack' | 'info';
   message: string;
   time: string;
-  round: number; // 라운드 번호
-  betAmount?: number; // 베팅액
-  pointsChange?: number; // 포인트 변화량
-  balance?: number; // 잔액
+  round: number;
+  betAmount?: number;
+  pointsChange?: number;
+  balance?: number;
 }
 
 interface Chip {
@@ -42,35 +41,36 @@ export class BlackjackGame {
   private ctx: CanvasRenderingContext2D
   private gameState: GameState = GameState.IDLE
   private deck: Card[] = []
-  private discardedCards: Card[] = [] // 버려진 카드들
+  private discardedCards: Card[] = [] 
   private playerHand: Hand = { cards: [], score: 0, isBlackjack: false, isBust: false }
   private dealerHand: Hand = { cards: [], score: 0, isBlackjack: false, isBust: false }
   private currentBet: number = 0
   private playerPoints: number = 0
   private initialBet: number = 0
-  private insuranceBet: number = 0
+  private insuranceBet: number = 0; // [신규] 속성 추가
   
-  // [신규] 라운드 관리
-  private roundNumber: number = 1;
+  // 인슈어런스 정보 임시 저장 (로그 통합용)
+  private insuranceInfo: { message: string, amount: number } | null = null;
+  
+  private roundNumber: number = 0; // 0: 입장 상태
 
-  // 이미지 리소스
+  // 중복 처리 방지 플래그
+  private isProcessing: boolean = false;
+
   private cardImages: Map<string, HTMLImageElement> = new Map()
   private cardBackImage: HTMLImageElement | null = null
   private tableImage: HTMLImageElement | null = null
   private imagesLoaded: number = 0
   private totalImages: number = 0
 
-  // UI 요소
   private chipButtons: Chip[] = []
   private betChips: Chip[] = []
   private buttons: Button[] = []
   private dealButton: Button | null = null
 
-  // 히스토리 로그
   private logs: GameLog[] = []
   private logScrollOffset: number = 0
 
-  // 게임 결과 표시
   private gameResult: {
     type: 'win' | 'lose' | 'draw' | 'blackjack' | null
     message: string
@@ -85,7 +85,6 @@ export class BlackjackGame {
     visible: false
   }
 
-  // 애니메이션
   private animations: Array<{
     type: 'card' | 'chip' | 'discard'
     startX: number
@@ -101,17 +100,14 @@ export class BlackjackGame {
     rotationTarget?: number
   }> = []
 
-  // 캔버스 및 레이아웃 설정
   private canvasWidth: number = 1200
   private canvasHeight: number = 800
   private sidebarWidth: number = 300
   private gameAreaWidth: number = 900
   
-  // 반응형 스케일 팩터
   private scaleFactor: number = 1;
   private isMobile: boolean = false;
 
-  // 위치 정의
   private get deckPosition() { 
       if (this.isMobile) {
           return { x: this.gameAreaWidth * 0.85, y: this.canvasHeight * 0.12 };
@@ -226,7 +222,6 @@ export class BlackjackGame {
     }
   }
 
-  // [수정] 로그 추가 로직 변경 (옵션 객체 파라미터 사용 권장되지만 기존 구조 유지하며 확장)
   private addLog(
     type: 'bet' | 'win' | 'lose' | 'draw' | 'blackjack' | 'info', 
     message: string, 
@@ -310,7 +305,6 @@ export class BlackjackGame {
       }
     }
 
-    // [수정] 칩 인식 반경 1.3배 확대
     const chipRadius = (this.isMobile ? 30 : 35) * this.scaleFactor * 1.3; 
     for (const chip of this.chipButtons) {
       const dist = Math.sqrt(Math.pow(x - chip.x, 2) + Math.pow(y - chip.y, 2))
@@ -328,6 +322,8 @@ export class BlackjackGame {
   }
 
   private handleClick(x: number, y: number) {
+    if (this.isProcessing) return; // 중복 입력 방지
+
     if (x > this.gameAreaWidth) return
 
     const allButtons = [...this.buttons];
@@ -342,7 +338,6 @@ export class BlackjackGame {
       }
     }
 
-    // [수정] 칩 클릭 반경 1.3배 확대
     const chipRadius = (this.isMobile ? 30 : 35) * this.scaleFactor * 1.3;
     for (const chip of this.chipButtons) {
       const dist = Math.sqrt(Math.pow(x - chip.x, 2) + Math.pow(y - chip.y, 2))
@@ -459,7 +454,7 @@ export class BlackjackGame {
       if (response.ok) {
         const data = await response.json()
         this.playerPoints = data.points || 0
-        this.addLog('info', `게임 접속 - 포인트: ${this.playerPoints.toLocaleString()} P`, 0, this.playerPoints)
+        this.addLog('info', `접속 성공 - 포인트: ${this.playerPoints.toLocaleString()} P`, 0, this.playerPoints)
       } else {
         this.playerPoints = 10000
       }
@@ -487,9 +482,10 @@ export class BlackjackGame {
 
   private handleShuffle() {
     this.deck = this.createDeckExcludingDiscarded()
-    // 셔플 로그는 삭제하거나 간단히
-    // this.addLog('info', '덱이 셔플되었습니다.') 
-    setTimeout(() => this.changeState(GameState.BETTING), 1000)
+    setTimeout(() => {
+        if (this.roundNumber === 0) this.roundNumber = 1;
+        this.changeState(GameState.BETTING);
+    }, 1000)
   }
 
   private createDeckExcludingDiscarded(): Card[] {
@@ -512,6 +508,7 @@ export class BlackjackGame {
   private handleBetting() {
     this.createChipButtons()
     this.createDealButton()
+    this.isProcessing = false; // 입력 허용
     
     if (this.initialBet > 0 && this.currentBet === 0) {
         this.addChipToTable(this.initialBet);
@@ -585,7 +582,7 @@ export class BlackjackGame {
 
     this.betChips.push(chip)
     this.currentBet += amount
-    this.playerPoints -= amount // 시각적 즉시 차감
+    this.playerPoints -= amount 
     
     if (this.dealButton) this.dealButton.visible = true
   }
@@ -593,14 +590,18 @@ export class BlackjackGame {
   private removeChipFromTable(index: number, amount: number) {
       this.betChips.splice(index, 1);
       this.currentBet -= amount;
-      this.playerPoints += amount; // 시각적 즉시 반환
+      this.playerPoints += amount; 
       if (this.currentBet === 0 && this.dealButton) this.dealButton.visible = false;
   }
 
   private async confirmBet(): Promise<boolean> {
+    if (this.isProcessing) return false;
+    this.isProcessing = true; 
+
     const token = localStorage.getItem('token')
     if (!token) {
       this.showMessage('로그인이 필요합니다.')
+      this.isProcessing = false;
       return false
     }
     
@@ -621,21 +622,17 @@ export class BlackjackGame {
 
       if (response.ok) {
         const data = await response.json()
-        // [중요] 서버 데이터로 포인트 동기화 (오류 방지)
         this.playerPoints = data.points
-        // 베팅 로그는 게임 시작 시점이 아닌 결과 정산 시점에 통합하여 보여주거나,
-        // 여기서 보여준다면 "베팅 성공" 정도만 표시. 요청대로 결과 로그에 합치기 위해 여기선 로그 생략 가능.
-        // 하지만 유저 피드백을 위해 간단히.
-        // this.addLog('bet', `베팅 완료: ${this.currentBet}`, -this.currentBet, data.points)
+        this.isProcessing = false;
         return true
       } else {
         const errorData = await response.json()
         this.showMessage(errorData.error || '베팅에 실패했습니다.')
-        // 실패 시 롤백
         this.playerPoints += this.currentBet
         this.currentBet = 0
         this.betChips = []
         if (this.dealButton) this.dealButton.visible = false
+        this.isProcessing = false;
         return false
       }
     } catch (error) {
@@ -645,14 +642,15 @@ export class BlackjackGame {
       this.currentBet = 0
       this.betChips = []
       if (this.dealButton) this.dealButton.visible = false
+      this.isProcessing = false;
       return false
     }
   }
 
   private async handleDealStart() {
+    this.isProcessing = true; 
     this.chipButtons = []
     if (this.dealButton) this.dealButton.visible = false
-    // 딜링 시작 로그 생략 (깔끔하게)
 
     this.playerHand = { cards: [], score: 0, isBlackjack: false, isBust: false }
     this.dealerHand = { cards: [], score: 0, isBlackjack: false, isBust: false }
@@ -662,6 +660,7 @@ export class BlackjackGame {
     await this.dealCard('player', true, 1)
     await this.dealCard('dealer', false, 1)
 
+    this.isProcessing = false; 
     const dealerUp = this.dealerHand.cards[0]
     if (dealerUp.value === 'A') {
         this.changeState(GameState.INSURANCE)
@@ -705,7 +704,7 @@ export class BlackjackGame {
 
   private handleInsurance() {
     this.createInsuranceButtons()
-    this.addLog('info', 'Insurance?', undefined, undefined, undefined)
+    this.showMessage('Insurance?')
   }
 
   private createInsuranceButtons() {
@@ -721,6 +720,8 @@ export class BlackjackGame {
   }
 
   private buyInsurance() {
+    if (this.isProcessing) return;
+    
     const insuranceAmount = Math.floor(this.currentBet * 0.5)
     
     if (this.playerPoints < insuranceAmount) {
@@ -728,14 +729,21 @@ export class BlackjackGame {
       return
     }
 
-    this.insuranceBet = insuranceAmount
+    // [수정] 바로 로그 남기지 않고 정보 저장
+    this.insuranceInfo = {
+        message: `Insurance (-${insuranceAmount.toLocaleString()} P)`,
+        amount: insuranceAmount
+    };
+    
     this.playerPoints -= insuranceAmount
-    // 로그 통합을 위해 여기선 생략 또는 간단히
+    this.showMessage('Insurance Purchased')
+
     this.buttons = []
     this.changeState(GameState.CHECK_BLACKJACK)
   }
   
   private declineInsurance() {
+      if (this.isProcessing) return;
       this.buttons = [];
       this.changeState(GameState.CHECK_BLACKJACK);
   }
@@ -751,6 +759,7 @@ export class BlackjackGame {
 
   private handlePlayerTurn() {
       this.createActionButtons();
+      this.isProcessing = false; 
   }
 
   private createActionButtons() {
@@ -774,6 +783,8 @@ export class BlackjackGame {
         height: btnH,
         text,
         onClick: () => {
+            if (this.isProcessing) return; 
+
             if (text === 'HIT') this.playerHit();
             if (text === 'STAND') this.playerStand();
             if (text === 'DOUBLE') this.playerDouble();
@@ -784,22 +795,29 @@ export class BlackjackGame {
   }
 
   private async playerHit() {
+      this.isProcessing = true; 
       await this.dealCard('player', true, this.playerHand.cards.length);
       this.updateScores();
+      
       if (this.playerHand.score > 21) {
           this.buttons = [];
           this.changeState(GameState.SETTLEMENT);
+      } else {
+          this.isProcessing = false; 
       }
   }
 
   private async playerStand() {
+      this.isProcessing = true;
       this.buttons = [];
       this.changeState(GameState.DEALER_TURN);
   }
   
   private async playerDouble() {
+    this.isProcessing = true;
     if (this.playerPoints < this.currentBet) {
       this.showMessage('포인트가 부족합니다.')
+      this.isProcessing = false;
       return
     }
 
@@ -824,11 +842,13 @@ export class BlackjackGame {
           this.currentBet *= 2
         } else {
           this.showMessage('Double Down 실패')
+          this.isProcessing = false;
           return
         }
       } catch (error) {
         console.error('Double down error:', error)
         this.showMessage('오류 발생')
+        this.isProcessing = false;
         return
       }
     } else {
@@ -846,6 +866,7 @@ export class BlackjackGame {
   }
 
   private async handleDealerTurn() {
+      this.isProcessing = true;
       this.revealDealerCard();
       await this.delay(500);
       this.updateScores();
@@ -863,6 +884,7 @@ export class BlackjackGame {
   }
 
   private handleSettlement() {
+      this.isProcessing = true; 
       this.updateScores();
       const pScore = this.playerHand.score;
       const dScore = this.dealerHand.score;
@@ -883,6 +905,7 @@ export class BlackjackGame {
     const token = localStorage.getItem('token')
     if (!token) {
       this.showMessage('로그인이 필요합니다.')
+      this.isProcessing = false;
       return
     }
 
@@ -929,23 +952,26 @@ export class BlackjackGame {
           visible: true
         }
         
-        // [수정] 통합 로그 기록 (라운드, 베팅, 결과, 잔액)
         let logMsg = '';
         let pointsChange = 0;
         
         if (result === 'win' || result === 'blackjack') {
             pointsChange = winnings - this.currentBet;
             logMsg = 'WIN';
-            this.addLog('win', logMsg, pointsChange, data.points, this.currentBet);
         } else if (result === 'draw') {
             pointsChange = 0;
             logMsg = 'DRAW (Push)';
-            this.addLog('draw', logMsg, pointsChange, data.points, this.currentBet);
         } else {
             pointsChange = -this.currentBet;
             logMsg = 'LOSE';
-            this.addLog('lose', logMsg, pointsChange, data.points, this.currentBet);
         }
+        
+        // [수정] 인슈어런스 정보가 있다면 로그 메시지에 통합
+        if (this.insuranceInfo) {
+            logMsg += `\n${this.insuranceInfo.message}`;
+        }
+        
+        this.addLog(result === 'blackjack' ? 'win' : (result as any), logMsg, pointsChange, data.points, this.currentBet);
 
       } else {
         const errorData = await response.json()
@@ -972,10 +998,13 @@ export class BlackjackGame {
     this.dealerHand = { cards: [], score: 0, isBlackjack: false, isBust: false }
     this.betChips = []
     this.currentBet = 0
+    // 인슈어런스 초기화
     this.insuranceBet = 0
+    this.insuranceInfo = null;
     
-    this.roundNumber++; // 라운드 증가
+    this.roundNumber++; 
     this.changeState(GameState.SHUFFLE)
+    this.isProcessing = false; 
   }
 
   private async discardCards(): Promise<void> {
@@ -1373,10 +1402,14 @@ export class BlackjackGame {
       const logEndY = this.canvasHeight - 20;
       let y = logStartY - this.logScrollOffset;
       
-      // [수정] 로그 렌더링 스타일 변경
+      // [수정] 로그 렌더링 로직 (멀티라인 지원)
       this.logs.forEach(log => {
-          if (y + 30 < logStartY || y > logEndY) {
-              y += 35; // 높이 조금 더 확보
+          // 멀티라인 메시지 분리
+          const lines = log.message.split('\n');
+          const totalHeight = 35 + (lines.length - 1) * 20 + (log.pointsChange ? 20 : 0);
+          
+          if (y + totalHeight < logStartY || y > logEndY) {
+              y += totalHeight + 5; 
               return;
           }
           
@@ -1386,30 +1419,37 @@ export class BlackjackGame {
           this.ctx.fillStyle = '#64748b';
           this.ctx.fillText(timeText, sx + 20, y);
           
-          // 라운드/베팅/결과 표시
-          if (log.round) {
+          if (log.round > 0) {
               const roundText = `${log.round}R`;
               this.ctx.fillStyle = '#94a3b8';
               this.ctx.fillText(roundText, sx + 90, y);
               
               if (log.betAmount) {
                   const betText = `${log.betAmount.toLocaleString()} bet`;
-                  this.ctx.fillStyle = '#fbbf24'; // Gold
+                  this.ctx.fillStyle = '#fbbf24'; 
                   this.ctx.fillText(betText, sx + 130, y);
               }
               
-              // 결과
               let resultColor = '#fff';
               if (log.type === 'win' || log.type === 'blackjack') resultColor = '#4ade80';
               else if (log.type === 'lose') resultColor = '#f87171';
               else if (log.type === 'draw') resultColor = '#fbbf24';
+              else if (log.type === 'info') resultColor = '#94a3b8'; 
               
               this.ctx.fillStyle = resultColor;
               this.ctx.font = 'bold 13px monospace';
-              this.ctx.fillText(log.message, sx + 200, y);
               
-              // 잔액 및 변화량 (다음 줄에 표시하거나 옆에)
-              // 공간 부족 시 다음 줄
+              // 첫 줄 (WIN/LOSE 등)
+              this.ctx.fillText(lines[0], sx + 200, y);
+              
+              // 두 번째 줄 이상 (Insurance 등)
+              for (let i = 1; i < lines.length; i++) {
+                  y += 20;
+                  this.ctx.fillStyle = '#94a3b8';
+                  this.ctx.font = '13px monospace';
+                  this.ctx.fillText(lines[i], sx + 90, y); // 들여쓰기
+              }
+              
               if (log.pointsChange !== undefined && log.balance !== undefined) {
                   y += 20;
                   const changeSign = log.pointsChange >= 0 ? '+' : '';
@@ -1423,13 +1463,14 @@ export class BlackjackGame {
                   this.ctx.fillText(`(Bal: ${log.balance.toLocaleString()})`, sx + 100, y);
               }
           } else {
-              // 일반 Info 로그
+              // 라운드가 0이면 "입장"으로 처리
               this.ctx.fillStyle = '#94a3b8';
+              this.ctx.fillText("입장", sx + 90, y);
               this.ctx.font = '13px sans-serif';
-              this.ctx.fillText(log.message, sx + 90, y);
+              this.ctx.fillText(log.message.replace('접속 성공 - ', ''), sx + 130, y);
           }
           
-          y += 35; // 간격 벌림
+          y += 35; 
       });
   }
 

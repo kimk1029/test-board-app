@@ -8,7 +8,7 @@ interface Button {
   text: string;
   onClick: () => void;
   visible: boolean;
-  disabled?: boolean; // [신규] 비활성화 속성
+  disabled?: boolean;
 }
 
 interface GameLog {
@@ -45,6 +45,10 @@ export class BustabitGame {
   private canvasHeight: number = 800;
   private sidebarWidth: number = 300; 
   private gameAreaWidth: number = 900; 
+  
+  // [신규] 반응형 스케일 팩터
+  private scaleFactor: number = 1;
+  private isMobile: boolean = false;
 
   private logs: GameLog[] = [];
   private logScrollOffset: number = 0;
@@ -53,14 +57,12 @@ export class BustabitGame {
   private cashOutButton: Button | null = null;
   private betAmountButtons: Button[] = [];
   
-  // [신규] 속도 조절 버튼
   private speedButtons: Button[] = [];
 
-  // [수정] 게임 속도 변수화 (기본 0.085)
   private gameSpeed: number = 0.085; 
   
   private onMessage?: (message: string) => void;
-  private onLoadingProgress?: (progress: number) => void; // [신규] 로딩 콜백
+  private onLoadingProgress?: (progress: number) => void; 
 
   private isProcessing: boolean = false;
 
@@ -68,25 +70,12 @@ export class BustabitGame {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.betAmount = betAmount;
-    this.canvasWidth = width;
-    this.canvasHeight = height;
     
     this.instanceId = Math.random();
     (this.canvas as any).__activeBustabitInstance = this.instanceId;
 
-    if (width < 768) {
-      this.sidebarWidth = 0;
-      this.gameAreaWidth = width;
-    } else if (width < 1024) {
-      this.sidebarWidth = width * 0.2;
-      this.gameAreaWidth = width - this.sidebarWidth;
-    } else {
-      this.sidebarWidth = width * 0.25;
-      this.gameAreaWidth = width - this.sidebarWidth;
-    }
-
-    this.canvas.width = width;
-    this.canvas.height = height;
+    // 초기 리사이즈
+    this.resize(width, height);
 
     this.createButtons(); 
     this.setupEventListeners();
@@ -95,13 +84,121 @@ export class BustabitGame {
     this.initializeGame();
   }
 
-  // [신규] 초기화 및 로딩 시뮬레이션
+  // [신규] 리사이즈 메서드 추가
+  public resize(width: number, height: number) {
+      this.canvasWidth = width;
+      this.canvasHeight = height;
+      this.canvas.width = width;
+      this.canvas.height = height;
+
+      this.isMobile = width < 768;
+
+      if (this.isMobile) {
+          this.sidebarWidth = 0;
+          this.gameAreaWidth = width;
+          // 모바일에서는 스케일 조정
+          this.scaleFactor = Math.min(width / 400, 1.2);
+      } else if (width < 1024) {
+          this.sidebarWidth = width * 0.25; // 25%
+          this.gameAreaWidth = width - this.sidebarWidth;
+          this.scaleFactor = Math.min(width / 1000, 1.0);
+      } else {
+          this.sidebarWidth = 300;
+          this.gameAreaWidth = width - this.sidebarWidth;
+          this.scaleFactor = 1.0;
+      }
+
+      // UI 요소 위치 재계산
+      this.createButtons();
+      
+      if (!this.isRunning) {
+          this.render();
+      }
+  }
+
+  // ... (나머지 메서드는 동일하되, 위치 계산 시 scaleFactor나 gameAreaWidth를 사용하므로 createButtons 내부 로직 확인 필요)
+
+  private createButtons() {
+    // scaleFactor 고려하여 버튼 크기 및 위치 조정
+    const centerX = this.gameAreaWidth * 0.5;
+    const bottomY = this.canvasHeight * 0.85;
+
+    const betAmounts = [10, 50, 100, 200, 500];
+    const buttonWidth = this.gameAreaWidth * 0.15; 
+    const buttonHeight = (this.isMobile ? 40 : this.canvasHeight * 0.06);
+    const buttonSpacing = this.gameAreaWidth * 0.02;
+    
+    const amountBtnWidth = buttonWidth * 0.8;
+    // 모바일이면 2줄로 배치하거나 크기 조정 필요. 여기선 간단히 스케일링
+    const totalAmountWidth = betAmounts.length * amountBtnWidth + (betAmounts.length - 1) * buttonSpacing;
+    const startX = centerX - totalAmountWidth / 2;
+
+    this.betAmountButtons = betAmounts.map((amount, index) => ({
+      x: startX + index * (amountBtnWidth + buttonSpacing),
+      y: bottomY - (this.isMobile ? 60 : this.canvasHeight * 0.12),
+      width: amountBtnWidth,
+      height: buttonHeight,
+      text: `${amount}P`,
+      onClick: () => {
+        this.selectedBetAmount = amount;
+        this.betAmount = amount;
+      },
+      visible: true, 
+    }));
+
+    // 속도 버튼
+    const speeds = [
+        { label: 'x1', value: 0.085 },
+        { label: 'x2', value: 0.17 },
+        { label: 'x3', value: 0.255 }
+    ];
+    const speedBtnW = (this.isMobile ? 40 : 60);
+    const speedBtnH = (this.isMobile ? 30 : 40);
+    const speedStartX = 20;
+    const speedBottomY = bottomY;
+
+    this.speedButtons = speeds.map((speed, i) => ({
+        x: speedStartX + i * (speedBtnW + 10),
+        y: speedBottomY,
+        width: speedBtnW,
+        height: speedBtnH,
+        text: speed.label,
+        onClick: () => {
+            this.gameSpeed = speed.value;
+        },
+        visible: true
+    }));
+
+    const actionBtnW = (this.isMobile ? 120 : this.gameAreaWidth * 0.3);
+    const actionBtnH = (this.isMobile ? 50 : this.canvasHeight * 0.08);
+
+    this.betButton = {
+      x: centerX - actionBtnW / 2,
+      y: bottomY - (this.isMobile ? 10 : this.canvasHeight * 0.02),
+      width: actionBtnW,
+      height: actionBtnH,
+      text: 'GAME START',
+      onClick: () => this.startBet(),
+      visible: false,
+    };
+
+    this.cashOutButton = {
+      x: centerX - actionBtnW / 2, 
+      y: bottomY - (this.isMobile ? 10 : this.canvasHeight * 0.02),
+      width: actionBtnW,
+      height: actionBtnH,
+      text: 'CASH OUT',
+      onClick: () => this.cashOut(),
+      visible: false,
+    };
+  }
+
+  // ... (나머지 로직 그대로 유지)
   private async initializeGame() {
       this.updateLoading(10);
       await this.loadUserPoints();
       this.updateLoading(50);
       
-      // UI 준비 시뮬레이션 (짧은 대기)
       setTimeout(() => {
           this.updateLoading(80);
           this.resetGame(true);
@@ -160,12 +257,10 @@ export class BustabitGame {
         const data = await response.json();
         this.playerPoints = data.points || 0;
       } else {
-        // [수정] 실패 시 0으로 초기화하지 않음 (기존 값 유지하거나 에러 처리)
         console.warn('Failed to fetch points, keeping previous value');
       }
     } catch (error) {
       console.error('Failed to load user points:', error);
-      // [수정] 실패 시 0으로 초기화하지 않음
     }
     this.render();
   }
@@ -200,7 +295,7 @@ export class BustabitGame {
   }
 
   private getCursorAt(x: number, y: number): string {
-    const allButtons = [...this.betAmountButtons, ...this.speedButtons]; // 속도 버튼 추가
+    const allButtons = [...this.betAmountButtons, ...this.speedButtons]; 
     if (this.betButton) allButtons.push(this.betButton);
     if (this.cashOutButton) allButtons.push(this.cashOutButton);
 
@@ -217,7 +312,6 @@ export class BustabitGame {
   private handleClick(x: number, y: number) {
     let stateChanged = false;
 
-    // 통합 버튼 처리
     const allButtons = [...this.betAmountButtons, ...this.speedButtons];
     if (this.betButton) allButtons.push(this.betButton);
     if (this.cashOutButton) allButtons.push(this.cashOutButton);
@@ -244,7 +338,6 @@ export class BustabitGame {
       btn.disabled = this.isProcessing;
     });
 
-    // 속도 버튼은 게임 중에도 조절 가능하게 할지? -> 보통 가능
     this.speedButtons.forEach(btn => {
         btn.visible = true;
     });
@@ -260,76 +353,6 @@ export class BustabitGame {
     }
   }
 
-  private createButtons() {
-    const centerX = this.gameAreaWidth * 0.5;
-    const bottomY = this.canvasHeight * 0.85;
-
-    const betAmounts = [10, 50, 100, 200, 500];
-    const buttonWidth = this.gameAreaWidth * 0.15; 
-    const buttonHeight = this.canvasHeight * 0.06;
-    const buttonSpacing = this.gameAreaWidth * 0.02;
-    
-    const amountBtnWidth = buttonWidth * 0.8;
-    const totalAmountWidth = betAmounts.length * amountBtnWidth + (betAmounts.length - 1) * buttonSpacing;
-    const startX = centerX - totalAmountWidth / 2;
-
-    this.betAmountButtons = betAmounts.map((amount, index) => ({
-      x: startX + index * (amountBtnWidth + buttonSpacing),
-      y: bottomY - this.canvasHeight * 0.12,
-      width: amountBtnWidth,
-      height: buttonHeight,
-      text: `${amount}P`,
-      onClick: () => {
-        this.selectedBetAmount = amount;
-        this.betAmount = amount;
-      },
-      visible: true, 
-    }));
-
-    // [신규] 속도 조절 버튼 생성 (좌측 하단)
-    const speeds = [
-        { label: 'x1', value: 0.085 },
-        { label: 'x2', value: 0.17 },
-        { label: 'x3', value: 0.255 }
-    ];
-    const speedBtnW = 60;
-    const speedBtnH = 40;
-    const speedStartX = 20;
-    const speedBottomY = bottomY;
-
-    this.speedButtons = speeds.map((speed, i) => ({
-        x: speedStartX + i * (speedBtnW + 10),
-        y: speedBottomY,
-        width: speedBtnW,
-        height: speedBtnH,
-        text: speed.label,
-        onClick: () => {
-            this.gameSpeed = speed.value;
-        },
-        visible: true
-    }));
-
-    this.betButton = {
-      x: centerX - (this.gameAreaWidth * 0.3) / 2,
-      y: bottomY - this.canvasHeight * 0.02,
-      width: this.gameAreaWidth * 0.3,
-      height: this.canvasHeight * 0.08,
-      text: 'GAME START',
-      onClick: () => this.startBet(),
-      visible: false,
-    };
-
-    this.cashOutButton = {
-      x: centerX - (this.gameAreaWidth * 0.3) / 2, 
-      y: bottomY - this.canvasHeight * 0.02,
-      width: this.gameAreaWidth * 0.3,
-      height: this.canvasHeight * 0.08,
-      text: 'CASH OUT',
-      onClick: () => this.cashOut(),
-      visible: false,
-    };
-  }
-
   private async startBet() {
     if (this.isRunning || this.isProcessing) return; 
 
@@ -343,11 +366,10 @@ export class BustabitGame {
     }
 
     this.isProcessing = true;
-    this.updateButtonStates(); // UI 즉시 반영 (버튼 비활성화)
+    this.updateButtonStates(); 
     
     this.betAmount = this.selectedBetAmount;
 
-    // 낙관적 업데이트
     const prevPoints = this.playerPoints;
     this.playerPoints -= this.betAmount; 
     
@@ -386,7 +408,6 @@ export class BustabitGame {
       this.playerPoints = prevPoints; 
     }
     
-    // 성공 시 startGame에서 isProcessing 풀림, 실패 시 여기서 풀림
     if (!this.isRunning) {
         this.isProcessing = false;
         this.updateButtonStates();
@@ -404,7 +425,7 @@ export class BustabitGame {
     this.stopAnimation();
 
     this.isRunning = true;
-    this.isProcessing = false; // 베팅 처리 완료, 게임 시작
+    this.isProcessing = false; 
     this.isGameEnded = false; 
     this.crashed = false;
     this.hasCashedOut = false;
@@ -434,7 +455,6 @@ export class BustabitGame {
     const totalWinnings = Math.floor(this.betAmount * this.cashOutMultiplier);
     const profit = totalWinnings - this.betAmount;
 
-    // 낙관적 업데이트
     this.playerPoints += totalWinnings;
 
     this.updateButtonStates();
@@ -483,7 +503,6 @@ export class BustabitGame {
 
     const currentTime = Date.now();
     const elapsedSeconds = (currentTime - this.startTime) / 1000;
-    // [수정] gameSpeed 변수 사용
     const nextMultiplier = Math.pow(Math.E, this.gameSpeed * elapsedSeconds);
 
     if (nextMultiplier >= this.crashPoint) {
@@ -612,7 +631,6 @@ export class BustabitGame {
     const renderMultiplier = this.crashed ? this.crashPoint : this.multiplier;
 
     const currentMaxY = Math.max(2.0, renderMultiplier * 1.1);
-    // [수정] gameSpeed 변수 사용
     const currentRequiredTime = Math.log(currentMaxY) / this.gameSpeed;
     const timeMaxX = Math.max(6.0, currentRequiredTime); 
 
@@ -785,17 +803,14 @@ export class BustabitGame {
   }
 
   private renderButtons() {
-    // 속도 버튼도 렌더링
     const buttonsToRender = [...this.betAmountButtons, ...this.speedButtons];
     
     buttonsToRender.forEach(button => {
       if (button.visible) {
-        // [수정] 속도 버튼 선택 상태 표시 로직 추가
         let isSelected = false;
         if (this.betAmountButtons.includes(button)) {
             isSelected = this.selectedBetAmount === parseInt(button.text.replace('P', ''));
         } else if (this.speedButtons.includes(button)) {
-            // 라벨(x1, x2) 매핑으로 확인
             if (button.text === 'x1' && this.gameSpeed === 0.085) isSelected = true;
             if (button.text === 'x2' && this.gameSpeed === 0.17) isSelected = true;
             if (button.text === 'x3' && this.gameSpeed === 0.255) isSelected = true;

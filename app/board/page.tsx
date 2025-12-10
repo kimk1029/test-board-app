@@ -5,10 +5,11 @@ import HeaderNavigator from '@/components/HeaderNavigator'
 
 export default function BoardPage() {
   return (
-    <div>
+    <div className="min-h-screen bg-transparent">
       <HeaderNavigator />
-      <Board />
+      <div className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
+        <Board />
+      </div>
     </div>
   )
 }
-

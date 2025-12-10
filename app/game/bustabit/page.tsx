@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { BustabitGame } from './BustabitGame'
+import GameContainer from '@/components/GameContainer' // [신규]
 
 function BustabitGameComponent() {
   const searchParams = useSearchParams()
@@ -13,26 +14,51 @@ function BustabitGameComponent() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [loadingProgress, setLoadingProgress] = useState(0) // [신규] 로딩 진행률
+  const [loadingProgress, setLoadingProgress] = useState(0)
 
-  // 게임 초기화
+  // [수정] 캔버스 크기 계산 로직 수정 (GameContainer 여백 고려)
+  const getCanvasSize = () => {
+    // GameContainer의 내부 여백과 테두리 등을 고려하여 캔버스 크기를 결정
+    // GameContainer padding: pt-20(80px), px-12(48px), pb-8(32px) 대략 이정도
+    // 하지만 GameContainer 내부의 div가 flex-1 w-full h-full이므로
+    // window 사이즈에서 컨테이너 패딩을 뺀 크기를 구해야 함.
+    
+    // 네비게이션 높이(약 64px) + 상단 여백(30px) = 약 94px -> pt-24 (96px)
+    // 좌우 여백 50px * 2 = 100px
+    // 하단 여백 30px
+    
+    // 안전하게 계산하기 위해 containerRef의 크기를 가져오는 것이 좋으나,
+    // 초기 렌더링 시에는 ref가 없을 수 있으므로 window 기준으로 계산
+    
+    const navHeight = 64;
+    const topMargin = 30;
+    const sideMargin = 50 * 2;
+    const bottomMargin = 30;
+    
+    // GameContainer의 pt-20 (80px) 등을 고려
+    const totalHeaderHeight = 80; // GameContainer pt-20
+    const totalSidePadding = 100; // GameContainer px-[50px]
+    const totalBottomPadding = 30; // GameContainer pb-[30px]
+    
+    const width = Math.max(320, window.innerWidth - totalSidePadding);
+    const height = Math.max(480, window.innerHeight - totalHeaderHeight - totalBottomPadding);
+    
+    return { width, height };
+  }
+
   useEffect(() => {
     if (!canvasRef.current) return
 
-    // 초기 크기 설정
-    const initialWidth = window.innerWidth
-    const initialHeight = window.innerHeight - 80
+    const { width, height } = getCanvasSize()
 
     const canvas = canvasRef.current
-    const game = new BustabitGame(canvas, betAmount, initialWidth, initialHeight)
+    const game = new BustabitGame(canvas, betAmount, width, height)
 
     game.setMessageCallback((msg: string) => {
       setMessage(msg)
-      // 메시지 자동 숨김
       setTimeout(() => setMessage(''), 3000)
     })
 
-    // [신규] 로딩 콜백 연결
     game.setLoadingProgressCallback((progress: number) => {
       setLoadingProgress(progress)
       if (progress >= 100) {
@@ -43,7 +69,6 @@ function BustabitGameComponent() {
     gameRef.current = game
     game.start()
     
-    // 초기 리사이즈
     handleResize();
 
     return () => {
@@ -54,57 +79,46 @@ function BustabitGameComponent() {
     }
   }, [betAmount])
 
-  // 리사이즈 핸들러 (블랙잭과 동일 패턴)
   const handleResize = () => {
-      if (!gameRef.current || !containerRef.current) return;
-
-      // BustabitGame에는 resize 메서드가 아직 없으므로, 생성자에서 크기를 받지만
-      // 현재 구조상 동적 리사이징이 완벽하지 않을 수 있음.
-      // 그러나 반응형 처리를 위해 게임 인스턴스를 재생성하는 것보단
-      // 리로드 유도하거나, 게임 내부적으로 resize 메서드를 구현하는 것이 좋음.
-      // 여기서는 일단 기존처럼 게임을 다시 만들지 않고, 
-      // 만약 resize가 필요하다면 BustabitGame에 resize 메서드를 추가해야 함.
-      // (BustabitGame.ts에는 resize 메서드가 아직 구현 안 됨. TODO: 추가 필요)
-      
-      // 현재 BustabitGame은 resize 메서드가 없으므로, 
-      // 반응형이 필요하다면 window.location.reload()를 하거나 
-      // canvas 스타일만 조정하고 내부 렌더링은 scale로 처리해야 함.
-      
-      // 이번 수정 범위에서는 일단 스타일로만 처리.
+      if (!gameRef.current) return;
+      const { width, height } = getCanvasSize();
+      gameRef.current.resize(width, height);
   };
 
   useEffect(() => {
-    // window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', () => setTimeout(handleResize, 100));
     return () => {
-      // window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
     }
   }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
+    <div className="h-screen bg-gray-900 overflow-hidden">
       <HeaderNavigator />
-      <div 
-        ref={containerRef}
-        className="relative flex-1 flex items-center justify-center w-full overflow-hidden p-2"
-      >
+      <GameContainer className="relative">
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 z-20">
-            <div className="w-64 sm:w-96 bg-gray-800 rounded-lg p-6 sm:p-8 border border-gray-700">
-              <h2 className="text-white text-xl sm:text-2xl mb-4 text-center font-bold">Game Loading...</h2>
-              <div className="w-full bg-gray-700 rounded-full h-4 mb-2 overflow-hidden">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 backdrop-blur-sm">
+            <div className="w-64 sm:w-96 bg-gray-800 rounded-xl p-8 border border-white/10 shadow-2xl">
+              <h2 className="text-white text-2xl mb-4 text-center font-bold tracking-wider">GAME LOADING</h2>
+              <div className="w-full bg-gray-700/50 rounded-full h-3 mb-3 overflow-hidden">
                 <div
-                  className="bg-green-500 h-4 rounded-full transition-all duration-300 ease-out"
+                  className="bg-gradient-to-r from-orange-500 to-red-600 h-3 rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(249,115,22,0.5)]"
                   style={{ width: `${loadingProgress}%` }}
                 />
               </div>
-              <p className="text-gray-300 text-center text-sm">{loadingProgress}%</p>
+              <div className="flex justify-between text-xs text-gray-400 font-mono">
+                <span>INITIALIZING...</span>
+                <span>{loadingProgress}%</span>
+              </div>
             </div>
           </div>
         )}
         
         <canvas
           ref={canvasRef}
-          className="border-2 border-yellow-500 rounded-lg shadow-2xl max-w-full max-h-full"
+          className="w-full h-full object-contain" // object-contain으로 비율 유지하며 맞춤
           style={{ 
             display: 'block',
             touchAction: 'none'
@@ -112,11 +126,11 @@ function BustabitGameComponent() {
         />
         
         {message && (
-          <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-80 text-white px-6 py-3 rounded-full text-lg font-bold z-10 animate-fade-in-down border border-gray-600 shadow-lg whitespace-nowrap">
+          <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur text-white px-8 py-4 rounded-full text-xl font-bold z-10 animate-in fade-in slide-in-from-top-4 border border-white/10 shadow-2xl whitespace-nowrap">
             {message}
           </div>
         )}
-      </div>
+      </GameContainer>
     </div>
   )
 }

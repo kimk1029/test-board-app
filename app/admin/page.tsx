@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AlertCircle, Trash2, CheckCircle2, User, Gift, Coins, FileText, Settings } from 'lucide-react'
 
 interface Prize {
   rank: string
@@ -356,10 +357,10 @@ export default function AdminPage() {
 
   if (!isAuthorized) {
     return (
-      <div>
+      <div className="min-h-screen bg-transparent">
         <HeaderNavigator />
-        <div className="container mx-auto px-4 py-20">
-          <div className="text-center">권한 확인 중...</div>
+        <div className="container mx-auto px-4 py-20 flex items-center justify-center">
+          <div className="text-xl text-slate-400 animate-pulse">Checking authorization...</div>
         </div>
       </div>
     )
@@ -368,282 +369,298 @@ export default function AdminPage() {
   const totalQty = prizes.reduce((sum, p) => sum + p.totalQty, 0)
 
   return (
-    <div>
+    <div className="min-h-screen bg-transparent text-slate-100">
       <HeaderNavigator />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20 pt-20 sm:pt-24">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">관리자 페이지</h1>
-            <p className="text-muted-foreground">시스템 관리 및 설정</p>
-          </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-32 pb-20">
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white mb-2">ADMIN CONSOLE</h1>
+                <p className="text-slate-400">시스템 설정 및 리소스 관리</p>
+            </div>
+            <div className="bg-violet-900/20 border border-violet-500/30 px-4 py-2 rounded-lg flex items-center gap-2">
+                <User className="w-4 h-4 text-violet-400" />
+                <span className="text-sm font-bold text-violet-200">Administrator Access</span>
+            </div>
+        </div>
 
-          <Tabs defaultValue="kuji" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="kuji">이치방쿠지</TabsTrigger>
-              <TabsTrigger value="points">포인트</TabsTrigger>
-              <TabsTrigger value="board">게시판</TabsTrigger>
-              <TabsTrigger value="other">그외</TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue="kuji" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 bg-black/40 border border-white/5 p-1 rounded-xl mb-8">
+            <TabsTrigger value="kuji" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white rounded-lg text-slate-400">
+                <Gift className="w-4 h-4 mr-2" /> 이치방쿠지
+            </TabsTrigger>
+            <TabsTrigger value="points" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white rounded-lg text-slate-400">
+                <Coins className="w-4 h-4 mr-2" /> 포인트
+            </TabsTrigger>
+            <TabsTrigger value="board" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white rounded-lg text-slate-400">
+                <FileText className="w-4 h-4 mr-2" /> 게시판
+            </TabsTrigger>
+            <TabsTrigger value="other" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white rounded-lg text-slate-400">
+                <Settings className="w-4 h-4 mr-2" /> 설정
+            </TabsTrigger>
+          </TabsList>
 
-            {/* 이치방쿠지 탭 */}
-            <TabsContent value="kuji" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* 박스 리셋 카드 */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>이치방쿠지 박스 관리</CardTitle>
-                    <CardDescription>
-                      현재 활성 박스의 모든 티켓을 초기화합니다
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      onClick={handleResetBox}
-                      disabled={loading}
-                      variant="destructive"
-                      className="w-full"
-                    >
-                      {loading ? '처리 중...' : '박스 리셋'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* 이치방쿠지 상품 관리 카드 */}
-              <Card>
+          {/* 이치방쿠지 탭 */}
+          <TabsContent value="kuji" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-[#131316]/80 backdrop-blur border-white/5">
                 <CardHeader>
-                  <CardTitle>이치방쿠지 상품 설정</CardTitle>
-                  <CardDescription>
-                    상품 정보를 수정할 수 있습니다. 다음 박스부터 적용됩니다.
-                    <br />
-                    총 수량: {totalQty} / 80
-                    {totalQty !== 80 && (
-                      <span className="text-red-500 ml-2">⚠️ 총 수량은 80개여야 합니다!</span>
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                    {prizes.map((prize, index) => (
-                      <div
-                        key={index}
-                        className="p-4 border rounded-lg space-y-3"
-                        style={{ borderColor: prize.color }}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                              style={{ backgroundColor: prize.color }}
-                            >
-                              {prize.rank}
-                            </span>
-                            <Label className="w-20">등급</Label>
-                            <Input
-                              value={prize.rank}
-                              onChange={(e) => handlePrizeChange(index, 'rank', e.target.value)}
-                              className="w-20"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <Label>상품명</Label>
-                            <Input
-                              value={prize.name}
-                              onChange={(e) => handlePrizeChange(index, 'name', e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div>
-                            <Label>이모지/이미지</Label>
-                            <Input
-                              value={prize.image}
-                              onChange={(e) => handlePrizeChange(index, 'image', e.target.value)}
-                              placeholder="🧸"
-                            />
-                          </div>
-                          <div>
-                            <Label>색상 (HEX)</Label>
-                            <Input
-                              value={prize.color}
-                              onChange={(e) => handlePrizeChange(index, 'color', e.target.value)}
-                              placeholder="#ff4757"
-                            />
-                          </div>
-                          <div>
-                            <Label>수량</Label>
-                            <Input
-                              type="number"
-                              value={prize.totalQty}
-                              onChange={(e) => handlePrizeChange(index, 'totalQty', parseInt(e.target.value) || 0)}
-                              min="1"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    onClick={handleSavePrizes}
-                    disabled={saving || totalQty !== 80}
-                    className="w-full"
-                  >
-                    {saving ? '저장 중...' : '상품 설정 저장'}
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* 포인트 탭 */}
-            <TabsContent value="points" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>포인트 충전</CardTitle>
-                  <CardDescription>
-                    현재 보유 포인트: {userPoints.toLocaleString()} P
+                  <CardTitle className="text-white flex items-center gap-2"><AlertCircle className="w-5 h-5 text-red-500" /> 박스 초기화</CardTitle>
+                  <CardDescription className="text-slate-400">
+                    현재 진행 중인 게임 박스를 강제로 리셋합니다.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button
-                    onClick={handleChargePoints}
+                    onClick={handleResetBox}
                     disabled={loading}
-                    className="w-full"
+                    className="w-full bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 hover:border-red-500/50"
                   >
-                    {loading ? '처리 중...' : '+100 포인트 충전'}
+                    {loading ? '처리 중...' : '박스 리셋 실행'}
                   </Button>
                 </CardContent>
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* 게시판 탭 */}
-            <TabsContent value="board" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>게시판 관리</CardTitle>
-                      <CardDescription>
-                        게시글을 조회하고 관리할 수 있습니다.
-                        {selectedPostIds.length > 0 && (
-                          <span className="ml-2 font-semibold text-primary">
-                            ({selectedPostIds.length}개 선택됨)
-                          </span>
-                        )}
-                      </CardDescription>
-                    </div>
-                    {selectedPostIds.length > 0 && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleDeleteSelected}
-                        disabled={loading}
-                      >
-                        선택 삭제 ({selectedPostIds.length})
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {posts.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8">
-                      게시글이 없습니다.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-4 flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedPostIds.length === posts.length && posts.length > 0}
-                          onChange={handleSelectAll}
-                          className="w-4 h-4 rounded border-gray-300"
-                        />
-                        <label className="text-sm text-muted-foreground">
-                          전체 선택 ({selectedPostIds.length}/{posts.length})
-                        </label>
-                      </div>
-                      <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                        {posts.map((post) => (
-                          <div
-                            key={post.id}
-                            className={`p-4 border rounded-lg space-y-2 hover:bg-accent/50 transition-colors ${
-                              selectedPostIds.includes(post.id) ? 'bg-accent border-primary' : ''
-                            }`}
+            <Card className="bg-[#131316]/80 backdrop-blur border-white/5">
+              <CardHeader>
+                <CardTitle className="text-white">상품 구성 설정</CardTitle>
+                <CardDescription className="text-slate-400">
+                  총 수량: <span className={`font-bold ${totalQty === 80 ? 'text-green-400' : 'text-red-400'}`}>{totalQty}</span> / 80
+                  {totalQty !== 80 && (
+                    <span className="text-red-400 ml-2 text-xs font-bold animate-pulse">⚠️ 수량을 80개로 맞춰주세요</span>
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {prizes.map((prize, index) => (
+                    <div
+                      key={index}
+                      className="p-4 border border-white/5 bg-white/5 rounded-xl space-y-3"
+                      style={{ borderLeft: `4px solid ${prize.color}` }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3 bg-black/30 px-3 py-2 rounded-lg">
+                          <span
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-sm shadow-md"
+                            style={{ backgroundColor: prize.color }}
                           >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                            {prize.rank}
+                          </span>
+                          <Input
+                            value={prize.rank}
+                            onChange={(e) => handlePrizeChange(index, 'rank', e.target.value)}
+                            className="w-16 h-8 bg-transparent border-white/10 text-center font-bold"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Input
+                            value={prize.name}
+                            onChange={(e) => handlePrizeChange(index, 'name', e.target.value)}
+                            className="bg-black/20 border-white/10 text-white"
+                            placeholder="상품명"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label className="text-xs text-slate-500 mb-1 block">이모지</Label>
+                          <Input
+                            value={prize.image}
+                            onChange={(e) => handlePrizeChange(index, 'image', e.target.value)}
+                            className="bg-black/20 border-white/10 text-center"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-500 mb-1 block">HEX Color</Label>
+                          <div className="flex gap-2">
+                            <div className="w-6 h-9 rounded bg-white" style={{backgroundColor: prize.color}}></div>
+                            <Input
+                                value={prize.color}
+                                onChange={(e) => handlePrizeChange(index, 'color', e.target.value)}
+                                className="bg-black/20 border-white/10 font-mono text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-500 mb-1 block">수량</Label>
+                          <Input
+                            type="number"
+                            value={prize.totalQty}
+                            onChange={(e) => handlePrizeChange(index, 'totalQty', parseInt(e.target.value) || 0)}
+                            min="1"
+                            className="bg-black/20 border-white/10 text-center font-bold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  onClick={handleSavePrizes}
+                  disabled={saving || totalQty !== 80}
+                  className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold h-12"
+                >
+                  {saving ? '저장 중...' : '설정 저장하기'}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 포인트 탭 */}
+          <TabsContent value="points" className="space-y-6">
+            <Card className="bg-[#131316]/80 backdrop-blur border-white/5">
+              <CardHeader>
+                <CardTitle className="text-white">관리자 포인트 충전</CardTitle>
+                <CardDescription className="text-slate-400">
+                  현재 보유 포인트: <span className="text-violet-400 font-bold">{userPoints.toLocaleString()} P</span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={handleChargePoints}
+                  disabled={loading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12"
+                >
+                  {loading ? '처리 중...' : '+100 포인트 즉시 충전'}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 게시판 탭 */}
+          <TabsContent value="board" className="space-y-6">
+            <Card className="bg-[#131316]/80 backdrop-blur border-white/5">
+              <CardHeader className="border-b border-white/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">게시글 관리</CardTitle>
+                    <CardDescription className="text-slate-400">
+                      {selectedPostIds.length > 0 ? (
+                        <span className="text-violet-400 font-bold">
+                          {selectedPostIds.length}개 항목 선택됨
+                        </span>
+                      ) : (
+                        '관리할 게시글을 선택하세요'
+                      )}
+                    </CardDescription>
+                  </div>
+                  {selectedPostIds.length > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDeleteSelected}
+                      disabled={loading}
+                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      선택 삭제
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {posts.length === 0 ? (
+                  <div className="text-center text-slate-500 py-12">
+                    등록된 게시글이 없습니다.
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4 flex items-center gap-3 px-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedPostIds.length === posts.length && posts.length > 0}
+                        onChange={handleSelectAll}
+                        className="w-5 h-5 rounded border-gray-600 bg-black/40 text-violet-600 focus:ring-violet-600"
+                      />
+                      <label className="text-sm text-slate-400 cursor-pointer" onClick={handleSelectAll}>
+                        전체 선택 ({selectedPostIds.length}/{posts.length})
+                      </label>
+                    </div>
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                      {posts.map((post) => (
+                        <div
+                          key={post.id}
+                          className={`p-4 border rounded-xl transition-all duration-200 ${
+                            selectedPostIds.includes(post.id) 
+                            ? 'bg-violet-900/10 border-violet-500/50' 
+                            : 'bg-white/5 border-white/5 hover:border-white/10'
+                          }`}
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="pt-1">
                                 <input
-                                  type="checkbox"
-                                  checked={selectedPostIds.includes(post.id)}
-                                  onChange={() => handleToggleSelect(post.id)}
-                                  className="w-4 h-4 mt-1 rounded border-gray-300 flex-shrink-0"
+                                type="checkbox"
+                                checked={selectedPostIds.includes(post.id)}
+                                onChange={() => handleToggleSelect(post.id)}
+                                className="w-5 h-5 rounded border-gray-600 bg-black/40 text-violet-600 focus:ring-violet-600"
                                 />
-                                <div className="flex-1 min-w-0">
-                                  <h3 className="font-semibold text-lg mb-1 truncate">
-                                    {post.title}
-                                  </h3>
-                                  <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {post.content}
-                                  </p>
-                                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                    <span>
-                                      작성자: {post.author.nickname || post.author.email}
-                                    </span>
-                                    <span>
-                                      댓글: {post._count.comments}개
-                                    </span>
-                                    <span>
-                                      {new Date(post.createdAt).toLocaleString('ko-KR')}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex gap-2 flex-shrink-0">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => router.push(`/board/${post.id}`)}
-                                >
-                                  보기
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleDeletePost(post.id)}
-                                  disabled={loading}
-                                >
-                                  삭제
-                                </Button>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-lg text-slate-200 mb-1 truncate">
+                                {post.title}
+                              </h3>
+                              <p className="text-sm text-slate-500 line-clamp-1 mb-2">
+                                {post.content}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-mono">
+                                <span className="flex items-center gap-1 text-violet-400">
+                                    <User className="w-3 h-3" />
+                                    {post.author.nickname || post.author.email}
+                                </span>
+                                <span>COMMENTS: {post._count.comments}</span>
+                                <span>{new Date(post.createdAt).toLocaleString('ko-KR')}</span>
                               </div>
                             </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push(`/board/${post.id}`)}
+                                className="bg-transparent border-white/10 text-slate-400 hover:text-white"
+                              >
+                                View
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeletePost(post.id)}
+                                disabled={loading}
+                                className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border-none"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            {/* 그외 탭 */}
-            <TabsContent value="other" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>기타 관리 기능</CardTitle>
-                  <CardDescription>
-                    추가 관리 기능이 여기에 표시됩니다.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center text-muted-foreground py-8">
-                    추후 추가될 기능들...
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+          {/* 그외 탭 */}
+          <TabsContent value="other" className="space-y-6">
+            <Card className="bg-[#131316]/80 backdrop-blur border-white/5">
+              <CardHeader>
+                <CardTitle className="text-white">기타 설정</CardTitle>
+                <CardDescription className="text-slate-400">
+                  시스템 환경 설정 및 로그 확인
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center text-slate-500 py-12 border border-dashed border-white/10 rounded-xl bg-white/5">
+                  <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>추가 기능 준비 중...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
 }
-

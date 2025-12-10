@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -12,9 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Progress } from '@/components/ui/progress'
-import { Card, CardContent } from '@/components/ui/card'
 import LoginModal from './LoginModal'
 import { getLevelProgress, getPointsForNextLevel, getPointsForCurrentLevel } from '@/lib/points'
+import { Menu, X, User as UserIcon, Gamepad2, LayoutDashboard, Crown } from 'lucide-react'
 
 interface User {
   id: number
@@ -24,7 +25,6 @@ interface User {
   level?: number
 }
 
-// 전역으로 포인트 업데이트 함수를 export
 let updateUserPoints: (() => void) | null = null
 
 export const refreshUserPoints = () => {
@@ -34,9 +34,11 @@ export const refreshUserPoints = () => {
 }
 
 const HeaderNavigator = () => {
+  const pathname = usePathname()
   const [isVisibleLogin, setIsVisibleLogin] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [user, setUser] = useState<User | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   const loadUserData = async () => {
     const token = localStorage.getItem('token')
@@ -47,13 +49,10 @@ const HeaderNavigator = () => {
         const parsedUser = JSON.parse(storedUser)
         setUser(parsedUser)
         
-        // 서버에서 최신 사용자 정보 가져오기
         if (token) {
           try {
             const response = await fetch('/api/user/me', {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+              headers: { Authorization: `Bearer ${token}` },
             })
             
             if (response.ok) {
@@ -71,21 +70,14 @@ const HeaderNavigator = () => {
     }
   }
   
-  // 전역 함수 등록
   useEffect(() => {
     updateUserPoints = loadUserData
-    return () => {
-      updateUserPoints = null
-    }
+    return () => { updateUserPoints = null }
   }, [])
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 0) {
-        setIsScrolled(true)
-      } else {
-        setIsScrolled(false)
-      }
+      setIsScrolled(window.scrollY > 10)
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
@@ -116,136 +108,137 @@ const HeaderNavigator = () => {
   const level = user?.level || 1
   const points = user?.points || 0
   const progress = getLevelProgress(points, level)
-  const currentLevelPoints = getPointsForCurrentLevel(level)
   const nextLevelPoints = getPointsForNextLevel(level)
   const pointsNeeded = nextLevelPoints - points
-
-  // test.com 도메인 체크
   const isTestAccount = user?.email?.endsWith('@test.com') || false
 
-  const handleChargePoints = async () => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      alert('로그인이 필요합니다.')
-      return
-    }
+  const navLinks = [
+    { href: '/', label: 'HOME', icon: LayoutDashboard },
+    { href: '/game', label: 'GAME LOBBY', icon: Gamepad2 },
+    { href: '/board', label: 'BOARD', icon: Crown }, // 임시 아이콘
+  ]
 
-    try {
-      const response = await fetch('/api/admin/charge', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ amount: 100 }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        alert(`+100 포인트가 충전되었습니다! (현재: ${data.points} P)`)
-        // 포인트 업데이트
-        loadUserData()
-      } else {
-        const errorData = await response.json()
-        alert(errorData.error || '포인트 충전에 실패했습니다.')
-      }
-    } catch (error) {
-      console.error('Charge error:', error)
-      alert('포인트 충전 중 오류가 발생했습니다.')
-    }
+  if (isTestAccount) {
+    navLinks.push({ href: '/admin', label: 'ADMIN', icon: UserIcon })
   }
 
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
           isScrolled
-            ? 'bg-transparent'
-            : 'bg-white shadow-md'
+            ? 'bg-black/80 backdrop-blur-md border-white/10 h-16'
+            : 'bg-transparent border-transparent h-20'
         }`}
       >
-        <div className="container mx-auto flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
-          <nav className="flex items-center gap-3 sm:gap-4 md:gap-6">
-            <Link
-              href="/"
-              className="text-xs sm:text-sm font-medium text-gray-900 hover:text-gray-600 transition-colors"
-            >
-              Home
-            </Link>
-            <Link
-              href="/board"
-              className="text-xs sm:text-sm font-medium text-gray-900 hover:text-gray-600 transition-colors"
-            >
-              Board
-            </Link>
-            <Link
-              href="/game"
-              className="text-xs sm:text-sm font-medium text-gray-900 hover:text-gray-600 transition-colors"
-            >
-              Game
-            </Link>
-            {isTestAccount && (
+        <div className="container mx-auto h-full flex items-center justify-between px-4 sm:px-6">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(124,58,237,0.5)] group-hover:shadow-[0_0_25px_rgba(124,58,237,0.8)] transition-all">
+              K
+            </div>
+            <span className="text-xl font-bold tracking-tighter text-white group-hover:text-violet-300 transition-colors">
+              PLAYGROUND
+            </span>
+          </Link>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-8">
+            {navLinks.map((link) => (
               <Link
-                href="/admin"
-                className="text-xs sm:text-sm font-medium text-gray-900 hover:text-gray-600 transition-colors"
+                key={link.href}
+                href={link.href}
+                className={`text-sm font-bold tracking-wide transition-all flex items-center gap-2 ${
+                  pathname === link.href
+                    ? 'text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]'
+                    : 'text-slate-400 hover:text-white hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]'
+                }`}
               >
-                Admin
+                <link.icon className="w-4 h-4" />
+                {link.label}
               </Link>
-            )}
+            ))}
           </nav>
 
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="font-medium text-gray-900 hover:text-gray-600 text-xs sm:text-sm px-2 sm:px-4"
-                >
-                  <span className="hidden sm:inline">{user.nickname || user.email}</span>
-                  <span className="sm:hidden">
-                    {user.nickname ? user.nickname.substring(0, 5) + '...' : user.email.substring(0, 5) + '...'}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 sm:w-80">
-                <DropdownMenuLabel>
-                  <div className="space-y-2">
-                    <div className="font-semibold text-sm sm:text-base">
-                      {user.nickname || user.email}
+          {/* User & Mobile Toggle */}
+          <div className="flex items-center gap-4">
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="bg-white/5 border border-white/10 text-slate-200 hover:bg-white/10 hover:text-white rounded-full pl-3 pr-4 py-2 h-auto gap-3"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-[10px] font-bold text-white">
+                      {level}
                     </div>
-                    <div className="text-xs text-gray-500 break-all">{user.email}</div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="p-3 sm:p-4 space-y-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs sm:text-sm">
-                      <span className="font-medium">레벨 {level}</span>
-                      <span className="text-gray-500 text-right">
-                        {points} / {nextLevelPoints} 포인트
-                      </span>
+                    <span className="font-semibold text-sm max-w-[100px] truncate">
+                      {user.nickname || user.email.split('@')[0]}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 bg-[#0f1115] border-white/10 text-slate-200 backdrop-blur-xl">
+                  <DropdownMenuLabel>
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-white font-bold">My Status</span>
+                        <span className="text-xs text-violet-400 font-mono">LV.{level}</span>
                     </div>
-                    <Progress value={progress} className="h-2" />
-                    <div className="text-xs text-gray-500">
-                      다음 레벨까지 {pointsNeeded} 포인트 필요
+                    <div className="bg-black/40 rounded-lg p-3 border border-white/5">
+                        <div className="flex justify-between text-xs mb-1">
+                            <span className="text-slate-400">EXP</span>
+                            <span className="text-white">{points.toLocaleString()} / {nextLevelPoints.toLocaleString()}</span>
+                        </div>
+                        <Progress value={progress} className="h-1.5 bg-white/10" indicatorClassName="bg-gradient-to-r from-violet-600 to-indigo-600" />
                     </div>
-                  </div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600 text-sm">
-                  로그아웃
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button 
-              onClick={() => setIsVisibleLogin(true)}
-              className="text-xs sm:text-sm px-3 sm:px-4"
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem 
+                    onClick={handleLogout} 
+                    className="text-red-400 focus:text-red-300 focus:bg-red-500/10 cursor-pointer font-bold"
+                  >
+                    LOGOUT
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button 
+                onClick={() => setIsVisibleLogin(true)}
+                className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-6 rounded-full shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] transition-all"
+              >
+                LOGIN
+              </Button>
+            )}
+
+            {/* Mobile Menu Button */}
+            <button 
+                className="md:hidden text-white p-2"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              로그인
-            </Button>
-          )}
+                {mobileMenuOpen ? <X /> : <Menu />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Navigation */}
+        {mobileMenuOpen && (
+            <div className="md:hidden absolute top-full left-0 w-full bg-[#0a0a0c]/95 backdrop-blur-xl border-b border-white/10 p-4 flex flex-col gap-4 shadow-2xl animate-in slide-in-from-top-5">
+                {navLinks.map((link) => (
+                    <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`text-lg font-bold py-2 px-4 rounded-lg flex items-center gap-3 ${
+                            pathname === link.href
+                                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
+                                : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                        }`}
+                    >
+                        <link.icon className="w-5 h-5" />
+                        {link.label}
+                    </Link>
+                ))}
+            </div>
+        )}
       </header>
       <LoginModal
         open={isVisibleLogin}
