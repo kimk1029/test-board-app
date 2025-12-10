@@ -26,8 +26,10 @@ export default function Home() {
   const [selectedPeriod, setSelectedPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [pointsHistory, setPointsHistory] = useState<Array<{ date: string; points: number }>>([])
   const [currentPoints, setCurrentPoints] = useState(0)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setIsClient(true)
     const fetchRankings = async () => {
       try {
         // 전체 랭킹
@@ -159,7 +161,7 @@ export default function Home() {
                 {pointsHistory.length === 0 ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="text-muted-foreground">
-                      {localStorage.getItem('token') ? '데이터를 불러오는 중...' : '로그인이 필요합니다.'}
+                      {isClient && localStorage.getItem('token') ? '데이터를 불러오는 중...' : '로그인이 필요합니다.'}
                     </div>
                   </div>
                 ) : (

@@ -890,7 +890,10 @@ export class BlackjackScene extends Phaser.Scene {
   async collectCards() {
     const discardPile = { x: 1100, y: 400 }
     
-    for (const [card, container] of this.cardSprites.entries()) {
+    // Convert Map entries to array to avoid iteration issues
+    const cardEntries = Array.from(this.cardSprites.entries())
+    
+    for (const [card, container] of cardEntries) {
       await new Promise<void>((resolve) => {
         this.tweens.add({
           targets: container,

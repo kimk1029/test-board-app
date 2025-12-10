@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { BustabitGame } from './BustabitGame'
@@ -91,6 +91,10 @@ function BustabitGameComponent() {
 }
 
 export default function BustabitGamePage() {
-  return <BustabitGameComponent />
+  return (
+    <Suspense fallback={<div className="text-white flex justify-center items-center h-screen bg-gray-900">Loading...</div>}>
+      <BustabitGameComponent />
+    </Suspense>
+  )
 }
 

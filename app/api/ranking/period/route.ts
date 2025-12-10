@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // 일간/주간/월간 포인트 랭킹 조회
 export async function GET(request: NextRequest) {
   try {
