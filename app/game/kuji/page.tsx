@@ -88,6 +88,17 @@ export default function IchibanKujiGame() {
         loadUserPoints();
     }, []);
 
+    // 주기적으로 박스 상태 업데이트 (다른 사용자가 뽑은 티켓도 보이도록)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (gameState === 'IDLE' || gameState === 'SELECTING') {
+                loadBoxState();
+            }
+        }, 3000); // 3초마다 업데이트
+        
+        return () => clearInterval(interval);
+    }, [gameState]);
+
     // 사용자 포인트 로드
     const loadUserPoints = async () => {
         const token = localStorage.getItem('token');
@@ -260,10 +271,8 @@ export default function IchibanKujiGame() {
                 });
 
                 if (response.ok) {
-                    // 티켓 상태 업데이트 (Taken 처리)
-                    setTickets(prev => prev.map(t =>
-                        t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
-                    ));
+                    // 서버에서 최신 상태 다시 불러오기 (다른 사용자도 볼 수 있도록)
+                    await loadBoxState();
                 } else {
                     const errorData = await response.json();
                     alert(errorData.error || '티켓 업데이트에 실패했습니다.');
@@ -275,8 +284,8 @@ export default function IchibanKujiGame() {
                 return;
             }
         } else {
-            // 데모 모드일 경우 로컬 업데이트 (실제로는 다른 사람이 뽑으면 충돌나지만 데모니까 무시)
-             setTickets(prev => prev.map(t =>
+            // 데모 모드일 경우 로컬 업데이트
+            setTickets(prev => prev.map(t =>
                 t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
             ));
         }
@@ -486,16 +495,39 @@ export default function IchibanKujiGame() {
                       `}
                                             >
                                                 {ticket.isTaken ? (
-                                                    <div className="flex flex-col items-center justify-center">
-                                                        <span
-                                                            className="text-lg sm:text-xl lg:text-2xl font-bold"
-                                                            style={{ color: PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || ticket.rank === 'LAST_ONE' ? '#000000' : '#000000' }}
+                                                    <div className="flex flex-col items-center justify-center w-full h-full">
+                                                        {/* 등급 배지 */}
+                                                        <div 
+                                                            className="w-full h-full flex flex-col items-center justify-center rounded-md border-2"
+                                                            style={{ 
+                                                                backgroundColor: ticket.rank === 'LAST_ONE' 
+                                                                    ? '#000000' 
+                                                                    : PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || '#666666',
+                                                                borderColor: ticket.rank === 'LAST_ONE' 
+                                                                    ? '#ffd700' 
+                                                                    : PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || '#666666',
+                                                                opacity: 0.9
+                                                            }}
                                                         >
-                                                            {ticket.rank === 'LAST_ONE' ? '👑' : ticket.rank}
-                                                        </span>
-                                                        {ticket.rank === 'LAST_ONE' && (
-                                                            <span className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">LAST</span>
-                                                        )}
+                                                            {ticket.rank === 'LAST_ONE' ? (
+                                                                <>
+                                                                    <span className="text-2xl sm:text-3xl lg:text-4xl mb-1">👑</span>
+                                                                    <span className="text-[8px] sm:text-[10px] font-bold text-yellow-400">LAST ONE</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="text-xl sm:text-2xl lg:text-3xl font-black text-white mb-0.5">
+                                                                        {PRIZE_LIST.find(p => p.rank === ticket.rank)?.image || ticket.rank}
+                                                                    </span>
+                                                                    <span className="text-xs sm:text-sm font-bold text-white">
+                                                                        {ticket.rank}상
+                                                                    </span>
+                                                                    <span className="text-[8px] sm:text-[10px] text-white/80 mt-0.5 text-center px-1">
+                                                                        {PRIZE_LIST.find(p => p.rank === ticket.rank)?.name.split(' ')[0] || ''}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 ) : (
                                                     <>
