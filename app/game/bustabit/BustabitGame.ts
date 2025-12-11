@@ -39,6 +39,7 @@ export class BustabitGame {
   private startTime: number = 0;
   private cashOutMultiplier: number = 1.0;
   private selectedBetAmount: number = 0;
+  private autoCashout: number = 0; // 0 means disabled
 
   // 캔버스 크기 및 레이아웃
   private canvasWidth: number = 1200;
@@ -49,15 +50,19 @@ export class BustabitGame {
   // [신규] 반응형 스케일 팩터
   private scaleFactor: number = 1;
   private isMobile: boolean = false;
+  private isTablet: boolean = false; // New tablet flag
 
   private logs: GameLog[] = [];
   private logScrollOffset: number = 0;
 
   private betButton: Button | null = null;
   private cashOutButton: Button | null = null;
+  private settingsButton: Button | null = null; // New Settings Button
   private betAmountButtons: Button[] = [];
   
   private speedButtons: Button[] = [];
+
+  private isSettingsOpen: boolean = false; // Settings toggle
 
   private gameSpeed: number = 0.085; 
   
@@ -139,16 +144,16 @@ export class BustabitGame {
       this.canvas.height = height;
 
       this.isMobile = width < 768;
+      this.isTablet = width >= 768 && width < 1280;
 
       if (this.isMobile) {
           this.sidebarWidth = 0;
           this.gameAreaWidth = width;
-          // 모바일에서는 스케일 조정
           this.scaleFactor = Math.min(width / 400, 1.2);
-      } else if (width < 1024) {
-          this.sidebarWidth = width * 0.25; // 25%
+      } else if (this.isTablet) {
+          this.sidebarWidth = width * 0.25; 
           this.gameAreaWidth = width - this.sidebarWidth;
-          this.scaleFactor = Math.min(width / 1000, 1.0);
+          this.scaleFactor = Math.min(width / 800, 0.9);
       } else {
           this.sidebarWidth = 300;
           this.gameAreaWidth = width - this.sidebarWidth;
@@ -166,10 +171,117 @@ export class BustabitGame {
       }
   }
 
-  // ... (나머지 메서드는 동일하되, 위치 계산 시 scaleFactor나 gameAreaWidth를 사용하므로 createButtons 내부 로직 확인 필요)
+  private setupEventListeners() {
+    const handleInput = (clientX: number, clientY: number) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      this.handleClick(x, y);
+    }
+
+    this.canvas.addEventListener('click', (e) => handleInput(e.clientX, e.clientY));
+    
+    // Touch support
+    this.canvas.addEventListener('touchstart', (e) => {
+        if(e.touches.length > 0) {
+            e.preventDefault(); // Prevent scrolling/zooming on button taps
+            handleInput(e.touches[0].clientX, e.touches[0].clientY);
+        }
+    }, { passive: false });
+
+    this.canvas.addEventListener('mousemove', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      this.canvas.style.cursor = this.getCursorAt(x, y);
+    });
+
+
+    this.canvas.addEventListener('wheel', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      
+      if (x > this.gameAreaWidth) {
+        e.preventDefault();
+        const scrollAmount = e.deltaY > 0 ? 35 : -35;
+        const maxScroll = Math.max(0, (this.logs.length * 35) - (this.canvasHeight - 200));
+        this.logScrollOffset = Math.max(0, Math.min(maxScroll, this.logScrollOffset + scrollAmount));
+        this.render();
+      }
+    });
+  }
+
+  private getCursorAt(x: number, y: number): string {
+    if (this.isSettingsOpen) return 'default'; 
+
+    const allButtons = [...this.betAmountButtons, ...this.speedButtons]; 
+    if (this.betButton) allButtons.push(this.betButton);
+    if (this.cashOutButton) allButtons.push(this.cashOutButton);
+    if (this.settingsButton) allButtons.push(this.settingsButton);
+
+    for (const button of allButtons) {
+      if (button.visible && !button.disabled) {
+        if (x >= button.x && x <= button.x + button.width && y >= button.y && y <= button.y + button.height) {
+          return 'pointer';
+        }
+      }
+    }
+    return 'default';
+  }
+
+  private handleClick(x: number, y: number) {
+    if (this.isSettingsOpen) {
+        const w = 400; const h = 300;
+        const sx = (this.canvasWidth - w)/2;
+        const sy = (this.canvasHeight - h)/2;
+        
+        // Close Button
+        if (x >= sx + w - 40 && x <= sx + w - 10 && y >= sy + 10 && y <= sy + 40) {
+            this.isSettingsOpen = false;
+            this.render();
+            return;
+        }
+
+        // Auto Cashout Slider
+        const sliderY = sy + 100;
+        const sliderX = sx + 50;
+        const sliderW = 300;
+        
+        if (x >= sliderX && x <= sliderX + sliderW && y >= sliderY - 20 && y <= sliderY + 50) {
+            const ratio = Math.max(0, Math.min(1, (x - sliderX) / sliderW));
+            // Range 1.0 to 10.0
+            let val = 1.0 + ratio * 9.0;
+            if (val < 1.05) val = 0; // "OFF" zone
+            this.autoCashout = val;
+            this.render();
+        }
+        return;
+    }
+
+    let stateChanged = false;
+
+    const allButtons = [...this.betAmountButtons, ...this.speedButtons];
+    if (this.betButton) allButtons.push(this.betButton);
+    if (this.cashOutButton) allButtons.push(this.cashOutButton);
+    if (this.settingsButton) allButtons.push(this.settingsButton);
+
+    for (const button of allButtons) {
+        if (button.visible && !button.disabled) {
+            if (x >= button.x && x <= button.x + button.width && y >= button.y && y <= button.y + button.height) {
+                button.onClick();
+                stateChanged = true;
+                break;
+            }
+        }
+    }
+
+    if (stateChanged) {
+      this.updateButtonStates();
+      if (!this.isRunning) this.render();
+    }
+  }
 
   private createButtons() {
-    // scaleFactor 고려하여 버튼 크기 및 위치 조정
     const centerX = this.gameAreaWidth * 0.5;
     const bottomY = this.canvasHeight * 0.85;
 
@@ -179,7 +291,6 @@ export class BustabitGame {
     const buttonSpacing = this.gameAreaWidth * 0.02;
     
     const amountBtnWidth = buttonWidth * 0.8;
-    // 모바일이면 2줄로 배치하거나 크기 조정 필요. 여기선 간단히 스케일링
     const totalAmountWidth = betAmounts.length * amountBtnWidth + (betAmounts.length - 1) * buttonSpacing;
     const startX = centerX - totalAmountWidth / 2;
 
@@ -196,7 +307,6 @@ export class BustabitGame {
       visible: true, 
     }));
 
-    // 속도 버튼
     const speeds = [
         { label: 'x1', value: 0.085 },
         { label: 'x2', value: 0.17 },
@@ -218,6 +328,19 @@ export class BustabitGame {
         },
         visible: true
     }));
+
+    this.settingsButton = {
+        x: this.gameAreaWidth - 60,
+        y: 20,
+        width: 40,
+        height: 40,
+        text: '⚙️',
+        onClick: () => {
+            this.isSettingsOpen = !this.isSettingsOpen;
+            this.render();
+        },
+        visible: true
+    };
 
     const actionBtnW = (this.isMobile ? 120 : this.gameAreaWidth * 0.3);
     const actionBtnH = (this.isMobile ? 50 : this.canvasHeight * 0.08);
@@ -241,146 +364,6 @@ export class BustabitGame {
       onClick: () => this.cashOut(),
       visible: false,
     };
-  }
-
-  // ... (나머지 로직 그대로 유지)
-  private async initializeGame() {
-      this.updateLoading(10);
-      await this.loadUserPoints();
-      this.updateLoading(50);
-      
-      setTimeout(() => {
-          this.updateLoading(80);
-          this.resetGame(true);
-          this.updateLoading(100);
-      }, 500);
-  }
-
-  private updateLoading(progress: number) {
-      if (this.onLoadingProgress) {
-          this.onLoadingProgress(progress);
-      }
-  }
-
-  setMessageCallback(callback: (message: string) => void) {
-    this.onMessage = callback;
-  }
-
-  setLoadingProgressCallback(callback: (progress: number) => void) {
-      this.onLoadingProgress = callback;
-  }
-
-  private showMessage(text: string) {
-    if (this.onMessage) {
-      this.onMessage(text);
-    }
-  }
-
-  private addLog(type: 'bet' | 'win' | 'lose' | 'info', message: string, pointsChange?: number, balance?: number) {
-    const now = new Date();
-    const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-    this.logs.unshift({ 
-      type, 
-      message, 
-      time: timeString,
-      pointsChange,
-      balance: balance !== undefined ? balance : this.playerPoints
-    });
-    if (this.logs.length > 50) this.logs.pop();
-    this.logScrollOffset = 0;
-  }
-
-  private async loadUserPoints() {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      this.playerPoints = 10000;
-      this.addLog('info', '체험판(데모) 모드 - 10,000P 지급됨', 0, 10000);
-      this.render();
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/user/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        this.playerPoints = data.points || 0;
-      } else {
-        console.warn('Failed to fetch points, keeping previous value');
-      }
-    } catch (error) {
-      console.error('Failed to load user points:', error);
-    }
-    this.render();
-  }
-
-  private setupEventListeners() {
-    this.canvas.addEventListener('click', (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      this.handleClick(x, y);
-    });
-
-    this.canvas.addEventListener('mousemove', (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      this.canvas.style.cursor = this.getCursorAt(x, y);
-    });
-
-    this.canvas.addEventListener('wheel', (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      
-      if (x > this.gameAreaWidth) {
-        e.preventDefault();
-        const scrollAmount = e.deltaY > 0 ? 35 : -35;
-        const maxScroll = Math.max(0, (this.logs.length * 35) - (this.canvasHeight - 200));
-        this.logScrollOffset = Math.max(0, Math.min(maxScroll, this.logScrollOffset + scrollAmount));
-        this.render();
-      }
-    });
-  }
-
-  private getCursorAt(x: number, y: number): string {
-    const allButtons = [...this.betAmountButtons, ...this.speedButtons]; 
-    if (this.betButton) allButtons.push(this.betButton);
-    if (this.cashOutButton) allButtons.push(this.cashOutButton);
-
-    for (const button of allButtons) {
-      if (button.visible && !button.disabled) {
-        if (x >= button.x && x <= button.x + button.width && y >= button.y && y <= button.y + button.height) {
-          return 'pointer';
-        }
-      }
-    }
-    return 'default';
-  }
-
-  private handleClick(x: number, y: number) {
-    let stateChanged = false;
-
-    const allButtons = [...this.betAmountButtons, ...this.speedButtons];
-    if (this.betButton) allButtons.push(this.betButton);
-    if (this.cashOutButton) allButtons.push(this.cashOutButton);
-
-    for (const button of allButtons) {
-        if (button.visible && !button.disabled) {
-            if (x >= button.x && x <= button.x + button.width && y >= button.y && y <= button.y + button.height) {
-                button.onClick();
-                stateChanged = true;
-                break;
-            }
-        }
-    }
-
-    if (stateChanged) {
-      this.updateButtonStates();
-      if (!this.isRunning) this.render();
-    }
   }
 
   private updateButtonStates() {
@@ -557,6 +540,10 @@ export class BustabitGame {
     const elapsedSeconds = (currentTime - this.startTime) / 1000;
     const nextMultiplier = Math.pow(Math.E, this.gameSpeed * elapsedSeconds);
 
+    if (this.autoCashout > 1.05 && !this.crashed && !this.hasCashedOut && nextMultiplier >= this.autoCashout && this.isRunning) {
+        this.cashOut();
+    }
+
     if (nextMultiplier >= this.crashPoint) {
       this.handleCrash();
     } else {
@@ -676,7 +663,68 @@ export class BustabitGame {
     }
 
     this.renderGameArea();
-    this.renderSidebarContent(); // 이름 변경
+    this.renderSidebarContent();
+    
+    if (this.isSettingsOpen) {
+        this.renderSettingsPanel();
+    }
+  }
+
+  private renderSettingsPanel() {
+      const w = 400;
+      const h = 300;
+      const x = (this.canvasWidth - w) / 2;
+      const y = (this.canvasHeight - h) / 2;
+
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+
+      this.ctx.fillStyle = '#1e293b';
+      this.ctx.strokeStyle = '#3b82f6';
+      this.ctx.lineWidth = 2;
+      this.ctx.fillRect(x, y, w, h);
+      this.ctx.strokeRect(x, y, w, h);
+
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = 'bold 24px sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('SETTINGS', x + w/2, y + 40);
+
+      // Auto Cashout
+      this.ctx.font = '18px sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('Auto Cashout', x + 50, y + 90);
+
+      const sliderY = y + 100;
+      const sliderX = x + 50;
+      const sliderW = 300;
+      
+      // Track
+      this.ctx.fillStyle = '#475569';
+      this.ctx.fillRect(sliderX, sliderY + 10, sliderW, 4);
+
+      // Handle
+      const ratio = this.autoCashout <= 1.0 ? 0 : (this.autoCashout - 1.0) / 9.0;
+      const handleX = sliderX + ratio * sliderW;
+
+      this.ctx.fillStyle = this.autoCashout > 1.0 ? '#3b82f6' : '#94a3b8';
+      this.ctx.beginPath();
+      this.ctx.arc(handleX, sliderY + 12, 10, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Value text
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'right';
+      const valText = this.autoCashout <= 1.05 ? 'OFF' : `${this.autoCashout.toFixed(2)}x`;
+      this.ctx.fillText(valText, x + w - 50, y + 90);
+
+      // Close Button
+      this.ctx.fillStyle = '#ef4444';
+      this.ctx.fillRect(x + w - 40, y + 10, 30, 30);
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = 'bold 20px sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('X', x + w - 25, y + 32);
   }
 
   private renderGameArea() {

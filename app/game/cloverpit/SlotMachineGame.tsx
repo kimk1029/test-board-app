@@ -256,23 +256,27 @@ class MainScene extends Phaser.Scene {
         
         this.background.setSize(w, h)
         
-        const isMobile = w < 800 || h > w
+        const isMobile = w < 800
+        const isTablet = w >= 800 && w < 1280
 
         // 1. Top Bar
         this.topBarGroup.setPosition(w/2, 40)
-        // Background width adjustment
         const topBg = this.topBarGroup.getAt(0) as Phaser.GameObjects.Rectangle
         if(topBg) topBg.setSize(w, 80)
         
-        // Log button position
+        // Settings button position
+        const settingsBtn = this.topBarGroup.getByName('settingsBtn') as Phaser.GameObjects.Container
+        if(settingsBtn) settingsBtn.x = w/2 - 50
+
+        // Log button position (Restored)
         const logBtn = this.topBarGroup.getByName('logBtn') as Phaser.GameObjects.Container
-        if(logBtn) logBtn.x = w/2 - 60
+        if(logBtn) logBtn.x = w/2 - 110
 
-        // Back button position
+        // Remove Back button from here as requested (handled globally or redundant)
         const backBtn = this.topBarGroup.getByName('backBtn') as Phaser.GameObjects.Container
-        if(backBtn) backBtn.x = -w/2 + 60
+        if(backBtn) backBtn.setVisible(false) // Hide it instead of removing to avoid errors if referenced
 
-        // 2. Slot Machine
+        // 2. Slot Machine & Controls
         if (isMobile) {
             const slotScale = Math.min(1, (w - 40) / 600)
             this.slotGroup.setScale(slotScale)
@@ -283,21 +287,41 @@ class MainScene extends Phaser.Scene {
             this.controlGroup.setPosition(w/2, controlY)
             
             this.infoGroup.setVisible(false) 
+        } else if (isTablet) {
+             // Tablet Layout: Scale down to fit if needed
+            const availableHeight = h - 100 // Top bar + margins
+            const targetScale = Math.min(0.8, availableHeight / 800, w / 1000)
             
-        } else {
-            this.slotGroup.setScale(1)
-            this.slotGroup.setPosition(w/2, h/2 - 20)
+            this.slotGroup.setScale(targetScale)
+            this.slotGroup.setPosition(w/2, h/2 - 50)
             
-            this.controlGroup.setScale(1)
+            this.controlGroup.setScale(targetScale)
             this.controlGroup.setPosition(w/2, h - 80)
             
             this.infoGroup.setVisible(true)
+            this.infoGroup.setScale(targetScale * 0.8)
+            this.infoGroup.setPosition(100, h/2) 
+        } else {
+            // Desktop
+            const targetScale = Math.min(1, h / 800)
+            this.slotGroup.setScale(targetScale)
+            this.slotGroup.setPosition(w/2, h/2 - 20)
+            
+            this.controlGroup.setScale(targetScale)
+            this.controlGroup.setPosition(w/2, h - 80)
+            
+            this.infoGroup.setVisible(true)
+            this.infoGroup.setScale(1)
             this.infoGroup.setPosition(150, h/2) 
         }
         
         this.settingsPanel.setPosition(w/2, h/2)
         const sOverlay = this.settingsPanel.list[0] as Phaser.GameObjects.Rectangle
         if(sOverlay) sOverlay.setSize(w, h)
+
+        this.logContainer.setPosition(w/2, h/2) // Ensure log panel is centered
+        const lOverlay = this.logContainer.list[0] as Phaser.GameObjects.Rectangle
+        if(lOverlay) lOverlay.setSize(w, h)
 
         this.reels.forEach(reel => {
             const wx = this.slotGroup.x + reel.container.x * this.slotGroup.scale
@@ -309,7 +333,7 @@ class MainScene extends Phaser.Scene {
     private createTopBar() {
         const bg = this.add.rectangle(0, 0, 1280, 80, 0x000000, 0.8)
         
-        // [뒤로가기]
+        // [뒤로가기] - Hiding it in resize, but keeping structure
         const backButton = this.add.container(-580, 0).setName('backBtn')
         const backBg = this.add.circle(0, 0, 25, 0x333333).setInteractive({ useHandCursor: true })
         backBg.setStrokeStyle(2, 0x888888)
@@ -323,13 +347,25 @@ class MainScene extends Phaser.Scene {
         }).setOrigin(0.5)
 
         // [설정 버튼]
-        const settingsBtn = this.add.container(580, 0).setName('logBtn') 
+        const settingsBtn = this.add.container(580, 0).setName('settingsBtn') 
         const setBg = this.add.circle(0, 0, 25, 0x4a5568).setInteractive({ useHandCursor: true })
         const setIcon = this.add.text(0, 0, '⚙️', { fontSize: '24px' }).setOrigin(0.5)
         settingsBtn.add([setBg, setIcon])
         setBg.on('pointerdown', () => this.toggleSettings())
 
-        this.topBarGroup.add([bg, backButton, title, settingsBtn])
+        // [로그 버튼] (Restored)
+        const logBtn = this.add.container(520, 0).setName('logBtn')
+        const logBg = this.add.circle(0, 0, 25, 0x4a5568).setInteractive({ useHandCursor: true })
+        const logIcon = this.add.text(0, 0, '📜', { fontSize: '24px' }).setOrigin(0.5)
+        logBtn.add([logBg, logIcon])
+        logBg.on('pointerdown', () => this.toggleLog())
+
+        this.topBarGroup.add([bg, backButton, title, settingsBtn, logBtn])
+    }
+
+    private toggleLog() {
+        this.logContainer.setVisible(!this.logContainer.visible)
+        if (this.logContainer.visible) this.logContainer.setDepth(9999)
     }
 
     private createSlotMachine() {
@@ -412,9 +448,59 @@ class MainScene extends Phaser.Scene {
     }
 
     private createLogPanel() {
-        this.logContainer = this.add.container(0,0) 
+        this.logContainer = this.add.container(0, 0).setVisible(false).setDepth(200)
+        
+        const overlay = this.add.rectangle(0, 0, 1280, 720, 0x000000, 0.7).setInteractive()
+        const panelBg = this.add.rectangle(0, 0, 600, 400, 0x222222)
+        panelBg.setStrokeStyle(2, 0xffd700).setInteractive()
+        
+        const title = this.add.text(0, -170, 'GAME HISTORY', { fontSize: '24px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5)
+        
+        const closeBtn = this.add.text(0, 170, 'CLOSE', { fontSize: '18px', color: '#fff', backgroundColor: '#e63946', padding: { x: 20, y: 10 } })
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true })
+            
+        closeBtn.on('pointerdown', () => this.toggleLog())
+        
+        this.logContainer.add([overlay, panelBg, title, closeBtn])
+        
+        // Initial log entries if any
+        this.updateLogPanel()
     }
-    
+
+    private updateLogPanel() {
+        // Clear old logs (except static UI)
+        // Keep first 4 elements: overlay, panelBg, title, closeBtn
+        if (this.logContainer.list.length > 4) {
+            this.logContainer.removeBetween(4, this.logContainer.list.length - 1, true)
+        }
+
+        this.logs.slice(0, 8).forEach((log, i) => {
+            const y = -120 + i * 35
+            const timeText = this.add.text(-250, y, log.time || '', { fontSize: '16px', color: '#aaa' }).setOrigin(0, 0.5)
+            const msgText = this.add.text(-180, y, log.message, { fontSize: '16px', color: '#fff' }).setOrigin(0, 0.5)
+            
+            let color = '#fff'
+            if (log.type === 'win') color = '#4ade80'
+            else if (log.type === 'lose') color = '#f87171'
+            
+            const changeText = this.add.text(250, y, (log.change > 0 ? '+' : '') + log.change.toFixed(1), { fontSize: '16px', color, fontStyle: 'bold' }).setOrigin(1, 0.5)
+            
+            this.logContainer.add([timeText, msgText, changeText])
+        })
+    }
+
+    private addLog(type: string, message: string, change: number, current: number) {
+        const now = new Date()
+        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+        this.logs.unshift({ type, message, change, current, time: timeStr })
+        if (this.logs.length > 50) this.logs.pop()
+        
+        if (this.logContainer.visible) {
+            this.updateLogPanel()
+        }
+    }
+
     private updateButtons() {
         if (this.isX5Mode) {
             this.x5ButtonBg.setFillStyle(0xffd700); this.x5ButtonBg.setStrokeStyle(2, 0xffffff)

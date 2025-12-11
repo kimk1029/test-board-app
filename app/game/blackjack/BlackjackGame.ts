@@ -123,7 +123,7 @@ export class BlackjackGame {
       if (this.isMobile) {
           return { x: this.gameAreaWidth * 0.5, y: this.canvasHeight * 0.55 };
       }
-      return { x: this.gameAreaWidth * 0.5, y: this.canvasHeight * 0.65 };
+      return { x: this.gameAreaWidth * 0.5, y: this.canvasHeight * 0.60 }; // Moved up slightly
   }
   
   private get dealerPosition() { 
@@ -137,7 +137,7 @@ export class BlackjackGame {
       if (this.isMobile) {
           return { x: this.gameAreaWidth * 0.5, y: this.canvasHeight * 0.40 };
       }
-      return { x: this.gameAreaWidth * 0.5, y: this.canvasHeight * 0.45 }; 
+      return { x: this.gameAreaWidth * 0.5, y: this.canvasHeight * 0.40 }; // Moved up
   }
   
   private get chipTrayPosition() { 
@@ -824,7 +824,7 @@ export class BlackjackGame {
     
     const totalW = actions.length * btnW + (actions.length - 1) * gap;
     const startX = (this.gameAreaWidth - totalW) / 2;
-    const y = (this.isMobile ? this.canvasHeight * 0.75 : this.canvasHeight * 0.5);
+    const y = this.canvasHeight * 0.85; // Fixed at bottom area for all devices to avoid overlap
 
     this.buttons = actions.map((text, i) => ({
         x: startX + i * (btnW + gap),
