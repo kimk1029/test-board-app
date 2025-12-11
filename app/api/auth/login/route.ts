@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     if (!user.lastLoginDate || new Date(user.lastLoginDate) < today) {
       // 오늘 첫 로그인 - 포인트 지급
-      updatedPoints = user.points + 5
+      updatedPoints = user.points + 10
       shouldUpdateLoginDate = true
       
       // 레벨 재계산
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
           points: updatedUser.points,
           level: updatedUser.level,
         },
-        loginBonus: shouldUpdateLoginDate ? 5 : 0,
+        loginBonus: shouldUpdateLoginDate ? 10 : 0,
       },
       { status: 200 }
     )

@@ -175,11 +175,56 @@ export default function Home() {
             
             {/* Left Column */}
             <div className="flex flex-col gap-8 lg:col-span-1">
+                {/* Point Guide Card - Moved Up & Translated */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                    <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
+                        <div className="p-6 border-b border-white/5">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Coins className="w-5 h-5 text-amber-400" />
+                                포인트 획득 방법
+                            </h3>
+                        </div>
+                        <div className="p-6 space-y-4">
+                             <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+                                        <Calendar className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">매일 로그인</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold text-sm">+10 P</span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
+                                        <MessageSquare className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">댓글 작성</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold text-sm">+5 P</span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-pink-500/20 text-pink-400">
+                                        <ThumbsUp className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">좋아요 받기</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold text-sm">+1 P</span>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+
                 {/* Rank Board */}
                 <motion.div 
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.6, delay: 0.4 }}
+                    transition={{ duration: 0.6, delay: 0.6 }}
                 >
                     <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
                         <div className="p-6 border-b border-white/5 flex justify-between items-center">
@@ -230,51 +275,6 @@ export default function Home() {
                                     ))}
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* Point Guide Card - NEW */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.6 }}
-                >
-                    <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
-                        <div className="p-6 border-b border-white/5">
-                            <h3 className="text-lg font-bold flex items-center gap-2">
-                                <Coins className="w-5 h-5 text-amber-400" />
-                                HOW TO EARN
-                            </h3>
-                        </div>
-                        <div className="p-6 space-y-4">
-                             <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
-                                        <Calendar className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-300">Daily Login</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold text-sm">+100 P</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
-                                        <MessageSquare className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-300">Write Comment</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold text-sm">+5 P</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-pink-500/20 text-pink-400">
-                                        <ThumbsUp className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-300">Receive Like</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold text-sm">+1 P</span>
-                            </div>
                         </div>
                     </div>
                 </motion.div>
