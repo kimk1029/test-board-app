@@ -56,6 +56,10 @@ export class BlackjackGame {
 
   // 중복 처리 방지 플래그
   private isProcessing: boolean = false;
+  
+  // [최적화] 정적 배경 캐싱
+  private staticCanvas: HTMLCanvasElement | null = null;
+  private staticCtx: CanvasRenderingContext2D | null = null;
 
   private cardImages: Map<string, HTMLImageElement> = new Map()
   private cardBackImage: HTMLImageElement | null = null
@@ -415,7 +419,52 @@ export class BlackjackGame {
 
     await Promise.all(promises)
 
+    this.cacheStaticLayer() // [최적화] 배경 캐싱
     this.loadUserPoints()
+  }
+
+  // [최적화] 정적 배경 캐싱 메서드
+  private cacheStaticLayer() {
+      this.staticCanvas = document.createElement('canvas');
+      this.staticCanvas.width = this.canvasWidth;
+      this.staticCanvas.height = this.canvasHeight;
+      this.staticCtx = this.staticCanvas.getContext('2d');
+      
+      if (!this.staticCtx) return;
+      
+      const ctx = this.staticCtx; // 별칭
+      
+      // 1. 배경
+      ctx.fillStyle = '#0a3d20';
+      ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+      
+      // 2. 테이블
+      if (this.tableImage) {
+        ctx.drawImage(this.tableImage, 0, 0, this.gameAreaWidth, this.canvasHeight);
+      } else {
+        this.drawTablePattern(ctx); // ctx 전달
+      }
+      
+      // 3. 사이드바 배경 (고정된 부분만)
+      if (this.sidebarWidth > 0) {
+          const sx = this.gameAreaWidth;
+          const w = this.sidebarWidth;
+          
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(sx, 0, w, this.canvasHeight);
+          
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(sx, 0);
+          ctx.lineTo(sx, this.canvasHeight);
+          ctx.stroke();
+          
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = 'bold 20px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('HISTORY', sx + 20, 40);
+      }
   }
 
   private updateLoadingProgress() {
@@ -1069,36 +1118,42 @@ export class BlackjackGame {
   render() {
     if (!this.isRunning) return
     
-    this.ctx.fillStyle = '#0a3d20'
-    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
-    
-    if (this.tableImage) {
-        this.ctx.drawImage(this.tableImage, 0, 0, this.gameAreaWidth, this.canvasHeight)
+    // [최적화] 배경 그리기 (캐시 사용)
+    if (this.staticCanvas) {
+        this.ctx.drawImage(this.staticCanvas, 0, 0);
     } else {
-        this.drawTablePattern()
+        // 폴백
+        this.ctx.fillStyle = '#0a3d20'
+        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+        if (this.tableImage) {
+            this.ctx.drawImage(this.tableImage, 0, 0, this.gameAreaWidth, this.canvasHeight)
+        } else {
+            this.drawTablePattern()
+        }
     }
 
     this.renderGameElements()
-    this.renderSidebar()
+    this.renderSidebarContent() // 이름 변경
     this.renderGameResult()
 
     this.updateAnimations()
     this.animationFrameId = requestAnimationFrame(() => this.render())
   }
 
-  private drawTablePattern() {
-      this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
-      this.ctx.lineWidth = 3 * this.scaleFactor;
-      this.ctx.beginPath();
-      this.ctx.arc(this.gameAreaWidth / 2, -400 * this.scaleFactor, 1000 * this.scaleFactor, 0, Math.PI, false);
-      this.ctx.stroke();
+  private drawTablePattern(targetCtx?: CanvasRenderingContext2D) {
+      const ctx = targetCtx || this.ctx;
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
+      ctx.lineWidth = 3 * this.scaleFactor;
+      ctx.beginPath();
+      ctx.arc(this.gameAreaWidth / 2, -400 * this.scaleFactor, 1000 * this.scaleFactor, 0, Math.PI, false);
+      ctx.stroke();
       
-      this.ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
-      this.ctx.font = `bold ${40 * this.scaleFactor}px serif`;
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText("BLACKJACK PAYS 3 TO 2", this.gameAreaWidth / 2, this.canvasHeight * 0.4);
-      this.ctx.font = `${20 * this.scaleFactor}px serif`;
-      this.ctx.fillText("Dealer must stand on 17 and draw to 16", this.gameAreaWidth / 2, this.canvasHeight * 0.45);
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+      ctx.font = `bold ${40 * this.scaleFactor}px serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText("BLACKJACK PAYS 3 TO 2", this.gameAreaWidth / 2, this.canvasHeight * 0.4);
+      ctx.font = `${20 * this.scaleFactor}px serif`;
+      ctx.fillText("Dealer must stand on 17 and draw to 16", this.gameAreaWidth / 2, this.canvasHeight * 0.45);
   }
 
   private renderGameElements() {
@@ -1149,8 +1204,8 @@ export class BlackjackGame {
       
       const isFaceUp = card.faceUp;
       
-      this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      this.ctx.shadowBlur = 10;
+      this.ctx.shadowColor = 'transparent'; // 성능 최적화: 그림자 제거
+      this.ctx.shadowBlur = 0;
 
       if (isFaceUp) {
         const key = `card-${card.suit}-${card.value}`;
@@ -1188,9 +1243,9 @@ export class BlackjackGame {
       this.ctx.save();
       this.ctx.translate(x, y);
 
-      this.ctx.shadowColor = 'rgba(0,0,0,0.4)';
-      this.ctx.shadowBlur = 5;
-      this.ctx.shadowOffsetY = 3;
+      this.ctx.shadowColor = 'transparent'; // 최적화
+      this.ctx.shadowBlur = 0;
+      this.ctx.shadowOffsetY = 0;
 
       this.ctx.fillStyle = color;
       this.ctx.beginPath();
@@ -1234,9 +1289,9 @@ export class BlackjackGame {
           
           this.ctx.save();
           
-          this.ctx.shadowColor = 'rgba(0,0,0,0.4)';
-          this.ctx.shadowBlur = 4;
-          this.ctx.shadowOffsetY = 4;
+          this.ctx.shadowColor = 'transparent'; // 최적화
+          this.ctx.shadowBlur = 0;
+          this.ctx.shadowOffsetY = 0;
 
           let baseColor = '#eab308';
           if (btn.text === 'HIT') baseColor = '#22c55e';
@@ -1304,10 +1359,10 @@ export class BlackjackGame {
     const boxHeight = 200 * this.scaleFactor
     const borderRadius = 20 * this.scaleFactor
 
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
-    this.ctx.shadowBlur = 20
+    this.ctx.shadowColor = 'transparent' // 최적화
+    this.ctx.shadowBlur = 0
     this.ctx.shadowOffsetX = 0
-    this.ctx.shadowOffsetY = 10
+    this.ctx.shadowOffsetY = 0
 
     const gradient = this.ctx.createLinearGradient(-boxWidth/2, -boxHeight/2, -boxWidth/2, boxHeight/2)
     gradient.addColorStop(0, bgColor)
@@ -1375,27 +1430,12 @@ export class BlackjackGame {
     return `#${Math.floor(r).toString(16).padStart(2, '0')}${Math.floor(g).toString(16).padStart(2, '0')}${Math.floor(b).toString(16).padStart(2, '0')}`
   }
 
-  private renderSidebar() {
+  private renderSidebarContent() {
       if (this.sidebarWidth === 0) return;
       
       const sx = this.gameAreaWidth;
-      const w = this.sidebarWidth;
       
-      this.ctx.fillStyle = '#1e293b';
-      this.ctx.fillRect(sx, 0, w, this.canvasHeight);
-      
-      this.ctx.strokeStyle = '#334155';
-      this.ctx.lineWidth = 2;
-      this.ctx.beginPath();
-      this.ctx.moveTo(sx, 0);
-      this.ctx.lineTo(sx, this.canvasHeight);
-      this.ctx.stroke();
-      
-      this.ctx.fillStyle = '#94a3b8';
-      this.ctx.font = 'bold 20px sans-serif';
-      this.ctx.textAlign = 'left';
-      this.ctx.fillText('HISTORY', sx + 20, 40);
-      
+      // 유저 정보 (동적)
       this.ctx.fillStyle = '#fff';
       this.ctx.font = '16px sans-serif';
       this.ctx.fillText(`Points: ${this.playerPoints.toLocaleString()}`, sx + 20, 80);

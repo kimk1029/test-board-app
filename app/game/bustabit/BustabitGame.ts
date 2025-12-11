@@ -63,6 +63,10 @@ export class BustabitGame {
   
   private onMessage?: (message: string) => void;
   private onLoadingProgress?: (progress: number) => void; 
+  
+  // [최적화] 정적 배경 캐싱
+  private staticCanvas: HTMLCanvasElement | null = null;
+  private staticCtx: CanvasRenderingContext2D | null = null;
 
   private isProcessing: boolean = false;
 
@@ -82,6 +86,49 @@ export class BustabitGame {
     
     // 초기화 및 로딩 시작
     this.initializeGame();
+  }
+
+  // [최적화] 정적 배경 캐싱
+  private cacheStaticLayer() {
+      this.staticCanvas = document.createElement('canvas');
+      this.staticCanvas.width = this.canvasWidth;
+      this.staticCanvas.height = this.canvasHeight;
+      this.staticCtx = this.staticCanvas.getContext('2d');
+      
+      if (!this.staticCtx) return;
+      
+      const ctx = this.staticCtx;
+      
+      // 1. 전체 배경
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+      
+      // 2. 사이드바 배경
+      if (this.sidebarWidth > 0) {
+          const sx = this.gameAreaWidth;
+          const w = this.sidebarWidth;
+          
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(sx, 0, w, this.canvasHeight);
+          
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(sx, 0);
+          ctx.lineTo(sx, this.canvasHeight);
+          ctx.stroke();
+          
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = 'bold 16px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('HISTORY LOG', sx + 20, 40);
+      }
+      
+      // 3. 그래프 그리드 (최대값이 바뀔 때마다 다시 그려야 하지만, 여기선 초기값 기준)
+      // Bustabit은 시간에 따라 축이 변하므로 그리드를 매번 그려야 할 수도 있음.
+      // 하지만 축이 고정된 게임이라면 캐싱이 유리.
+      // Bustabit은 줌아웃되므로 그리드도 동적임. -> 그리드는 캐싱에서 제외하거나, 배경만 캐싱.
+      // 여기서는 '배경색'과 '사이드바 배경'만 캐싱.
   }
 
   // [신규] 리사이즈 메서드 추가
@@ -110,6 +157,9 @@ export class BustabitGame {
 
       // UI 요소 위치 재계산
       this.createButtons();
+      
+      // [최적화] 리사이즈 시 배경 다시 캐싱
+      this.cacheStaticLayer();
       
       if (!this.isRunning) {
           this.render();
@@ -617,11 +667,16 @@ export class BustabitGame {
   private render() {
     if ((this.canvas as any).__activeBustabitInstance !== this.instanceId) return;
 
-    this.ctx.fillStyle = '#0f172a'; 
-    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    // [최적화] 캐싱된 배경 사용
+    if (this.staticCanvas) {
+        this.ctx.drawImage(this.staticCanvas, 0, 0);
+    } else {
+        this.ctx.fillStyle = '#0f172a'; 
+        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    }
 
     this.renderGameArea();
-    this.renderSidebar();
+    this.renderSidebarContent(); // 이름 변경
   }
 
   private renderGameArea() {
@@ -648,24 +703,13 @@ export class BustabitGame {
     this.renderButtons();
   }
 
-  private renderSidebar() {
+  private renderSidebarContent() {
     if (this.sidebarWidth === 0) return;
     
     const startX = this.gameAreaWidth;
     
-    this.ctx.fillStyle = '#1e293b'; 
-    this.ctx.fillRect(startX, 0, this.sidebarWidth, this.canvasHeight);
-    this.ctx.strokeStyle = '#334155';
-    this.ctx.lineWidth = 1;
-    this.ctx.beginPath();
-    this.ctx.moveTo(startX, 0);
-    this.ctx.lineTo(startX, this.canvasHeight);
-    this.ctx.stroke();
-
-    this.ctx.fillStyle = '#94a3b8';
-    this.ctx.font = 'bold 16px sans-serif';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText('HISTORY LOG', startX + 20, 40);
+    // 배경은 staticCanvas에 이미 그려져 있음
+    // 로그와 스크롤 등 동적 요소만 렌더링
 
     const logStartY = 80;
     const logEndY = this.canvasHeight - 20;
@@ -838,9 +882,9 @@ export class BustabitGame {
   private drawButton(button: Button, color: string, isSelected: boolean = false) {
     const r = 8; 
     
-    this.ctx.shadowColor = 'rgba(0,0,0,0.3)';
-    this.ctx.shadowBlur = 5;
-    this.ctx.shadowOffsetY = 3;
+    this.ctx.shadowColor = 'transparent'; // 최적화: 그림자 제거
+    this.ctx.shadowBlur = 0;
+    this.ctx.shadowOffsetY = 0;
 
     this.ctx.fillStyle = color;
     if (isSelected) {

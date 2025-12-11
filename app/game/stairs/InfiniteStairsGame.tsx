@@ -78,8 +78,8 @@ class InfiniteStairsScene extends Phaser.Scene {
         graphics.setScrollFactor(0)
         graphics.setDepth(-100)
         
-        // Stars
-        for (let i = 0; i < 100; i++) {
+        // Stars [최적화] 개수 감소 (100 -> 40)
+        for (let i = 0; i < 40; i++) {
             const x = Phaser.Math.Between(0, this.scale.width)
             const y = Phaser.Math.Between(0, this.scale.height)
             const size = Phaser.Math.Between(1, 3)
@@ -342,7 +342,8 @@ class InfiniteStairsScene extends Phaser.Scene {
                 this.isMoving = false
                 this.addStep(Math.random() > 0.5 ? 'right' : 'left')
                 
-                if (this.steps.length > 40) {
+                // [최적화] 화면 밖으로 나간 계단을 더 빨리 제거 (40 -> 25)
+                if (this.steps.length > 25) {
                     const oldStep = this.steps.shift()
                     if (oldStep) oldStep.destroy()
                     this.stepData.shift()
@@ -472,6 +473,13 @@ export default function InfiniteStairsGame({ onGameOver, onLoadingProgress }: In
             parent: gameRef.current,
             backgroundColor: '#0f172a',
             scene: [InfiniteStairsScene],
+            render: {
+                pixelArt: false,
+                antialias: true,
+                roundPixels: true, // [최적화] 좌표 정수화
+                powerPreference: 'high-performance', // [최적화] 고성능 모드
+                desynchronized: true, // [최적화] 지연 시간 단축
+            },
             physics: { default: 'arcade' }
         }
         

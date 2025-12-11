@@ -691,6 +691,13 @@ export default function SlotGamePage({ onLoadingProgress }: SlotGamePageProps) {
             parent: gameRef.current,
             backgroundColor: '#000',
             scene: [MainScene],
+            render: {
+                antialias: true,
+                pixelArt: false,
+                roundPixels: true, // [최적화] 좌표 정수화
+                powerPreference: 'high-performance', // [최적화] GPU 우선 사용
+                desynchronized: true, // [최적화] 낮은 지연 시간
+            },
             physics: { default: 'arcade' },
             audio: { disableWebAudio: false, noAudio: false },
             disableContextMenu: true
