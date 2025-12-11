@@ -1443,76 +1443,96 @@ export class BlackjackGame {
       const logStartY = 130;
       const logEndY = this.canvasHeight - 20;
       let y = logStartY - this.logScrollOffset;
+      const lineHeight = 18; // 기본 줄 높이
+      const spacing = 8; // 로그 항목 간 간격
       
-      // [수정] 로그 렌더링 로직 (멀티라인 지원)
+      // [수정] 로그 렌더링 로직 (멀티라인 지원, 겹침 방지)
       this.logs.forEach(log => {
           // 멀티라인 메시지 분리
           const lines = log.message.split('\n');
-          const totalHeight = 35 + (lines.length - 1) * 20 + (log.pointsChange ? 20 : 0);
+          const baseHeight = lineHeight; // 첫 줄 높이
+          const extraLinesHeight = (lines.length - 1) * lineHeight; // 추가 줄 높이
+          const pointsHeight = (log.pointsChange !== undefined && log.balance !== undefined) ? lineHeight : 0;
+          const totalHeight = baseHeight + extraLinesHeight + pointsHeight + spacing;
           
-          if (y + totalHeight < logStartY || y > logEndY) {
-              y += totalHeight + 5; 
+          const currentY = y; // 현재 로그 항목의 시작 y 위치 저장
+          
+          // 화면 밖에 있으면 건너뛰기 (정확한 높이로)
+          if (currentY + totalHeight < logStartY || currentY > logEndY) {
+              y += totalHeight;
               return;
           }
           
-          const timeText = `[${log.time}]`;
-          
-          this.ctx.font = '13px monospace';
+          // 시간 표시
+          this.ctx.font = '12px monospace';
           this.ctx.fillStyle = '#64748b';
-          this.ctx.fillText(timeText, sx + 20, y);
+          this.ctx.fillText(`[${log.time}]`, sx + 20, currentY);
           
           if (log.round > 0) {
-              const roundText = `${log.round}R`;
+              // 라운드 번호
               this.ctx.fillStyle = '#94a3b8';
-              this.ctx.fillText(roundText, sx + 90, y);
+              this.ctx.font = '12px monospace';
+              this.ctx.fillText(`${log.round}R`, sx + 90, currentY);
               
+              // 베팅 금액
               if (log.betAmount) {
-                  const betText = `${log.betAmount.toLocaleString()} bet`;
                   this.ctx.fillStyle = '#fbbf24'; 
-                  this.ctx.fillText(betText, sx + 130, y);
+                  this.ctx.font = '12px monospace';
+                  this.ctx.fillText(`${log.betAmount.toLocaleString()}`, sx + 130, currentY);
               }
               
+              // 결과 타입 색상
               let resultColor = '#fff';
               if (log.type === 'win' || log.type === 'blackjack') resultColor = '#4ade80';
               else if (log.type === 'lose') resultColor = '#f87171';
               else if (log.type === 'draw') resultColor = '#fbbf24';
               else if (log.type === 'info') resultColor = '#94a3b8'; 
               
+              // 첫 번째 줄 메시지 (WIN/LOSE 등)
               this.ctx.fillStyle = resultColor;
-              this.ctx.font = 'bold 13px monospace';
+              this.ctx.font = 'bold 12px monospace';
+              const maxWidth = this.sidebarWidth - 220; // 최대 텍스트 너비
+              const firstLine = lines[0].length > 20 ? lines[0].substring(0, 20) + '...' : lines[0];
+              this.ctx.fillText(firstLine, sx + 20, currentY + lineHeight);
               
-              // 첫 줄 (WIN/LOSE 등)
-              this.ctx.fillText(lines[0], sx + 200, y);
-              
-              // 두 번째 줄 이상 (Insurance 등)
+              // 추가 줄들 (Insurance 등)
+              let lineY = currentY + lineHeight;
               for (let i = 1; i < lines.length; i++) {
-                  y += 20;
+                  lineY += lineHeight;
                   this.ctx.fillStyle = '#94a3b8';
-                  this.ctx.font = '13px monospace';
-                  this.ctx.fillText(lines[i], sx + 90, y); // 들여쓰기
+                  this.ctx.font = '11px monospace';
+                  const lineText = lines[i].length > 25 ? lines[i].substring(0, 25) + '...' : lines[i];
+                  this.ctx.fillText(lineText, sx + 20, lineY);
               }
               
+              // 포인트 변경 정보
               if (log.pointsChange !== undefined && log.balance !== undefined) {
-                  y += 20;
+                  lineY += lineHeight;
                   const changeSign = log.pointsChange >= 0 ? '+' : '';
                   const changeText = `${changeSign}${log.pointsChange.toLocaleString()}`;
                   
-                  this.ctx.font = '12px sans-serif';
+                  this.ctx.font = '11px sans-serif';
                   this.ctx.fillStyle = log.pointsChange >= 0 ? '#4ade80' : '#f87171';
-                  this.ctx.fillText(changeText, sx + 20, y);
+                  this.ctx.fillText(changeText, sx + 20, lineY);
                   
                   this.ctx.fillStyle = '#94a3b8';
-                  this.ctx.fillText(`(Bal: ${log.balance.toLocaleString()})`, sx + 100, y);
+                  this.ctx.font = '11px sans-serif';
+                  const balanceText = `Bal: ${log.balance.toLocaleString()}`;
+                  this.ctx.fillText(balanceText, sx + 100, lineY);
               }
           } else {
               // 라운드가 0이면 "입장"으로 처리
               this.ctx.fillStyle = '#94a3b8';
-              this.ctx.fillText("입장", sx + 90, y);
-              this.ctx.font = '13px sans-serif';
-              this.ctx.fillText(log.message.replace('접속 성공 - ', ''), sx + 130, y);
+              this.ctx.font = '12px monospace';
+              this.ctx.fillText("입장", sx + 90, currentY);
+              this.ctx.font = '12px sans-serif';
+              const infoText = log.message.replace('접속 성공 - ', '');
+              const truncatedText = infoText.length > 15 ? infoText.substring(0, 15) + '...' : infoText;
+              this.ctx.fillText(truncatedText, sx + 130, currentY);
           }
           
-          y += 35; 
+          // 다음 로그 항목을 위한 y 위치 업데이트 (정확한 높이 사용)
+          y = currentY + totalHeight;
       });
   }
 
