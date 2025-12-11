@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button'
 class InfiniteStairsScene extends Phaser.Scene {
     // Constants
     private readonly STEP_WIDTH = 80
-    private readonly STEP_HEIGHT = 60
+    private readonly STEP_HEIGHT = 60 // Reverted to original spacing
     private readonly PLAYER_SPEED = 80
     private readonly MAX_TIME = 100
-    private readonly TIME_DRAIN_RATE = 0.2 // Reduced slightly for fairness
+    private readonly TIME_DRAIN_RATE = 0.2
     private readonly TIME_REFILL_BONUS = 8
     
     // Game State
@@ -41,14 +41,18 @@ class InfiniteStairsScene extends Phaser.Scene {
     }
 
     create() {
+        this.updateProgress(20)
         this.createBackground()
+        this.updateProgress(40)
         this.createAnimations()
+        this.updateProgress(60)
         
         // Initial Setup
         this.setupInput()
         this.createUI()
         
         this.initGame()
+        this.updateProgress(80)
         
         // Camera
         this.cameras.main.setZoom(1)
@@ -57,6 +61,13 @@ class InfiniteStairsScene extends Phaser.Scene {
         // Resize handler
         this.scale.on('resize', this.resize, this)
         this.resize({ width: this.scale.width, height: this.scale.height })
+        
+        this.updateProgress(100)
+    }
+
+    private updateProgress(val: number) {
+        const onProgress = this.registry.get('onLoadingProgress')
+        if (onProgress) onProgress(val)
     }
 
     private createBackground() {
@@ -81,18 +92,18 @@ class InfiniteStairsScene extends Phaser.Scene {
     private createAnimations() {
         // 1. Step Texture (Isometric-ish Block)
         const stepG = this.make.graphics({ x: 0, y: 0 })
-        const w = 80
-        const h = 40
-        const d = 40 // depth
+        const w = 80 // Reverted width
+        const h = 20 // Keep reduced vertical width (thin steps)
+        const d = 20 // Reverted depth
         
         // Top Face
-        stepG.fillStyle(0x06b6d4) // Cyan-ish top
+        stepG.fillStyle(0x06b6d4) 
         stepG.fillRect(0, 0, w, h)
         stepG.lineStyle(2, 0xa5f3fc)
         stepG.strokeRect(0, 0, w, h)
         
         // Front Face
-        stepG.fillStyle(0x0891b2) // Darker cyan front
+        stepG.fillStyle(0x0891b2) 
         stepG.fillRect(0, h, w, d)
         stepG.lineStyle(2, 0x0e7490)
         stepG.strokeRect(0, h, w, d)
@@ -103,38 +114,42 @@ class InfiniteStairsScene extends Phaser.Scene {
 
         stepG.generateTexture('step', w, h + d)
         
-        // 2. Player Texture (Astronaut/Robot)
+        // 2. Player Texture (Astronaut Side Profile)
+        // Original Size (60x90)
         const playerG = this.make.graphics({ x: 0, y: 0 })
         
         // Shadow
         playerG.fillStyle(0x000000, 0.3)
-        playerG.fillEllipse(30, 75, 40, 10)
+        playerG.fillEllipse(30, 75, 30, 8)
         
-        // Body
+        // Backpack (Left side)
+        playerG.fillStyle(0x94a3b8) 
+        playerG.fillRoundedRect(10, 35, 15, 25, 4)
+        
+        // Body (Side view)
         playerG.fillStyle(0xffffff)
-        playerG.fillRoundedRect(15, 30, 30, 35, 5) // Torso
+        playerG.fillRoundedRect(20, 32, 25, 30, 5) 
         
-        // Head (Helmet)
+        // Head (Helmet Side View)
         playerG.fillStyle(0xf1f5f9)
-        playerG.fillCircle(30, 20, 18) // Helmet Outer
-        playerG.fillStyle(0x3b82f6)
-        playerG.fillCircle(30, 20, 12) // Visor
-        // Reflection
-        playerG.fillStyle(0xffffff, 0.8)
-        playerG.fillCircle(34, 16, 4)
+        playerG.fillCircle(35, 22, 16) 
         
-        // Backpack
-        playerG.fillStyle(0x94a3b8)
-        playerG.fillRoundedRect(5, 35, 10, 25, 2)
+        // Visor (Right side)
+        playerG.fillStyle(0x3b82f6) 
+        playerG.beginPath()
+        playerG.arc(35, 22, 12, -Math.PI/4, Math.PI/2, false)
+        playerG.lineTo(35, 22)
+        playerG.closePath()
+        playerG.fillPath()
         
-        // Limbs
+        // Legs (Walking stance)
+        playerG.lineStyle(8, 0xffffff)
+        playerG.beginPath(); playerG.moveTo(35, 60); playerG.lineTo(45, 80); playerG.strokePath()
+        playerG.beginPath(); playerG.moveTo(25, 60); playerG.lineTo(15, 80); playerG.strokePath()
+        
+        // Arms (Swinging)
         playerG.lineStyle(6, 0xffffff)
-        // Arms
-        playerG.beginPath(); playerG.moveTo(20, 40); playerG.lineTo(10, 55); playerG.strokePath() // L
-        playerG.beginPath(); playerG.moveTo(40, 40); playerG.lineTo(50, 55); playerG.strokePath() // R
-        // Legs
-        playerG.beginPath(); playerG.moveTo(25, 65); playerG.lineTo(25, 80); playerG.strokePath() // L
-        playerG.beginPath(); playerG.moveTo(35, 65); playerG.lineTo(35, 80); playerG.strokePath() // R
+        playerG.beginPath(); playerG.moveTo(35, 45); playerG.lineTo(50, 50); playerG.strokePath()
 
         playerG.generateTexture('player', 60, 90)
     }
@@ -157,8 +172,8 @@ class InfiniteStairsScene extends Phaser.Scene {
         
         this.scene.resume()
 
-        // Create initial steps (Buffer 20)
-        this.addStep('right') // First step base
+        // Create initial steps (Buffer 30)
+        this.addStep('right') 
         for (let i = 0; i < 30; i++) {
             this.addStep(Math.random() > 0.5 ? 'right' : 'left')
         }
@@ -168,7 +183,7 @@ class InfiniteStairsScene extends Phaser.Scene {
         
         // Reset camera
         this.cameras.main.stopFollow()
-        this.cameras.main.setScroll(0, this.player.y - 400) // Rough initial
+        this.cameras.main.setScroll(0, this.player.y - 400) 
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1, 0, 200)
     }
 
@@ -184,22 +199,22 @@ class InfiniteStairsScene extends Phaser.Scene {
         const cx = this.scale.width / 2
         
         // Timer Bar
-        this.add.graphics().setScrollFactor(0).setDepth(99)
+        this.add.graphics().setScrollFactor(0).setDepth(2999)
             .fillStyle(0x1e293b, 0.8)
             .fillRoundedRect(cx - 150, 20, 300, 16, 8)
             
-        this.timerBar = this.add.graphics().setScrollFactor(0).setDepth(100)
+        this.timerBar = this.add.graphics().setScrollFactor(0).setDepth(3000)
         
-        // Key Guide (Top)
+        // Key Guide
         this.keyGuide = this.add.text(cx, 50, 'Z: 오르기  |  X: 방향전환', {
             fontSize: '18px',
             color: '#94a3b8',
             fontStyle: 'bold',
             stroke: '#000',
             strokeThickness: 3
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(100)
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(3000)
 
-        // Score (Below timer)
+        // Score
         this.scoreText = this.add.text(cx, 100, '0', {
             fontSize: '64px',
             color: '#fff',
@@ -207,7 +222,7 @@ class InfiniteStairsScene extends Phaser.Scene {
             stroke: '#000',
             strokeThickness: 4,
             shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, fill: true }
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(100)
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(3000)
         
         // Start Prompt
         this.startPrompt = this.add.text(cx, this.scale.height / 2 + 100, 'Press Z or X to Start', {
@@ -216,10 +231,10 @@ class InfiniteStairsScene extends Phaser.Scene {
             align: 'center',
             stroke: '#000',
             strokeThickness: 3
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(100)
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(3000)
         
         // Game Over UI
-        this.gameOverContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(200).setVisible(false)
+        this.gameOverContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(4000).setVisible(false)
         const bg = this.add.rectangle(0, 0, 2000, 2000, 0x000000, 0.8)
         const title = this.add.text(0, -60, 'GAME OVER', {
             fontSize: '64px', color: '#ef4444', fontStyle: 'bold', stroke: '#000', strokeThickness: 6
@@ -247,7 +262,7 @@ class InfiniteStairsScene extends Phaser.Scene {
     }
     
     private updateTimer() {
-        if (this.score === 0) return // Don't drain before start
+        if (this.score === 0) return 
         
         const drain = this.TIME_DRAIN_RATE + (this.score * 0.0005)
         this.timerValue -= drain
@@ -315,21 +330,18 @@ class InfiniteStairsScene extends Phaser.Scene {
         this.timerValue = Math.min(this.MAX_TIME, this.timerValue + this.TIME_REFILL_BONUS)
         
         const nextStep = this.steps[this.currentStepIndex]
-        const targetY = nextStep.y - 65
+        const targetY = nextStep.y - 50 // Adjusted to sit on thin step (-50 for h=20)
         
         this.tweens.add({
             targets: this.player,
             x: nextStep.x,
             y: targetY,
-            duration: this.PLAYER_SPEED * 0.8, // Faster response
+            duration: this.PLAYER_SPEED * 0.8,
             ease: 'Power1',
             onComplete: () => {
                 this.isMoving = false
-                
-                // Keep generating steps
                 this.addStep(Math.random() > 0.5 ? 'right' : 'left')
                 
-                // Cleanup old steps to save memory, but keep enough visible behind
                 if (this.steps.length > 40) {
                     const oldStep = this.steps.shift()
                     if (oldStep) oldStep.destroy()
@@ -343,9 +355,8 @@ class InfiniteStairsScene extends Phaser.Scene {
     private failMove() {
         this.isMoving = true
         this.isGameOver = true
-        this.gameOverContainer.setVisible(true)
+        this.triggerGameOver('fall') 
         
-        // Fall animation
         this.tweens.add({
             targets: this.player,
             y: this.player.y + 300,
@@ -358,6 +369,30 @@ class InfiniteStairsScene extends Phaser.Scene {
     private triggerGameOver(reason: string) {
         this.isGameOver = true
         this.gameOverContainer.setVisible(true)
+        this.saveScore(this.score)
+    }
+
+    private async saveScore(score: number) {
+        if (score <= 0) return
+        
+        const token = localStorage.getItem('token')
+        if (!token) return // No save for guests
+
+        try {
+            await fetch('/api/game/score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    gameType: 'stairs',
+                    score: score
+                })
+            })
+        } catch (error) {
+            console.error('Score save failed', error)
+        }
     }
     
     private addStep(direction: 'left' | 'right') {
@@ -376,11 +411,6 @@ class InfiniteStairsScene extends Phaser.Scene {
         
         const stepSprite = this.add.image(0, 0, 'step')
         const stepContainer = this.add.container(x, y, [stepSprite])
-        stepContainer.setDepth(this.steps.length) // Higher steps in front?
-        // Actually, in 2D stairs going UP, the higher steps are usually drawn BEHIND the lower ones if they overlap vertically?
-        // Or if isometric, "further" is "higher Y" on screen? No, higher step is lower Y.
-        // If we look UP, top steps are further.
-        // Let's use simple z-ordering: newer (higher) steps behind older (lower) steps.
         stepContainer.setDepth(1000 - this.steps.length)
         
         this.steps.push(stepContainer)
@@ -390,7 +420,7 @@ class InfiniteStairsScene extends Phaser.Scene {
     private createPlayer() {
         const startStep = this.steps[0]
         const playerSprite = this.add.image(0, 0, 'player')
-        this.player = this.add.container(startStep.x, startStep.y - 65, [playerSprite])
+        this.player = this.add.container(startStep.x, startStep.y - 50, [playerSprite]) // Adjusted offset
         this.player.setDepth(2000)
     }
     
@@ -408,9 +438,6 @@ class InfiniteStairsScene extends Phaser.Scene {
         if (this.keyGuide) this.keyGuide.setPosition(cx, 50)
         if (this.startPrompt) this.startPrompt.setPosition(cx, height/2 + 100)
         
-        // Center GameOver container content relative to container (which is at 0,0?)
-        // Ah, in createUI I set container at 0,0.
-        // Elements inside should be centered on screen.
         if (this.gameOverContainer) {
             const bg = this.gameOverContainer.list[0] as Phaser.GameObjects.Rectangle
             if(bg) { bg.setPosition(cx, height/2); bg.setSize(width*2, height*2) }
@@ -424,9 +451,10 @@ class InfiniteStairsScene extends Phaser.Scene {
 
 interface InfiniteStairsGameProps {
     onGameOver?: (score: number) => void
+    onLoadingProgress?: (progress: number) => void
 }
 
-export default function InfiniteStairsGame({ onGameOver }: InfiniteStairsGameProps) {
+export default function InfiniteStairsGame({ onGameOver, onLoadingProgress }: InfiniteStairsGameProps) {
     const gameRef = useRef<HTMLDivElement>(null)
     const gameInstance = useRef<Phaser.Game | null>(null)
     
@@ -449,11 +477,21 @@ export default function InfiniteStairsGame({ onGameOver }: InfiniteStairsGamePro
         
         gameInstance.current = new Phaser.Game(config)
         
+        if (onLoadingProgress) {
+            gameInstance.current.registry.set('onLoadingProgress', onLoadingProgress)
+        }
+        
         return () => {
             gameInstance.current?.destroy(true)
             gameInstance.current = null
         }
     }, [])
+
+    useEffect(() => {
+        if (gameInstance.current && onLoadingProgress) {
+            gameInstance.current.registry.set('onLoadingProgress', onLoadingProgress)
+        }
+    }, [onLoadingProgress])
 
     return (
         <div className="relative w-full h-full flex flex-col">

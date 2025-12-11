@@ -24,6 +24,7 @@ model User {
   posts         Post[]
   comments      Comment[]
   gameLogs      GameLog[] // 게임 기록 관계
+  gameScores    GameScore[] // 게임 점수 기록 (스코어링 게임용)
   achievements  UserAchievement[] // 획득한 업적 관계
   likes         Like[]    // 좋아요 한 기록
 }
@@ -103,7 +104,7 @@ model EmailVerification {
   @@index([email])
 }
 
-// 게임 기록 저장용 모델
+// 게임 기록 저장용 모델 (베팅/자산 변동용)
 model GameLog {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -120,6 +121,19 @@ model GameLog {
   @@index([userId])
   @@index([gameType])
   @@index([createdAt])
+}
+
+// 게임 점수 저장용 모델 (랭킹용 - 계단오르기 등)
+model GameScore {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  gameType  String   // 'stairs'
+  score     Int
+  createdAt DateTime @default(now())
+
+  @@index([gameType, score]) // 랭킹 조회 최적화
+  @@index([userId])
 }
 
 // 업적 정의

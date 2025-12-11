@@ -210,7 +210,16 @@ class MainScene extends Phaser.Scene {
         super('MainScene')
     }
 
+    init() {
+        this.updateProgress(10)
+    }
+
+    preload() {
+        this.updateProgress(30)
+    }
+
     create() {
+        this.updateProgress(50)
         this.background = this.add.rectangle(0, 0, 0, 0, 0x121212).setOrigin(0,0)
 
         this.slotGroup = this.add.container(0, 0)
@@ -227,10 +236,18 @@ class MainScene extends Phaser.Scene {
 
         this.input.keyboard?.on('keydown-SPACE', () => this.handleSpin())
 
+        this.updateProgress(80)
         this.loadUserPoints()
         
         this.scale.on('resize', this.resize, this)
         this.resize({ width: this.scale.width, height: this.scale.height })
+        
+        this.updateProgress(100)
+    }
+    
+    private updateProgress(val: number) {
+        const onProgress = this.registry.get('onLoadingProgress')
+        if (onProgress) onProgress(val)
     }
 
     private resize(gameSize: { width: number, height: number }) {
@@ -256,24 +273,18 @@ class MainScene extends Phaser.Scene {
         if(backBtn) backBtn.x = -w/2 + 60
 
         // 2. Slot Machine
-        // PC: Center. Mobile: Top part, full width scale.
         if (isMobile) {
-            // Mobile Layout
-            // Scale slot to fit width (with some padding)
             const slotScale = Math.min(1, (w - 40) / 600)
             this.slotGroup.setScale(slotScale)
-            this.slotGroup.setPosition(w/2, 100 + (240 * slotScale)) // Top offset + half height
+            this.slotGroup.setPosition(w/2, 100 + (240 * slotScale)) 
             
-            // Controls below slot
             const controlY = this.slotGroup.y + (240 * slotScale) + 60
             this.controlGroup.setScale(Math.min(1, w / 500))
             this.controlGroup.setPosition(w/2, controlY)
             
-            // Paytable / Info below controls
-            this.infoGroup.setVisible(false) // Hide side info on mobile? Or move to bottom
+            this.infoGroup.setVisible(false) 
             
         } else {
-            // PC Layout
             this.slotGroup.setScale(1)
             this.slotGroup.setPosition(w/2, h/2 - 20)
             
@@ -281,15 +292,13 @@ class MainScene extends Phaser.Scene {
             this.controlGroup.setPosition(w/2, h - 80)
             
             this.infoGroup.setVisible(true)
-            this.infoGroup.setPosition(150, h/2) // Left side paytable
+            this.infoGroup.setPosition(150, h/2) 
         }
         
-        // Settings Panel Center
         this.settingsPanel.setPosition(w/2, h/2)
         const sOverlay = this.settingsPanel.list[0] as Phaser.GameObjects.Rectangle
         if(sOverlay) sOverlay.setSize(w, h)
 
-        // IMPORTANT: Update masks for reels
         this.reels.forEach(reel => {
             const wx = this.slotGroup.x + reel.container.x * this.slotGroup.scale
             const wy = this.slotGroup.y + reel.container.y * this.slotGroup.scale
@@ -313,8 +322,8 @@ class MainScene extends Phaser.Scene {
             fontSize: '28px', color: '#ffd700', fontFamily: 'Arial Black'
         }).setOrigin(0.5)
 
-        // [설정 버튼] - Top bar로 이동
-        const settingsBtn = this.add.container(580, 0).setName('logBtn') // Using logBtn pos for settings for now
+        // [설정 버튼]
+        const settingsBtn = this.add.container(580, 0).setName('logBtn') 
         const setBg = this.add.circle(0, 0, 25, 0x4a5568).setInteractive({ useHandCursor: true })
         const setIcon = this.add.text(0, 0, '⚙️', { fontSize: '24px' }).setOrigin(0.5)
         settingsBtn.add([setBg, setIcon])
@@ -324,7 +333,6 @@ class MainScene extends Phaser.Scene {
     }
 
     private createSlotMachine() {
-        // Center of Group is (0,0)
         const frame = this.add.graphics()
         frame.fillStyle(0x222222); frame.fillRoundedRect(-300, -240, 600, 480, 20)
         frame.lineStyle(12, 0xd4af37); frame.strokeRoundedRect(-300, -240, 600, 480, 20)
@@ -334,11 +342,10 @@ class MainScene extends Phaser.Scene {
         this.slotGroup.add(bg)
 
         this.reels = [
-            new SlotReel(this, 0, 0), // Temp pos
+            new SlotReel(this, 0, 0), 
             new SlotReel(this, 0, 0),
             new SlotReel(this, 0, 0)
         ]
-        // Add reel containers to group
         this.slotGroup.add(this.reels[0].container)
         this.slotGroup.add(this.reels[1].container)
         this.slotGroup.add(this.reels[2].container)
@@ -354,7 +361,6 @@ class MainScene extends Phaser.Scene {
     }
 
     private createPaytable() {
-        // Paytable content in infoGroup
         const bg = this.add.rectangle(0, 0, 220, 480, 0x1a1a1a, 0.9)
         bg.setStrokeStyle(2, 0x444444)
         const title = this.add.text(0, -200, 'PAYTABLE', { fontSize: '24px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5)
@@ -374,7 +380,6 @@ class MainScene extends Phaser.Scene {
     }
 
     private createControlPanel() {
-        // Relative to controlGroup (0,0)
         const spinBg = this.add.rectangle(0, 0, 220, 70, 0xe63946, 1).setInteractive({ useHandCursor: true })
         spinBg.setStrokeStyle(4, 0xffffff)
         this.spinButtonText = this.add.text(0, 0, 'SPIN (0.1)', { fontSize: '28px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5)
@@ -395,26 +400,15 @@ class MainScene extends Phaser.Scene {
         
         this.controlGroup.add([spinContainer, this.x5Button])
         
-        // Add Points Display to control group for mobile visibility
         const pointsBg = this.add.rectangle(-200, 0, 180, 50, 0x000000).setStrokeStyle(2, 0xd4af37)
         this.pointsText = this.add.text(-200, 0, '0.0 P', { fontSize: '24px', color: '#4ade80', fontStyle: 'bold' }).setOrigin(0.5)
         this.controlGroup.add([pointsBg, this.pointsText])
     }
 
-    // ... (updateButtons, createSettingsPanel, toggleSettings logic remains mostly same but adjusted for container) ...
-    // ... (createLogPanel refactored to simple overlay or side panel) ...
-    // To save space, I will keep logs in a collapsible panel or just show floating text for mobile wins.
-    // User requested "Log panel".
-    // I'll create a Log Container that can be toggled.
-    
     private createLogPanel() {
-        // Implementation for log panel (maybe right side on PC, bottom overlay on Mobile)
-        // For simplicity, let's keep the logic simple: Just use floating text for main events on mobile.
-        // And keep side panel for PC.
-        this.logContainer = this.add.container(0,0) // Placeholder
+        this.logContainer = this.add.container(0,0) 
     }
     
-    // ... Helper functions ...
     private updateButtons() {
         if (this.isX5Mode) {
             this.x5ButtonBg.setFillStyle(0xffd700); this.x5ButtonBg.setStrokeStyle(2, 0xffffff)
@@ -474,9 +468,6 @@ class MainScene extends Phaser.Scene {
     }
 
     private addLog(type: string, message: string, change: number, current: number) {
-        // console.log(type, message, change, current) 
-        // Log display removed for mobile simplicity/performance, relying on Floating Text.
-        // Can be re-added if needed.
     }
 
     private async loadUserPoints() {
@@ -504,7 +495,7 @@ class MainScene extends Phaser.Scene {
     private async handleSpin() {
         if (this.isSpinning) return
         const betAmount = this.isX5Mode ? 0.5 : 0.1
-        if (this.playerPoints < betAmount) { this.showFloatingText(0, 0, '포인트 부족!', '#ff0000'); return } // Pos relative to slot group usually
+        if (this.playerPoints < betAmount) { this.showFloatingText(0, 0, '포인트 부족!', '#ff0000'); return } 
 
         this.isSpinning = true 
         const previousPoints = this.playerPoints
@@ -632,13 +623,11 @@ class MainScene extends Phaser.Scene {
     }
 
     private showFloatingText(x: number, y: number, msg: string, color: string, size: number = 48) {
-        // Floating text relative to slotGroup usually, or screen.
-        // Let's attach to slotGroup
         const text = this.add.text(x, y, msg, {
             fontSize: `${size}px`, fontFamily: 'Arial Black', color: color, stroke: '#000', strokeThickness: 6, align: 'center'
         }).setOrigin(0.5).setDepth(100).setScale(0)
         
-        this.slotGroup.add(text) // Add to group to scale with it
+        this.slotGroup.add(text) 
 
         this.tweens.add({
             targets: text, scale: 1, duration: 500, ease: 'Back.out',
@@ -653,7 +642,7 @@ class MainScene extends Phaser.Scene {
         const symbolH = 140
         lines.forEach(line => {
             if (line.type === 'row') {
-                const y = (line.index - 1) * symbolH // Center is 0
+                const y = (line.index - 1) * symbolH 
                 this.paylineGraphics.lineBetween(-280, y, 280, y)
             } else if (line.type === 'col') {
                 const x = (line.index - 1) * 190
@@ -669,8 +658,12 @@ class MainScene extends Phaser.Scene {
     }
 }
 
+interface SlotGamePageProps {
+    onLoadingProgress?: (progress: number) => void
+}
+
 // --- Next.js 컴포넌트 ---
-export default function SlotGamePage() {
+export default function SlotGamePage({ onLoadingProgress }: SlotGamePageProps) {
     const gameRef = useRef<HTMLDivElement>(null)
     const gameInstance = useRef<Phaser.Game | null>(null)
     const [isDemo, setIsDemo] = useState(false)
@@ -699,6 +692,10 @@ export default function SlotGamePage() {
 
         gameInstance.current = new Phaser.Game(config)
 
+        if (onLoadingProgress) {
+            gameInstance.current.registry.set('onLoadingProgress', onLoadingProgress)
+        }
+
         return () => {
             if (gameInstance.current) {
                 try {
@@ -708,16 +705,15 @@ export default function SlotGamePage() {
             }
         }
     }, [])
+    
+    useEffect(() => {
+        if (gameInstance.current && onLoadingProgress) {
+            gameInstance.current.registry.set('onLoadingProgress', onLoadingProgress)
+        }
+    }, [onLoadingProgress])
 
     return (
-        <div className="w-full h-screen flex flex-col bg-black relative overflow-hidden">
-            {isDemo && (
-                <div className="absolute top-[80px] left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-                    <div className="bg-yellow-500/90 text-black px-4 py-1 rounded-full font-bold shadow-[0_0_10px_rgba(234,179,8,0.6)] animate-pulse border-2 border-yellow-300 text-sm">
-                    DEMO
-                    </div>
-                </div>
-            )}
+        <div className="w-full h-full flex flex-col bg-black relative overflow-hidden">
             {/* Phaser Canvas Container */}
             <div ref={gameRef} className="w-full h-full" />
         </div>
