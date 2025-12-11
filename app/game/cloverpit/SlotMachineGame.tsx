@@ -385,8 +385,14 @@ class MainScene extends Phaser.Scene {
         this.spinButtonText = this.add.text(0, 0, 'SPIN (0.1)', { fontSize: '28px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5)
         const spinContainer = this.add.container(0, 0, [spinBg, this.spinButtonText])
         
-        spinBg.on('pointerdown', () => { if (!this.isSpinning) { spinContainer.y += 4; this.handleSpin() } })
-        spinBg.on('pointerup', () => { spinContainer.y -= 4 })
+        spinBg.on('pointerdown', () => { 
+            if (!this.isSpinning) { 
+                spinContainer.y = 4
+                this.handleSpin() 
+            } 
+        })
+        spinBg.on('pointerup', () => { spinContainer.y = 0 })
+        spinBg.on('pointerout', () => { spinContainer.y = 0 })
 
         this.x5ButtonBg = this.add.rectangle(0, 0, 80, 50, 0x333333).setInteractive({ useHandCursor: true })
         this.x5ButtonBg.setStrokeStyle(2, 0x888888)
