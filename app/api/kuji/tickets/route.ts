@@ -70,16 +70,36 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // GameLog 생성 (당첨 내역 통계용)
-    const logs = updatedTickets.map(ticket => ({
-      userId: payload.userId,
-      gameType: 'kuji',
-      betAmount: 0, // 이미 구매 단계에서 기록됨
-      payout: 0,    // 현물 경품이므로 포인트 payout은 0
-      profit: 0,
-      result: 'WIN',
-      metadata: { rank: ticket.rank, ticketId: ticket.ticketId, boxId: ticket.boxId } // 상세 정보 저장
-    }))
+    // GameLog 생성 및 전광판 이벤트
+    const logs = []
+    const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { id: true, nickname: true, email: true }
+    })
+    const nickname = user?.nickname || user?.email.split('@')[0] || 'Unknown'
+
+    for (const ticket of updatedTickets) {
+        logs.push({
+            userId: payload.userId,
+            gameType: 'kuji',
+            betAmount: 0,
+            payout: 0,
+            profit: 0,
+            result: 'WIN',
+            metadata: { rank: ticket.rank, ticketId: ticket.ticketId, boxId: ticket.boxId }
+        })
+
+        // 전광판 이벤트: A상 또는 라스트원상
+        if (ticket.rank === 'A' || ticket.rank === 'LAST_ONE') {
+            await prisma.billboardEvent.create({
+                data: {
+                    userId: payload.userId,
+                    gameType: 'kuji',
+                    message: `[KUJI] ${nickname}님이 이치방쿠지 ${ticket.rank === 'LAST_ONE' ? '라스트원상' : 'A상'}을 획득하셨습니다! 축하합니다!`
+                }
+            })
+        }
+    }
 
     await prisma.gameLog.createMany({
       data: logs

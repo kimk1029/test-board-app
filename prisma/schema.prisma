@@ -25,6 +25,7 @@ model User {
   comments      Comment[]
   gameLogs      GameLog[] // 게임 기록 관계
   gameScores    GameScore[] // 게임 점수 기록 (스코어링 게임용)
+  billboardEvents BillboardEvent[] // 전광판 이벤트
   achievements  UserAchievement[] // 획득한 업적 관계
   likes         Like[]    // 좋아요 한 기록
 }
@@ -134,6 +135,18 @@ model GameScore {
 
   @@index([gameType, score]) // 랭킹 조회 최적화
   @@index([userId])
+}
+
+// 전광판 이벤트 (홈 화면 노출용)
+model BillboardEvent {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  gameType  String   // 'blackjack', 'bustabit', 'kuji', 'cloverpit', 'roulette', 'stairs'
+  message   String   // 노출할 메시지
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // 업적 정의

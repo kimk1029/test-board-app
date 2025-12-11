@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     // game 파라미터를 gameType으로 매핑
-    const { action, amount, betAmount, result, multiplier, game, gameType } = body
+    const { action, amount, betAmount, result, multiplier, game, gameType, comboCount } = body
     const betAmountValue = amount || betAmount
     const finalGameType = gameType || game || 'blackjack'
 
@@ -126,8 +126,40 @@ export async function POST(request: NextRequest) {
             multiplier: multiplier || (payout > 0 && betAmountValue > 0 ? payout / betAmountValue : 0),
           },
         })
+
+        // 전광판 이벤트 처리
+        let billboardMessage = ''
+        const nickname = user.nickname || user.email.split('@')[0]
+
+        // 1. 블랙잭 승리
+        if (finalGameType === 'blackjack' && result === 'blackjack') {
+            billboardMessage = `[BLACKJACK] ${nickname}님이 블랙잭으로 승리하여 ${payout.toLocaleString()}P 획득!`
+        }
+        // 2. 그래프 10배 이상
+        else if (finalGameType === 'bustabit' && multiplier >= 10) {
+            billboardMessage = `[BUSTABIT] ${nickname}님이 ${multiplier.toFixed(2)}배로 ${payout.toLocaleString()}P 잭팟!`
+        }
+        // 3. 룰렛 단일 숫자 적중 (배당률 30배 이상)
+        else if (finalGameType === 'roulette' && (payout / (betAmountValue || 1)) >= 30) {
+            billboardMessage = `[ROULETTE] ${nickname}님이 숫자를 정확히 맞추어 ${payout.toLocaleString()}P 대박!`
+        }
+        // 4. 슬롯머신 4콤보 이상 (클라이언트가 combos를 보냄)
+        else if (finalGameType === 'cloverpit' && result === 'win' && comboCount >= 4) {
+             billboardMessage = `[CLOVERPIT] ${nickname}님이 슬롯머신 ${comboCount}콤보 잭팟으로 ${payout.toLocaleString()}P 획득!`
+        }
+
+        if (billboardMessage) {
+            await prisma.billboardEvent.create({
+                data: {
+                    userId: user.id,
+                    gameType: finalGameType,
+                    message: billboardMessage
+                }
+            })
+        }
+
       } catch (logError) {
-        console.error('게임 로그 저장 실패:', logError)
+        console.error('로그/전광판 저장 실패:', logError)
       }
     }
 

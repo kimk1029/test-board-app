@@ -578,9 +578,9 @@ class MainScene extends Phaser.Scene {
 
         if (isJackpot) {
             const jackpotWin = 100 * multiplier
-            this.processWin(jackpotWin, true, betAmount)
+            this.processWin(jackpotWin, true, betAmount, 8) // Jackpot assumed 8 combo or max
         } else if (totalWin > 0) {
-            this.processWin(totalWin, false, betAmount)
+            this.processWin(totalWin, false, betAmount, lines.length)
             this.highlightLines(lines)
             if (lines.length > 1) {
                 this.time.delayedCall(500, () => this.showFloatingText(0, 0, `${lines.length} COMBO!\nx${lines.length}`, '#ffaa00', 80))
@@ -590,14 +590,14 @@ class MainScene extends Phaser.Scene {
         }
     }
 
-    private async syncResultToServer(amount: number, betAmount: number, result: 'win' | 'lose', msg: string = '') {
+    private async syncResultToServer(amount: number, betAmount: number, result: 'win' | 'lose', msg: string = '', comboCount: number = 0) {
         const token = localStorage.getItem('token')
         if (token) {
             try {
                 const res = await fetch('/api/game/bet', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ action: 'settle', amount, betAmount, result, gameType: 'cloverpit' })
+                    body: JSON.stringify({ action: 'settle', amount, betAmount, result, gameType: 'cloverpit', comboCount })
                 })
                 const data = await res.json()
                 if (data && data.points !== undefined) {
@@ -608,11 +608,11 @@ class MainScene extends Phaser.Scene {
         }
     }
 
-    private async processWin(amount: number, isJackpot: boolean, betAmount: number) {
+    private async processWin(amount: number, isJackpot: boolean, betAmount: number, comboCount: number = 0) {
         this.playerPoints = parseFloat((this.playerPoints + amount).toFixed(1))
         this.updatePointsText()
         const msg = isJackpot ? `잭팟!` : `당첨!`
-        await this.syncResultToServer(amount, betAmount, 'win', msg)
+        await this.syncResultToServer(amount, betAmount, 'win', msg, comboCount)
 
         if (isJackpot) {
             this.showFloatingText(0, 0, `JACKPOT\n+${amount}`, '#ff00ff', 100)

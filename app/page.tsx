@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { motion } from 'framer-motion'
 import { Trophy, Crown, Activity, Gamepad2, ArrowRight, Coins, MessageSquare, ThumbsUp, Calendar } from 'lucide-react'
 import Link from 'next/link'
+import Billboard from '@/components/Billboard'
 
 interface RankingUser {
   id: number
@@ -97,6 +98,11 @@ export default function Home() {
       
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 pb-20">
         
+        {/* Billboard Section */}
+        <section className="mb-8">
+            <Billboard />
+        </section>
+
         {/* Hero / Welcome Section */}
         <section className="mb-12">
             <motion.div 
