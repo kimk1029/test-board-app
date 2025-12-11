@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     let updatedPoints = user.points
     let pointsChange = 0
     let payout = 0
+    let isPointsChanged = false; // 포인트 변경 여부 플래그
 
     if (action === 'bet') {
       // 베팅: 포인트 차감
@@ -58,8 +59,9 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      updatedPoints = user.points - betAmountValue
+      updatedPoints = parseFloat((user.points - betAmountValue).toFixed(2))
       pointsChange = -betAmountValue
+      isPointsChanged = true;
 
       // Kuji는 베팅(구매) 시점에 바로 로그 기록 (결과는 상품이므로 포인트 payout은 0)
       if (finalGameType === 'kuji') {
@@ -85,32 +87,37 @@ export async function POST(request: NextRequest) {
       if (result === 'win') {
         // Bustabit: 배율 기반 정산
         if (multiplier && multiplier > 0) {
-          // 배율이 있으면 배율 기반으로 정산
-          const totalWinnings = Math.floor(betAmountValue * multiplier)
-          updatedPoints = user.points + totalWinnings
+          // 배율이 있으면 배율 기반으로 정산 (소수점 2자리 처리)
+          const totalWinnings = parseFloat((betAmountValue * multiplier).toFixed(2))
+          updatedPoints = parseFloat((user.points + totalWinnings).toFixed(2))
           pointsChange = totalWinnings
           payout = totalWinnings
         } else {
           // 일반 승리: 1:1 배당 (베팅 금액 반환 + 승리 금액 = 총 2배)
-          updatedPoints = user.points + betAmountValue * 2
+          updatedPoints = parseFloat((user.points + betAmountValue * 2).toFixed(2))
           pointsChange = betAmountValue * 2
           payout = betAmountValue * 2
         }
+        isPointsChanged = true;
       } else if (result === 'blackjack') {
         // 블랙잭 승리: 3:2 배당 (베팅 금액 반환 + 1.5배 승리 금액 = 총 2.5배)
-        const totalWinnings = betAmountValue + Math.floor(betAmountValue * 1.5)
-        updatedPoints = user.points + totalWinnings
+        const totalWinnings = parseFloat((betAmountValue + betAmountValue * 1.5).toFixed(2))
+        updatedPoints = parseFloat((user.points + totalWinnings).toFixed(2))
         pointsChange = totalWinnings
         payout = totalWinnings
+        isPointsChanged = true;
       } else if (result === 'draw') {
         // 무승부(Push): 베팅 금액 반환
-        updatedPoints = user.points + betAmountValue
+        updatedPoints = parseFloat((user.points + betAmountValue).toFixed(2))
         pointsChange = betAmountValue
         payout = betAmountValue
+        isPointsChanged = true;
       } else if (result === 'lose') {
         // 패배: 이미 베팅 시 차감되었으므로 추가 차감 없음
         pointsChange = 0
         payout = 0
+        // updatedPoints 변경 없음
+        isPointsChanged = false; 
       }
 
       // 게임 로그 저장 (settle일 때만)
@@ -163,16 +170,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 레벨 재계산
-    const updatedLevel = calculateLevel(updatedPoints)
-
-    const updatedUser = await prisma.user.update({
-      where: { id: payload.userId },
-      data: {
-        points: updatedPoints,
-        level: updatedLevel,
-      },
-    })
+    // 포인트가 변경되었을 때만 DB 업데이트 (불필요한 쓰기 및 Race Condition 방지)
+    let updatedUser = user;
+    
+    if (isPointsChanged) {
+        // 레벨 재계산
+        const updatedLevel = calculateLevel(updatedPoints)
+    
+        updatedUser = await prisma.user.update({
+          where: { id: payload.userId },
+          data: {
+            points: updatedPoints,
+            level: updatedLevel,
+          },
+        })
+    }
 
     return NextResponse.json(
       {

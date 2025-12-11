@@ -69,6 +69,16 @@ export class BustabitGame {
   private onMessage?: (message: string) => void;
   private onLoadingProgress?: (progress: number) => void; 
   
+  // [신규] 메시지 콜백 설정 메서드 추가
+  public setMessageCallback(callback: (msg: string) => void) {
+      this.onMessage = callback;
+  }
+
+  // [신규] 로딩 프로그레스 콜백 설정 메서드 추가
+  public setLoadingProgressCallback(callback: (progress: number) => void) {
+      this.onLoadingProgress = callback;
+  }
+
   // [최적화] 정적 배경 캐싱
   private staticCanvas: HTMLCanvasElement | null = null;
   private staticCtx: CanvasRenderingContext2D | null = null;
@@ -90,7 +100,61 @@ export class BustabitGame {
     this.setupEventListeners();
     
     // 초기화 및 로딩 시작
-    this.initializeGame();
+    this.resetGame(true);
+    
+    // 로딩 완료 처리 (간단한 지연 효과)
+    if (this.onLoadingProgress) {
+        this.onLoadingProgress(50);
+        setTimeout(() => {
+             if (this.onLoadingProgress) this.onLoadingProgress(100);
+        }, 500);
+    }
+  }
+
+  private loadUserPoints() {
+    // Implement user points loading logic if needed, or remove if handled externally
+    const token = localStorage.getItem('token');
+    if (token) {
+        fetch('/api/user/me', {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.points !== undefined) {
+                this.playerPoints = data.points;
+                this.render();
+            }
+        })
+        .catch(console.error);
+    }
+  }
+
+  // [신규] 메시지 표시 메서드 추가
+  private showMessage(msg: string) {
+      if (this.onMessage) {
+          this.onMessage(msg);
+      } else {
+          console.log(msg);
+      }
+  }
+
+  // [신규] 로그 추가 메서드
+  private addLog(type: 'bet' | 'win' | 'lose' | 'info', message: string, pointsChange: number = 0, balance: number = 0) {
+      const now = new Date();
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+      
+      this.logs.unshift({
+          type,
+          message,
+          time: timeStr,
+          pointsChange,
+          balance
+      });
+      
+      if (this.logs.length > 50) {
+          this.logs.pop();
+      }
+      this.render();
   }
 
   // [최적화] 정적 배경 캐싱

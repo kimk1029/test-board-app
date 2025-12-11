@@ -16,7 +16,7 @@ model User {
   email         String    @unique
   password      String
   nickname      String?
-  points        Int       @default(0)
+  points        Float     @default(0)
   level         Int       @default(1)
   lastLoginDate DateTime?
   createdAt     DateTime  @default(now())
@@ -111,9 +111,9 @@ model GameLog {
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
   gameType  String   // 'blackjack', 'bustabit', 'kuji', 'cloverpit'
-  betAmount Int      // 베팅 금액
-  payout    Int      // 획득 금액 (0이면 패배)
-  profit    Int      // 순수익 (payout - betAmount)
+  betAmount Float      // 베팅 금액
+  payout    Float      // 획득 금액 (0이면 패배)
+  profit    Float      // 순수익 (payout - betAmount)
   result    String   // 'WIN', 'LOSE', 'DRAW', 'JACKPOT' 등
   multiplier Float?  // 배당률 (옵션)
   metadata  Json?    // 추가 상세 정보 (쿠지 등급 등)

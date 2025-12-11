@@ -83,7 +83,7 @@ const games = [
     accent: 'text-cyan-500',
     shadow: 'shadow-cyan-500/20',
     beta: true
-  }
+  },
 ]
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];

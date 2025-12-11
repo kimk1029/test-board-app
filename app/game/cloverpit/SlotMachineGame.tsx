@@ -19,7 +19,7 @@ class SlotReel {
     private scene: Phaser.Scene
     public container: Phaser.GameObjects.Container
     private symbols: Phaser.GameObjects.Text[] = []
-    
+
     // Mask related
     private maskShape: Phaser.GameObjects.Graphics
 
@@ -37,7 +37,7 @@ class SlotReel {
         this.maskShape = scene.make.graphics({})
         this.maskShape.fillStyle(0xffffff)
         this.maskShape.fillRect(x - this.SYMBOL_WIDTH / 2, y - this.SYMBOL_HEIGHT * 1.5, this.SYMBOL_WIDTH, this.SYMBOL_HEIGHT * 3)
-        
+
         const mask = this.maskShape.createGeometryMask()
         this.container.setMask(mask)
 
@@ -57,15 +57,15 @@ class SlotReel {
     public updateMask(worldX: number, worldY: number, scale: number) {
         this.maskShape.clear()
         this.maskShape.fillStyle(0xffffff)
-        
+
         const w = this.SYMBOL_WIDTH * scale
         const h = this.SYMBOL_HEIGHT * 3 * scale
-        
+
         // Draw rect relative to the new world position of the reel center
         this.maskShape.fillRect(
-            worldX - w / 2, 
-            worldY - (this.SYMBOL_HEIGHT * 1.5 * scale), 
-            w, 
+            worldX - w / 2,
+            worldY - (this.SYMBOL_HEIGHT * 1.5 * scale),
+            w,
             h
         )
     }
@@ -192,7 +192,7 @@ class MainScene extends Phaser.Scene {
     private spinButtonText!: Phaser.GameObjects.Text
     private x5ButtonBg!: Phaser.GameObjects.Rectangle
     private x5Button!: Phaser.GameObjects.Container
-    
+
     private paytableContainer!: Phaser.GameObjects.Container
     private paytableTexts: Phaser.GameObjects.Text[] = []
 
@@ -220,7 +220,7 @@ class MainScene extends Phaser.Scene {
 
     create() {
         this.updateProgress(50)
-        this.background = this.add.rectangle(0, 0, 0, 0, 0x121212).setOrigin(0,0)
+        this.background = this.add.rectangle(0, 0, 0, 0, 0x121212).setOrigin(0, 0)
 
         this.slotGroup = this.add.container(0, 0)
         this.controlGroup = this.add.container(0, 0)
@@ -238,13 +238,13 @@ class MainScene extends Phaser.Scene {
 
         this.updateProgress(80)
         this.loadUserPoints()
-        
+
         this.scale.on('resize', this.resize, this)
         this.resize({ width: this.scale.width, height: this.scale.height })
-        
+
         this.updateProgress(100)
     }
-    
+
     private updateProgress(val: number) {
         const onProgress = this.registry.get('onLoadingProgress')
         if (onProgress) onProgress(val)
@@ -253,75 +253,75 @@ class MainScene extends Phaser.Scene {
     private resize(gameSize: { width: number, height: number }) {
         const w = gameSize.width
         const h = gameSize.height
-        
+
         this.background.setSize(w, h)
-        
+
         const isMobile = w < 800
         const isTablet = w >= 800 && w < 1280
 
         // 1. Top Bar
-        this.topBarGroup.setPosition(w/2, 40)
+        this.topBarGroup.setPosition(w / 2, 40)
         const topBg = this.topBarGroup.getAt(0) as Phaser.GameObjects.Rectangle
-        if(topBg) topBg.setSize(w, 80)
-        
+        if (topBg) topBg.setSize(w, 80)
+
         // Settings button position
         const settingsBtn = this.topBarGroup.getByName('settingsBtn') as Phaser.GameObjects.Container
-        if(settingsBtn) settingsBtn.x = w/2 - 50
+        if (settingsBtn) settingsBtn.x = w / 2 - 50
 
         // Log button position (Restored)
         const logBtn = this.topBarGroup.getByName('logBtn') as Phaser.GameObjects.Container
-        if(logBtn) logBtn.x = w/2 - 110
+        if (logBtn) logBtn.x = w / 2 - 110
 
         // Remove Back button from here as requested (handled globally or redundant)
         const backBtn = this.topBarGroup.getByName('backBtn') as Phaser.GameObjects.Container
-        if(backBtn) backBtn.setVisible(false) // Hide it instead of removing to avoid errors if referenced
+        if (backBtn) backBtn.setVisible(false) // Hide it instead of removing to avoid errors if referenced
 
         // 2. Slot Machine & Controls
         if (isMobile) {
             const slotScale = Math.min(1, (w - 40) / 600)
             this.slotGroup.setScale(slotScale)
-            this.slotGroup.setPosition(w/2, 100 + (240 * slotScale)) 
-            
+            this.slotGroup.setPosition(w / 2, 100 + (240 * slotScale))
+
             const controlY = this.slotGroup.y + (240 * slotScale) + 60
             this.controlGroup.setScale(Math.min(1, w / 500))
-            this.controlGroup.setPosition(w/2, controlY)
-            
-            this.infoGroup.setVisible(false) 
+            this.controlGroup.setPosition(w / 2, controlY)
+
+            this.infoGroup.setVisible(false)
         } else if (isTablet) {
-             // Tablet Layout: Scale down to fit if needed
+            // Tablet Layout: Scale down to fit if needed
             const availableHeight = h - 100 // Top bar + margins
             const targetScale = Math.min(0.8, availableHeight / 800, w / 1000)
-            
+
             this.slotGroup.setScale(targetScale)
-            this.slotGroup.setPosition(w/2, h/2 - 50)
-            
+            this.slotGroup.setPosition(w / 2, h / 2 - 50)
+
             this.controlGroup.setScale(targetScale)
-            this.controlGroup.setPosition(w/2, h - 80)
-            
+            this.controlGroup.setPosition(w / 2, h - 80)
+
             this.infoGroup.setVisible(true)
             this.infoGroup.setScale(targetScale * 0.8)
-            this.infoGroup.setPosition(100, h/2) 
+            this.infoGroup.setPosition(100, h / 2)
         } else {
             // Desktop
             const targetScale = Math.min(1, h / 800)
             this.slotGroup.setScale(targetScale)
-            this.slotGroup.setPosition(w/2, h/2 - 20)
-            
+            this.slotGroup.setPosition(w / 2, h / 2 - 20)
+
             this.controlGroup.setScale(targetScale)
-            this.controlGroup.setPosition(w/2, h - 80)
-            
+            this.controlGroup.setPosition(w / 2, h - 80)
+
             this.infoGroup.setVisible(true)
             this.infoGroup.setScale(1)
-            this.infoGroup.setPosition(150, h/2) 
+            this.infoGroup.setPosition(150, h / 2)
         }
-        
-        this.settingsPanel.setPosition(w/2, h/2)
-        const sOverlay = this.settingsPanel.list[0] as Phaser.GameObjects.Rectangle
-        if(sOverlay) sOverlay.setSize(w, h)
 
-        this.logContainer.setPosition(w/2, h/2) // Ensure log panel is centered
+        this.settingsPanel.setPosition(w / 2, h / 2)
+        const sOverlay = this.settingsPanel.list[0] as Phaser.GameObjects.Rectangle
+        if (sOverlay) sOverlay.setSize(w, h)
+
+        this.logContainer.setPosition(w / 2, h / 2) // Ensure log panel is centered
         const lOverlay = this.logContainer.list[0] as Phaser.GameObjects.Rectangle
-        if(lOverlay) lOverlay.setSize(w, h)
+        if (lOverlay) lOverlay.setSize(w, h)
 
         this.reels.forEach(reel => {
             const wx = this.slotGroup.x + reel.container.x * this.slotGroup.scale
@@ -332,7 +332,7 @@ class MainScene extends Phaser.Scene {
 
     private createTopBar() {
         const bg = this.add.rectangle(0, 0, 1280, 80, 0x000000, 0.8)
-        
+
         // [뒤로가기] - Hiding it in resize, but keeping structure
         const backButton = this.add.container(-580, 0).setName('backBtn')
         const backBg = this.add.circle(0, 0, 25, 0x333333).setInteractive({ useHandCursor: true })
@@ -347,7 +347,7 @@ class MainScene extends Phaser.Scene {
         }).setOrigin(0.5)
 
         // [설정 버튼]
-        const settingsBtn = this.add.container(580, 0).setName('settingsBtn') 
+        const settingsBtn = this.add.container(580, 0).setName('settingsBtn')
         const setBg = this.add.circle(0, 0, 25, 0x4a5568).setInteractive({ useHandCursor: true })
         const setIcon = this.add.text(0, 0, '⚙️', { fontSize: '24px' }).setOrigin(0.5)
         settingsBtn.add([setBg, setIcon])
@@ -373,25 +373,25 @@ class MainScene extends Phaser.Scene {
         frame.fillStyle(0x222222); frame.fillRoundedRect(-300, -240, 600, 480, 20)
         frame.lineStyle(12, 0xd4af37); frame.strokeRoundedRect(-300, -240, 600, 480, 20)
         this.slotGroup.add(frame)
-        
+
         const bg = this.add.rectangle(0, 0, 560, 440, 0x000000).setAlpha(0.6)
         this.slotGroup.add(bg)
 
         this.reels = [
-            new SlotReel(this, 0, 0), 
+            new SlotReel(this, 0, 0),
             new SlotReel(this, 0, 0),
             new SlotReel(this, 0, 0)
         ]
         this.slotGroup.add(this.reels[0].container)
         this.slotGroup.add(this.reels[1].container)
         this.slotGroup.add(this.reels[2].container)
-        
+
         this.reels[0].container.setPosition(-190, 0)
         this.reels[1].container.setPosition(0, 0)
         this.reels[2].container.setPosition(190, 0)
 
         this.reels.forEach(r => { r.setSpeed(this.spinSpeed); r.setStopDuration(this.stopDuration); })
-        
+
         this.paylineGraphics = this.add.graphics().setDepth(10)
         this.slotGroup.add(this.paylineGraphics)
     }
@@ -400,16 +400,16 @@ class MainScene extends Phaser.Scene {
         const bg = this.add.rectangle(0, 0, 220, 480, 0x1a1a1a, 0.9)
         bg.setStrokeStyle(2, 0x444444)
         const title = this.add.text(0, -200, 'PAYTABLE', { fontSize: '24px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5)
-        
+
         this.infoGroup.add([bg, title])
-        
+
         const totalWeight = SYMBOL_DATA.reduce((sum, item) => sum + item.weight, 0)
         SYMBOL_DATA.forEach((data, index) => {
             const y = -130 + index * 50
             const icon = this.add.text(-60, y, data.icon, { fontSize: '32px' }).setOrigin(0.5)
             const valText = this.add.text(0, y - 8, `x3 = ${data.value}pt`, { fontSize: '18px', color: data.color, fontStyle: 'bold' }).setOrigin(0, 0.5)
             this.paytableTexts.push(valText)
-            const prob = ((data.weight / totalWeight) * 100).toFixed(1).replace('.0', '')
+            const prob = ((data.weight / totalWeight) * 100).toFixed(2).replace('.00', '')
             const probText = this.add.text(0, y + 12, `(${prob}%)`, { fontSize: '12px', color: '#666' }).setOrigin(0, 0.5)
             this.infoGroup.add([icon, valText, probText])
         })
@@ -420,12 +420,12 @@ class MainScene extends Phaser.Scene {
         spinBg.setStrokeStyle(4, 0xffffff)
         this.spinButtonText = this.add.text(0, 0, 'SPIN (0.1)', { fontSize: '28px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5)
         const spinContainer = this.add.container(0, 0, [spinBg, this.spinButtonText])
-        
-        spinBg.on('pointerdown', () => { 
-            if (!this.isSpinning) { 
+
+        spinBg.on('pointerdown', () => {
+            if (!this.isSpinning) {
                 spinContainer.y = 4
-                this.handleSpin() 
-            } 
+                this.handleSpin()
+            }
         })
         spinBg.on('pointerup', () => { spinContainer.y = 0 })
         spinBg.on('pointerout', () => { spinContainer.y = 0 })
@@ -434,14 +434,14 @@ class MainScene extends Phaser.Scene {
         this.x5ButtonBg.setStrokeStyle(2, 0x888888)
         const x5Text = this.add.text(0, 0, 'x5', { fontSize: '20px', fontStyle: 'bold', color: '#888' }).setOrigin(0.5)
         this.x5Button = this.add.container(160, 0, [this.x5ButtonBg, x5Text])
-        
+
         this.x5ButtonBg.on('pointerdown', () => {
             this.isX5Mode = !this.isX5Mode
             this.updateButtons()
         })
-        
+
         this.controlGroup.add([spinContainer, this.x5Button])
-        
+
         const pointsBg = this.add.rectangle(-200, 0, 180, 50, 0x000000).setStrokeStyle(2, 0xd4af37)
         this.pointsText = this.add.text(-200, 0, '0.0 P', { fontSize: '24px', color: '#4ade80', fontStyle: 'bold' }).setOrigin(0.5)
         this.controlGroup.add([pointsBg, this.pointsText])
@@ -449,21 +449,21 @@ class MainScene extends Phaser.Scene {
 
     private createLogPanel() {
         this.logContainer = this.add.container(0, 0).setVisible(false).setDepth(200)
-        
+
         const overlay = this.add.rectangle(0, 0, 1280, 720, 0x000000, 0.7).setInteractive()
         const panelBg = this.add.rectangle(0, 0, 600, 400, 0x222222)
         panelBg.setStrokeStyle(2, 0xffd700).setInteractive()
-        
+
         const title = this.add.text(0, -170, 'GAME HISTORY', { fontSize: '24px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5)
-        
+
         const closeBtn = this.add.text(0, 170, 'CLOSE', { fontSize: '18px', color: '#fff', backgroundColor: '#e63946', padding: { x: 20, y: 10 } })
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true })
-            
+
         closeBtn.on('pointerdown', () => this.toggleLog())
-        
+
         this.logContainer.add([overlay, panelBg, title, closeBtn])
-        
+
         // Initial log entries if any
         this.updateLogPanel()
     }
@@ -479,13 +479,13 @@ class MainScene extends Phaser.Scene {
             const y = -120 + i * 35
             const timeText = this.add.text(-250, y, log.time || '', { fontSize: '16px', color: '#aaa' }).setOrigin(0, 0.5)
             const msgText = this.add.text(-180, y, log.message, { fontSize: '16px', color: '#fff' }).setOrigin(0, 0.5)
-            
+
             let color = '#fff'
             if (log.type === 'win') color = '#4ade80'
             else if (log.type === 'lose') color = '#f87171'
-            
-            const changeText = this.add.text(250, y, (log.change > 0 ? '+' : '') + log.change.toFixed(1), { fontSize: '16px', color, fontStyle: 'bold' }).setOrigin(1, 0.5)
-            
+
+            const changeText = this.add.text(250, y, (log.change > 0 ? '+' : '') + log.change.toFixed(2), { fontSize: '16px', color, fontStyle: 'bold' }).setOrigin(1, 0.5)
+
             this.logContainer.add([timeText, msgText, changeText])
         })
     }
@@ -495,7 +495,7 @@ class MainScene extends Phaser.Scene {
         const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
         this.logs.unshift({ type, message, change, current, time: timeStr })
         if (this.logs.length > 50) this.logs.pop()
-        
+
         if (this.logContainer.visible) {
             this.updateLogPanel()
         }
@@ -512,12 +512,12 @@ class MainScene extends Phaser.Scene {
             this.updatePaytable(1)
         }
     }
-    
+
     private updatePaytable(multiplier: number) {
         this.paytableTexts.forEach((text, index) => {
             const baseValue = SYMBOL_DATA[index].value
             const newValue = baseValue * multiplier
-            const displayValue = Number.isInteger(newValue) ? newValue : newValue.toFixed(1)
+            const displayValue = Number.isInteger(newValue) ? newValue : newValue.toFixed(2)
             text.setText(`x3 = ${displayValue}pt`)
             if (multiplier > 1) { text.setFontStyle('bold'); text.setColor('#ffd700') }
             else { text.setFontStyle('normal'); text.setColor(SYMBOL_DATA[index].color) }
@@ -559,8 +559,6 @@ class MainScene extends Phaser.Scene {
         if (this.isSettingsOpen) this.settingsPanel.setDepth(9999)
     }
 
-    private addLog(type: string, message: string, change: number, current: number) {
-    }
 
     private async loadUserPoints() {
         const token = localStorage.getItem('token')
@@ -580,21 +578,21 @@ class MainScene extends Phaser.Scene {
 
     private updatePointsText() {
         if (this.pointsText) {
-            this.pointsText.setText(`${this.playerPoints.toFixed(1)} P`)
+            this.pointsText.setText(`${this.playerPoints.toFixed(2)} P`)
         }
     }
 
     private async handleSpin() {
         if (this.isSpinning) return
         const betAmount = this.isX5Mode ? 0.5 : 0.1
-        if (this.playerPoints < betAmount) { this.showFloatingText(0, 0, '포인트 부족!', '#ff0000'); return } 
+        if (this.playerPoints < betAmount) { this.showFloatingText(0, 0, '포인트 부족!', '#ff0000'); return }
 
-        this.isSpinning = true 
+        this.isSpinning = true
         const previousPoints = this.playerPoints
-        
-        this.playerPoints = parseFloat((this.playerPoints - betAmount).toFixed(1))
+
+        this.playerPoints = parseFloat((this.playerPoints - betAmount).toFixed(2))
         this.updatePointsText()
-        
+
         const token = localStorage.getItem('token')
         if (token) {
             try {
@@ -603,12 +601,12 @@ class MainScene extends Phaser.Scene {
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ action: 'bet', amount: betAmount, gameType: 'cloverpit' })
                 })
-                
+
                 if (!res.ok) throw new Error('Bet failed')
-                
+
                 const data = await res.json()
                 if (data && data.points !== undefined) {
-                    this.playerPoints = parseFloat(data.points.toFixed(1))
+                    this.playerPoints = parseFloat(data.points.toFixed(2))
                     this.updatePointsText()
                 }
             } catch (err) {
@@ -617,7 +615,7 @@ class MainScene extends Phaser.Scene {
                 this.updatePointsText()
                 this.showFloatingText(0, 0, '통신 오류!', '#ff0000')
                 this.isSpinning = false
-                return 
+                return
             }
         }
 
@@ -693,7 +691,7 @@ class MainScene extends Phaser.Scene {
                 })
                 const data = await res.json()
                 if (data && data.points !== undefined) {
-                    this.playerPoints = parseFloat(data.points.toFixed(1))
+                    this.playerPoints = parseFloat(data.points.toFixed(2))
                     this.updatePointsText()
                 }
             } catch (err) { console.error(err) }
@@ -701,7 +699,7 @@ class MainScene extends Phaser.Scene {
     }
 
     private async processWin(amount: number, isJackpot: boolean, betAmount: number, comboCount: number = 0) {
-        this.playerPoints = parseFloat((this.playerPoints + amount).toFixed(1))
+        this.playerPoints = parseFloat((this.playerPoints + amount).toFixed(2))
         this.updatePointsText()
         const msg = isJackpot ? `잭팟!` : `당첨!`
         await this.syncResultToServer(amount, betAmount, 'win', msg, comboCount)
@@ -710,7 +708,7 @@ class MainScene extends Phaser.Scene {
             this.showFloatingText(0, 0, `JACKPOT\n+${amount}`, '#ff00ff', 100)
             this.cameras.main.shake(500, 0.05)
         } else {
-            this.showFloatingText(0, 0, `+${amount.toFixed(1)}`, '#ffff00', 60)
+            this.showFloatingText(0, 0, `+${amount.toFixed(2)}`, '#ffff00', 60)
         }
     }
 
@@ -718,8 +716,8 @@ class MainScene extends Phaser.Scene {
         const text = this.add.text(x, y, msg, {
             fontSize: `${size}px`, fontFamily: 'Arial Black', color: color, stroke: '#000', strokeThickness: 6, align: 'center'
         }).setOrigin(0.5).setDepth(100).setScale(0)
-        
-        this.slotGroup.add(text) 
+
+        this.slotGroup.add(text)
 
         this.tweens.add({
             targets: text, scale: 1, duration: 500, ease: 'Back.out',
@@ -734,7 +732,7 @@ class MainScene extends Phaser.Scene {
         const symbolH = 140
         lines.forEach(line => {
             if (line.type === 'row') {
-                const y = (line.index - 1) * symbolH 
+                const y = (line.index - 1) * symbolH
                 this.paylineGraphics.lineBetween(-280, y, 280, y)
             } else if (line.type === 'col') {
                 const x = (line.index - 1) * 190
@@ -762,7 +760,7 @@ export default function SlotGamePage({ onLoadingProgress }: SlotGamePageProps) {
 
     useEffect(() => {
         setIsDemo(!localStorage.getItem('token'))
-        
+
         if (gameInstance.current) return
         if (!gameRef.current) return
 
@@ -804,7 +802,7 @@ export default function SlotGamePage({ onLoadingProgress }: SlotGamePageProps) {
             }
         }
     }, [])
-    
+
     useEffect(() => {
         if (gameInstance.current && onLoadingProgress) {
             gameInstance.current.registry.set('onLoadingProgress', onLoadingProgress)
