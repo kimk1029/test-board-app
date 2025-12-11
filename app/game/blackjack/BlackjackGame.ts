@@ -504,7 +504,7 @@ export class BlackjackGame {
       if (response.ok) {
         const data = await response.json()
         this.playerPoints = data.points || 0
-        this.addLog('info', `접속 성공 - 포인트: ${this.playerPoints.toLocaleString()} P`, 0, this.playerPoints)
+        this.addLog('info', `접속 성공 - 시작포인트: ${this.playerPoints.toLocaleString()} P`, 0, this.playerPoints)
       } else {
         this.playerPoints = 10000
       }
@@ -1159,6 +1159,12 @@ export class BlackjackGame {
   private renderGameElements() {
     this.renderDeck()
 
+    // 포인트 표시 (왼쪽 위)
+    this.ctx.fillStyle = '#ffffff'
+    this.ctx.font = `bold ${18 * this.scaleFactor}px Arial`
+    this.ctx.textAlign = 'left'
+    this.ctx.fillText(`Points: ${this.playerPoints.toLocaleString()}`, 20, 30)
+
     this.ctx.fillStyle = '#ffffff'
     this.ctx.font = `bold ${20 * this.scaleFactor}px Arial`
     this.ctx.textAlign = 'center'
@@ -1435,38 +1441,58 @@ export class BlackjackGame {
       
       const sx = this.gameAreaWidth;
       
-      // 유저 정보 (동적)
-      this.ctx.fillStyle = '#fff';
-      this.ctx.font = '16px sans-serif';
-      this.ctx.fillText(`Points: ${this.playerPoints.toLocaleString()}`, sx + 20, 80);
-      
-      const logStartY = 130;
+      const logStartY = 60;
       const logEndY = this.canvasHeight - 20;
-      let y = logStartY - this.logScrollOffset;
-      const lineHeight = 18; // 기본 줄 높이
-      const spacing = 8; // 로그 항목 간 간격
+      let y = logStartY;
+      const lineHeight = 20; // 메타데이터 줄 높이
+      const innerLineHeight = 16; // 같은 라운드 내부 줄간격 (좁게)
+      const spacing = 14; // 라운드 간 간격 (넓게)
+      const padding = 4; // 배경 패딩
       
-      // [수정] 로그 렌더링 로직 (멀티라인 지원, 겹침 방지)
-      this.logs.forEach(log => {
-          // 멀티라인 메시지 분리
+      // [수정] 로그 렌더링 로직 (멀티라인 지원, 겹침 방지, row별 배경)
+      this.logs.forEach((log, index) => {
           const lines = log.message.split('\n');
-          const baseHeight = lineHeight; // 첫 줄 높이
-          const extraLinesHeight = (lines.length - 1) * lineHeight; // 추가 줄 높이
-          const pointsHeight = (log.pointsChange !== undefined && log.balance !== undefined) ? lineHeight : 0;
-          const totalHeight = baseHeight + extraLinesHeight + pointsHeight + spacing;
+
+          // 높이 계산 수정 (내부 줄간격 반영)
+          let totalHeight = 0;
+          const pointsHeight = (log.pointsChange !== undefined && log.balance !== undefined) ? innerLineHeight : 0;
+
+          if (log.round > 0) {
+              // 일반 로그: 메타데이터(1) + 메시지(N) + 포인트(옵션) + 간격
+              const metaHeight = lineHeight;
+              const msgHeight = lines.length * innerLineHeight;
+              totalHeight = metaHeight + msgHeight + pointsHeight + spacing;
+          } else {
+              // 입장 로그: 한 줄에 모두 표시 + 간격
+              totalHeight = lineHeight + spacing;
+          }
           
           const currentY = y; // 현재 로그 항목의 시작 y 위치 저장
           
-          // 화면 밖에 있으면 건너뛰기 (정확한 높이로)
-          if (currentY + totalHeight < logStartY || currentY > logEndY) {
-              y += totalHeight;
+          // 히스토리 영역을 벗어나면 건너뛰기
+          if (currentY + totalHeight > logEndY) {
               return;
           }
+          
+          // row 순서에 따라 배경색 번갈아 표시 (홀수/짝수)
+          const bgColor = index % 2 === 0
+              ? 'rgba(30, 41, 59, 0.5)'   // 짝수 row: 어두운 slate (색1)
+              : 'rgba(51, 65, 85, 0.3)';  // 홀수 row: 밝은 slate (색2)
+          
+          this.ctx.fillStyle = bgColor;
+          this.roundRect(
+              sx + padding, 
+              currentY - lineHeight + 6, 
+              this.sidebarWidth - padding * 2, 
+              totalHeight - spacing + 2,
+              4
+          );
+          this.ctx.fill();
           
           // 시간 표시
           this.ctx.font = '12px monospace';
           this.ctx.fillStyle = '#64748b';
-          this.ctx.fillText(`[${log.time}]`, sx + 20, currentY);
+          this.ctx.fillText(`[${log.time}]`, sx + 40, currentY);
           
           if (log.round > 0) {
               // 라운드 번호
@@ -1495,19 +1521,19 @@ export class BlackjackGame {
               const firstLine = lines[0].length > 20 ? lines[0].substring(0, 20) + '...' : lines[0];
               this.ctx.fillText(firstLine, sx + 20, currentY + lineHeight);
               
-              // 추가 줄들 (Insurance 등)
+              // 추가 줄들 (Insurance 등) - 내부 줄간격 사용
               let lineY = currentY + lineHeight;
               for (let i = 1; i < lines.length; i++) {
-                  lineY += lineHeight;
+                  lineY += innerLineHeight;
                   this.ctx.fillStyle = '#94a3b8';
                   this.ctx.font = '11px monospace';
                   const lineText = lines[i].length > 25 ? lines[i].substring(0, 25) + '...' : lines[i];
                   this.ctx.fillText(lineText, sx + 20, lineY);
               }
               
-              // 포인트 변경 정보
+              // 포인트 변경 정보 - 내부 줄간격 사용
               if (log.pointsChange !== undefined && log.balance !== undefined) {
-                  lineY += lineHeight;
+                  lineY += innerLineHeight;
                   const changeSign = log.pointsChange >= 0 ? '+' : '';
                   const changeText = `${changeSign}${log.pointsChange.toLocaleString()}`;
                   
@@ -1525,10 +1551,14 @@ export class BlackjackGame {
               this.ctx.fillStyle = '#94a3b8';
               this.ctx.font = '12px monospace';
               this.ctx.fillText("입장", sx + 90, currentY);
-              this.ctx.font = '12px sans-serif';
+              
+              // 시작포인트 정보를 오른쪽 끝에 정렬
+              this.ctx.font = '11px sans-serif';
+              this.ctx.fillStyle = '#fbbf24';
+              this.ctx.textAlign = 'right';
               const infoText = log.message.replace('접속 성공 - ', '');
-              const truncatedText = infoText.length > 15 ? infoText.substring(0, 15) + '...' : infoText;
-              this.ctx.fillText(truncatedText, sx + 130, currentY);
+              this.ctx.fillText(infoText, sx + this.sidebarWidth - 10, currentY);
+              this.ctx.textAlign = 'left'; // 원상복구
           }
           
           // 다음 로그 항목을 위한 y 위치 업데이트 (정확한 높이 사용)

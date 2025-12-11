@@ -1,6 +1,6 @@
-# Test Board App
+# Dopamine Ground
 
-Next.js와 PostgreSQL을 사용한 게시판 애플리케이션입니다.
+Dopamine Ground - Your Ultimate Gaming Platform
 
 ## 기능
 

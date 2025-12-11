@@ -58,13 +58,17 @@ export class BustabitGame {
   private betButton: Button | null = null;
   private cashOutButton: Button | null = null;
   private settingsButton: Button | null = null; // New Settings Button
+  private backButton: Button | null = null; // 뒤로가기 버튼
   private betAmountButtons: Button[] = [];
   
   private speedButtons: Button[] = [];
 
   private isSettingsOpen: boolean = false; // Settings toggle
 
-  private gameSpeed: number = 0.085; 
+  private gameSpeed: number = 0.085;
+  private isDraggingSlider: boolean = false;
+  
+  private crashHistory: number[] = []; // 크래시 히스토리 저장 
   
   private onMessage?: (message: string) => void;
   private onLoadingProgress?: (progress: number) => void; 
@@ -101,31 +105,36 @@ export class BustabitGame {
     
     // 초기화 및 로딩 시작
     this.resetGame(true);
-    
-    // 로딩 완료 처리 (간단한 지연 효과)
-    if (this.onLoadingProgress) {
-        this.onLoadingProgress(50);
-        setTimeout(() => {
-             if (this.onLoadingProgress) this.onLoadingProgress(100);
-        }, 500);
-    }
   }
 
-  private loadUserPoints() {
-    // Implement user points loading logic if needed, or remove if handled externally
+  private async loadUserPoints() {
+    // 로딩 프로그레스 시작
+    if (this.onLoadingProgress) {
+        this.onLoadingProgress(30);
+    }
+    
     const token = localStorage.getItem('token');
     if (token) {
-        fetch('/api/user/me', {
-            headers: { Authorization: `Bearer ${token}` }
-        })
-        .then(res => res.json())
-        .then(data => {
+        try {
+            if (this.onLoadingProgress) this.onLoadingProgress(50);
+            
+            const res = await fetch('/api/user/me', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
             if (data.points !== undefined) {
                 this.playerPoints = data.points;
-                this.render();
             }
-        })
-        .catch(console.error);
+            
+            if (this.onLoadingProgress) this.onLoadingProgress(100);
+        } catch (error) {
+            console.error(error);
+            if (this.onLoadingProgress) this.onLoadingProgress(100);
+        }
+    } else {
+        // 로그인 안 된 경우에도 로딩 완료
+        if (this.onLoadingProgress) this.onLoadingProgress(100);
     }
   }
 
@@ -248,15 +257,45 @@ export class BustabitGame {
     // Touch support
     this.canvas.addEventListener('touchstart', (e) => {
         if(e.touches.length > 0) {
-            e.preventDefault(); // Prevent scrolling/zooming on button taps
+            e.preventDefault();
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.touches[0].clientX - rect.left;
+            const y = e.touches[0].clientY - rect.top;
+            this.handleMouseDown(x, y);
             handleInput(e.touches[0].clientX, e.touches[0].clientY);
         }
     }, { passive: false });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+        if(e.touches.length > 0 && this.isDraggingSlider) {
+            e.preventDefault();
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.touches[0].clientX - rect.left;
+            const y = e.touches[0].clientY - rect.top;
+            this.handleMouseMove(x, y);
+        }
+    }, { passive: false });
+
+    this.canvas.addEventListener('touchend', () => {
+      this.handleMouseUp();
+    });
+
+    this.canvas.addEventListener('mousedown', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      this.handleMouseDown(x, y);
+    });
+
+    this.canvas.addEventListener('mouseup', () => {
+      this.handleMouseUp();
+    });
 
     this.canvas.addEventListener('mousemove', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
+      this.handleMouseMove(x, y);
       this.canvas.style.cursor = this.getCursorAt(x, y);
     });
 
@@ -282,6 +321,7 @@ export class BustabitGame {
     if (this.betButton) allButtons.push(this.betButton);
     if (this.cashOutButton) allButtons.push(this.cashOutButton);
     if (this.settingsButton) allButtons.push(this.settingsButton);
+    if (this.backButton) allButtons.push(this.backButton);
 
     for (const button of allButtons) {
       if (button.visible && !button.disabled) {
@@ -293,32 +333,105 @@ export class BustabitGame {
     return 'default';
   }
 
-  private handleClick(x: number, y: number) {
+  private handleMouseDown(x: number, y: number) {
     if (this.isSettingsOpen) {
-        const w = 400; const h = 300;
+        const w = 500; const h = 450;
         const sx = (this.canvasWidth - w)/2;
         const sy = (this.canvasHeight - h)/2;
         
-        // Close Button
-        if (x >= sx + w - 40 && x <= sx + w - 10 && y >= sy + 10 && y <= sy + 40) {
+        const sliderY = sy + 140;
+        const sliderX = sx + 50;
+        const sliderW = 400;
+        
+        if (x >= sliderX && x <= sliderX + sliderW && y >= sliderY - 10 && y <= sliderY + 30) {
+            this.isDraggingSlider = true;
+            this.updateSliderValue(x, sliderX, sliderW);
+        }
+    }
+  }
+
+  private handleMouseUp() {
+    this.isDraggingSlider = false;
+  }
+
+  private handleMouseMove(x: number, y: number) {
+    if (this.isDraggingSlider && this.isSettingsOpen) {
+        const w = 500;
+        const sx = (this.canvasWidth - w)/2;
+        const sliderX = sx + 50;
+        const sliderW = 400;
+        
+        this.updateSliderValue(x, sliderX, sliderW);
+    }
+  }
+
+  private updateSliderValue(x: number, sliderX: number, sliderW: number) {
+    const ratio = Math.max(0, Math.min(1, (x - sliderX) / sliderW));
+    let val = 1.0 + ratio * 9.0;
+    if (val < 1.15) val = 0;
+    this.autoCashout = val;
+    this.render();
+  }
+
+  private handleClick(x: number, y: number) {
+    if (this.isSettingsOpen) {
+        const w = 500; const h = 450;
+        const sx = (this.canvasWidth - w)/2;
+        const sy = (this.canvasHeight - h)/2;
+        
+        // Close Button (원형)
+        const closeBtnX = sx + w - 30;
+        const closeBtnY = sy + 30;
+        const closeBtnRadius = 20;
+        const dist = Math.sqrt((x - closeBtnX) ** 2 + (y - closeBtnY) ** 2);
+        if (dist <= closeBtnRadius) {
             this.isSettingsOpen = false;
             this.render();
             return;
         }
 
-        // Auto Cashout Slider
-        const sliderY = sy + 100;
-        const sliderX = sx + 50;
-        const sliderW = 300;
-        
-        if (x >= sliderX && x <= sliderX + sliderW && y >= sliderY - 20 && y <= sliderY + 50) {
-            const ratio = Math.max(0, Math.min(1, (x - sliderX) / sliderW));
-            // Range 1.0 to 10.0
-            let val = 1.0 + ratio * 9.0;
-            if (val < 1.05) val = 0; // "OFF" zone
-            this.autoCashout = val;
-            this.render();
-        }
+        // Auto Cashout 프리셋 버튼
+        const presets = [
+            { label: 'OFF', value: 0 },
+            { label: '1.5x', value: 1.5 },
+            { label: '2x', value: 2.0 },
+            { label: '3x', value: 3.0 },
+            { label: '5x', value: 5.0 }
+        ];
+        const presetBtnW = 70;
+        const presetBtnH = 40;
+        const presetGap = 10;
+        const presetStartX = sx + 50;
+        const presetStartY = sy + 190;
+
+        presets.forEach((preset, i) => {
+            const btnX = presetStartX + i * (presetBtnW + presetGap);
+            if (x >= btnX && x <= btnX + presetBtnW && y >= presetStartY && y <= presetStartY + presetBtnH) {
+                this.autoCashout = preset.value;
+                this.render();
+            }
+        });
+
+        // 속도 버튼 클릭
+        const speeds = [
+            { label: 'x1', value: 0.085 },
+            { label: 'x2', value: 0.17 },
+            { label: 'x3', value: 0.255 }
+        ];
+        const speedBtnW = 100;
+        const speedBtnH = 45;
+        const speedGap = 30;
+        const speedStartX = sx + 100;
+        const speedStartY = sy + 340;
+
+        speeds.forEach((speed, i) => {
+            const btnX = speedStartX + i * (speedBtnW + speedGap);
+            if (x >= btnX && x <= btnX + speedBtnW && y >= speedStartY && y <= speedStartY + speedBtnH) {
+                this.gameSpeed = speed.value;
+                this.render();
+            }
+        });
+
         return;
     }
 
@@ -328,6 +441,7 @@ export class BustabitGame {
     if (this.betButton) allButtons.push(this.betButton);
     if (this.cashOutButton) allButtons.push(this.cashOutButton);
     if (this.settingsButton) allButtons.push(this.settingsButton);
+    if (this.backButton) allButtons.push(this.backButton);
 
     for (const button of allButtons) {
         if (button.visible && !button.disabled) {
@@ -406,6 +520,18 @@ export class BustabitGame {
         visible: true
     };
 
+    this.backButton = {
+        x: 20,
+        y: 20,
+        width: 50,
+        height: 50,
+        text: '⬅',
+        onClick: () => {
+            window.history.back();
+        },
+        visible: true
+    };
+
     const actionBtnW = (this.isMobile ? 120 : this.gameAreaWidth * 0.3);
     const actionBtnH = (this.isMobile ? 50 : this.canvasHeight * 0.08);
 
@@ -437,7 +563,7 @@ export class BustabitGame {
     });
 
     this.speedButtons.forEach(btn => {
-        btn.visible = true;
+        btn.visible = false; // 속도 버튼은 설정 메뉴에서만 표시
     });
 
     if (this.betButton) {
@@ -618,7 +744,13 @@ export class BustabitGame {
   private handleCrash() {
     this.crashed = true;
     this.isRunning = false; 
-    this.multiplier = this.crashPoint; 
+    this.multiplier = this.crashPoint;
+    
+    // 크래시 히스토리에 추가 (최대 20개 유지)
+    this.crashHistory.unshift(this.crashPoint);
+    if (this.crashHistory.length > 20) {
+      this.crashHistory.pop();
+    } 
 
     this.stopAnimation();
     this.updateButtonStates();
@@ -711,7 +843,16 @@ export class BustabitGame {
     this.animationFrameId = requestAnimationFrame(animate);
   }
 
-  public start() {
+  public async start() {
+    // 로딩 시작
+    if (this.onLoadingProgress) {
+        this.onLoadingProgress(10);
+    }
+    
+    // 포인트 로딩
+    await this.loadUserPoints();
+    
+    // 렌더링 시작
     this.render();
   }
 
@@ -733,62 +874,177 @@ export class BustabitGame {
         this.renderSettingsPanel();
     }
   }
-
   private renderSettingsPanel() {
-      const w = 400;
-      const h = 300;
+      const w = 500; const h = 450;
       const x = (this.canvasWidth - w) / 2;
       const y = (this.canvasHeight - h) / 2;
 
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      // 반투명 배경 오버레이
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
       this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-      this.ctx.fillStyle = '#1e293b';
-      this.ctx.strokeStyle = '#3b82f6';
-      this.ctx.lineWidth = 2;
+      // 설정 패널 배경 (그라데이션 효과)
+      const gradient = this.ctx.createLinearGradient(x, y, x, y + h);
+      gradient.addColorStop(0, '#1e293b');
+      gradient.addColorStop(1, '#0f172a');
+      this.ctx.fillStyle = gradient;
       this.ctx.fillRect(x, y, w, h);
+
+      // 테두리
+      this.ctx.strokeStyle = '#3b82f6';
+      this.ctx.lineWidth = 3;
       this.ctx.strokeRect(x, y, w, h);
 
+      // 타이틀
       this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = 'bold 24px sans-serif';
+      this.ctx.font = 'bold 28px sans-serif';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText('SETTINGS', x + w/2, y + 40);
+      this.ctx.fillText('⚙️ SETTINGS', x + w/2, y + 50);
 
-      // Auto Cashout
-      this.ctx.font = '18px sans-serif';
-      this.ctx.textAlign = 'left';
-      this.ctx.fillText('Auto Cashout', x + 50, y + 90);
-
-      const sliderY = y + 100;
-      const sliderX = x + 50;
-      const sliderW = 300;
+      // --- AUTO CASHOUT 섹션 ---
+      this.ctx.fillStyle = '#64748b';
+      this.ctx.fillRect(x + 30, y + 80, w - 60, 150);
       
-      // Track
-      this.ctx.fillStyle = '#475569';
-      this.ctx.fillRect(sliderX, sliderY + 10, sliderW, 4);
+      this.ctx.fillStyle = '#fbbf24';
+      this.ctx.font = 'bold 20px sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('🎯 Auto Cashout', x + 50, y + 110);
 
-      // Handle
+      const sliderY = y + 140;
+      const sliderX = x + 50;
+      const sliderW = 400;
+      
+      // 슬라이더 트랙
+      this.ctx.fillStyle = '#334155';
+      this.ctx.fillRect(sliderX, sliderY + 5, sliderW, 10);
+      
+      // 활성 영역 (진행바)
       const ratio = this.autoCashout <= 1.0 ? 0 : (this.autoCashout - 1.0) / 9.0;
       const handleX = sliderX + ratio * sliderW;
+      
+      if (ratio > 0) {
+        const activeGradient = this.ctx.createLinearGradient(sliderX, sliderY, handleX, sliderY);
+        activeGradient.addColorStop(0, '#3b82f6');
+        activeGradient.addColorStop(1, '#8b5cf6');
+        this.ctx.fillStyle = activeGradient;
+        this.ctx.fillRect(sliderX, sliderY + 5, handleX - sliderX, 10);
+      }
 
-      this.ctx.fillStyle = this.autoCashout > 1.0 ? '#3b82f6' : '#94a3b8';
+      // 슬라이더 핸들 (원형)
+      this.ctx.fillStyle = '#ffffff';
       this.ctx.beginPath();
-      this.ctx.arc(handleX, sliderY + 12, 10, 0, Math.PI * 2);
+      this.ctx.arc(handleX, sliderY + 10, 14, 0, Math.PI * 2);
       this.ctx.fill();
+      
+      this.ctx.strokeStyle = this.autoCashout > 1.0 ? '#3b82f6' : '#94a3b8';
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
 
-      // Value text
+      // 현재 값 표시
       this.ctx.fillStyle = '#ffffff';
-      this.ctx.textAlign = 'right';
-      const valText = this.autoCashout <= 1.05 ? 'OFF' : `${this.autoCashout.toFixed(2)}x`;
-      this.ctx.fillText(valText, x + w - 50, y + 90);
-
-      // Close Button
-      this.ctx.fillStyle = '#ef4444';
-      this.ctx.fillRect(x + w - 40, y + 10, 30, 30);
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = 'bold 20px sans-serif';
+      this.ctx.font = 'bold 22px sans-serif';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText('X', x + w - 25, y + 32);
+      const valText = this.autoCashout <= 1.05 ? 'OFF' : `${this.autoCashout.toFixed(2)}x`;
+      this.ctx.fillText(valText, x + w/2, y + 175);
+
+      // 프리셋 버튼들
+      const presets = [
+          { label: 'OFF', value: 0 },
+          { label: '1.5x', value: 1.5 },
+          { label: '2x', value: 2.0 },
+          { label: '3x', value: 3.0 },
+          { label: '5x', value: 5.0 }
+      ];
+      const presetBtnW = 70;
+      const presetBtnH = 40;
+      const presetGap = 10;
+      const presetStartX = x + 50;
+      const presetStartY = y + 190;
+
+      presets.forEach((preset, i) => {
+          const btnX = presetStartX + i * (presetBtnW + presetGap);
+          const isActive = Math.abs(this.autoCashout - preset.value) < 0.01;
+          
+          // 버튼 배경
+          this.ctx.fillStyle = isActive ? '#3b82f6' : '#475569';
+          this.ctx.fillRect(btnX, presetStartY, presetBtnW, presetBtnH);
+          
+          // 활성 버튼 테두리
+          if (isActive) {
+              this.ctx.strokeStyle = '#60a5fa';
+              this.ctx.lineWidth = 2;
+              this.ctx.strokeRect(btnX, presetStartY, presetBtnW, presetBtnH);
+          }
+          
+          // 버튼 텍스트
+          this.ctx.fillStyle = isActive ? '#ffffff' : '#cbd5e1';
+          this.ctx.font = 'bold 14px sans-serif';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(preset.label, btnX + presetBtnW/2, presetStartY + presetBtnH/2 + 5);
+      });
+
+      // --- GAME SPEED 섹션 ---
+      this.ctx.fillStyle = '#64748b';
+      this.ctx.fillRect(x + 30, y + 260, w - 60, 130);
+      
+      this.ctx.fillStyle = '#10b981';
+      this.ctx.font = 'bold 20px sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('⚡ Game Speed', x + 50, y + 290);
+
+      const speeds = [
+          { label: 'x1', value: 0.085 },
+          { label: 'x2', value: 0.17 },
+          { label: 'x3', value: 0.255 }
+      ];
+      const speedBtnW = 100;
+      const speedBtnH = 45;
+      const speedGap = 30;
+      const speedStartX = x + 100;
+      const speedStartY = y + 340;
+
+      speeds.forEach((speed, i) => {
+          const btnX = speedStartX + i * (speedBtnW + speedGap);
+          const isSelected = Math.abs(this.gameSpeed - speed.value) < 0.01;
+          
+          // 버튼 배경
+          this.ctx.fillStyle = isSelected ? '#10b981' : '#475569';
+          this.ctx.fillRect(btnX, speedStartY, speedBtnW, speedBtnH);
+          
+          // 선택된 버튼 테두리
+          if (isSelected) {
+              this.ctx.strokeStyle = '#34d399';
+              this.ctx.lineWidth = 3;
+              this.ctx.strokeRect(btnX, speedStartY, speedBtnW, speedBtnH);
+          }
+          
+          // 버튼 텍스트
+          this.ctx.fillStyle = isSelected ? '#ffffff' : '#cbd5e1';
+          this.ctx.font = 'bold 20px sans-serif';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(speed.label, btnX + speedBtnW/2, speedStartY + speedBtnH/2 + 7);
+      });
+
+      // Close 버튼 (원형)
+      const closeBtnX = x + w - 30;
+      const closeBtnY = y + 30;
+      const closeBtnRadius = 20;
+      
+      this.ctx.fillStyle = '#ef4444';
+      this.ctx.beginPath();
+      this.ctx.arc(closeBtnX, closeBtnY, closeBtnRadius, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      this.ctx.strokeStyle = '#dc2626';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = 'bold 18px sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('✕', closeBtnX, closeBtnY);
+      this.ctx.textBaseline = 'alphabetic';
   }
 
   private renderGameArea() {
@@ -813,6 +1069,61 @@ export class BustabitGame {
     this.drawStatusText(graphWidth, graphHeight);
     this.renderUI();
     this.renderButtons();
+    this.renderCrashHistory();
+  }
+  
+  private renderCrashHistory() {
+    if (this.crashHistory.length === 0) return;
+    
+    const startX = 80;
+    const startY = this.canvasHeight - 45;
+    const boxWidth = 55;
+    const boxHeight = 32;
+    const gap = 3;
+    const arrowWidth = 8;
+    
+    this.ctx.font = 'bold 11px monospace';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    
+    // 최대 15개까지만 표시
+    const displayHistory = this.crashHistory.slice(0, 15);
+    
+    displayHistory.forEach((crash, i) => {
+      const x = startX + i * (boxWidth + gap);
+      
+      // 배경 색상 (크래시 배율에 따라)
+      let bgColor = '#475569';
+      if (crash >= 10) bgColor = '#8b5cf6'; // 보라색
+      else if (crash >= 5) bgColor = '#3b82f6'; // 파란색
+      else if (crash >= 2) bgColor = '#10b981'; // 초록색
+      else if (crash < 1.5) bgColor = '#ef4444'; // 빨간색
+      
+      // 육각형 모양 (< < 형태 - 양쪽 다 왼쪽 향함) 그리기
+      this.ctx.fillStyle = bgColor;
+      this.ctx.beginPath();
+      // 왼쪽 화살촉 (<)
+      this.ctx.moveTo(x, startY + boxHeight/2);
+      this.ctx.lineTo(x + arrowWidth, startY);
+      // 상단
+      this.ctx.lineTo(x + boxWidth, startY);
+      // 오른쪽 화살촉 (< 모양 - 안쪽으로)
+      this.ctx.lineTo(x + boxWidth - arrowWidth, startY + boxHeight/2);
+      this.ctx.lineTo(x + boxWidth, startY + boxHeight);
+      // 하단
+      this.ctx.lineTo(x + arrowWidth, startY + boxHeight);
+      this.ctx.closePath();
+      this.ctx.fill();
+      
+      // 테두리
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.stroke();
+      
+      // 텍스트
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.fillText(`${crash.toFixed(2)}x`, x + boxWidth/2, startY + boxHeight/2);
+    });
   }
 
   private renderSidebarContent() {
@@ -951,18 +1262,57 @@ export class BustabitGame {
 
   private renderUI() {
     this.ctx.fillStyle = '#ffffff';
-    this.ctx.font = '20px sans-serif';
+    this.ctx.font = '18px sans-serif';
     this.ctx.textAlign = 'left';
-    this.ctx.fillText(`Points: ${this.playerPoints.toLocaleString()}`, 20, 30);
+    this.ctx.fillText(`Points: ${this.playerPoints.toLocaleString()}`, 85, 35);
     
     if (this.selectedBetAmount > 0 && !this.crashed) {
        this.ctx.fillStyle = '#fbbf24';
-       this.ctx.fillText(`Bet: ${this.selectedBetAmount.toLocaleString()}`, 20, 60);
+       this.ctx.fillText(`Bet: ${this.selectedBetAmount.toLocaleString()}`, 85, 60);
     }
   }
 
   private renderButtons() {
     const buttonsToRender = [...this.betAmountButtons, ...this.speedButtons];
+    
+    // 톱니바퀴 버튼 렌더링 (항상 표시)
+    if (this.settingsButton) {
+      this.ctx.fillStyle = '#475569';
+      this.ctx.fillRect(this.settingsButton.x, this.settingsButton.y, this.settingsButton.width, this.settingsButton.height);
+      this.ctx.strokeStyle = '#64748b';
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(this.settingsButton.x, this.settingsButton.y, this.settingsButton.width, this.settingsButton.height);
+      this.ctx.font = '24px sans-serif';
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(this.settingsButton.text, this.settingsButton.x + this.settingsButton.width/2, this.settingsButton.y + this.settingsButton.height/2);
+    }
+    
+    // 뒤로가기 버튼 렌더링 (원형 디자인)
+    if (this.backButton) {
+      const centerX = this.backButton.x + this.backButton.width/2;
+      const centerY = this.backButton.y + this.backButton.height/2;
+      const radius = 25;
+      
+      // 원형 배경
+      this.ctx.fillStyle = '#333333';
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 테두리
+      this.ctx.strokeStyle = '#888888';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      
+      // 화살표 아이콘
+      this.ctx.font = '24px sans-serif';
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(this.backButton.text, centerX, centerY);
+    }
     
     buttonsToRender.forEach(button => {
       if (button.visible) {
