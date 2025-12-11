@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion } from 'framer-motion'
-import { Gift, TrendingUp, Clover, Club, ArrowRight, BarChart2, PieChart as PieIcon, Activity } from 'lucide-react'
+import { Gift, TrendingUp, Clover, Club, ArrowRight, BarChart2, PieChart as PieIcon, Activity, Disc, Layers } from 'lucide-react'
 import {
   BarChart,
   Bar,
@@ -53,6 +53,17 @@ const games = [
     shadow: 'shadow-green-500/20'
   },
   {
+    id: 'roulette',
+    name: 'ROULETTE',
+    description: '행운의 숫자를 예측하라! 카지노의 꽃.',
+    icon: Disc,
+    path: '/game/roulette',
+    color: 'from-purple-600 to-pink-700',
+    accent: 'text-purple-500',
+    shadow: 'shadow-purple-500/20',
+    beta: true
+  },
+  {
     id: 'kuji',
     name: 'ICHIBAN KUJI',
     description: '원하는 경품을 뽑아보세요!',
@@ -61,6 +72,17 @@ const games = [
     color: 'from-blue-600 to-indigo-700',
     accent: 'text-blue-500',
     shadow: 'shadow-blue-500/20'
+  },
+  {
+    id: 'stairs',
+    name: 'INFINITE STAIRS',
+    description: '한계에 도전하라! 무한 계단 오르기.',
+    icon: Layers,
+    path: '/game/stairs',
+    color: 'from-cyan-600 to-blue-700',
+    accent: 'text-cyan-500',
+    shadow: 'shadow-cyan-500/20',
+    beta: true
   }
 ]
 
@@ -135,6 +157,12 @@ export default function GamePage() {
                             {/* Card Content */}
                             <div className="h-full bg-[#131316]/80 backdrop-blur-md border border-white/5 rounded-3xl p-6 flex flex-col justify-between hover:border-white/20 transition-all duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl group-hover:bg-[#131316]/60">
                                 
+                                { (game as any).beta && (
+                                    <div className="absolute top-4 right-4 bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-red-400/50 shadow-[0_0_10px_rgba(239,68,68,0.5)] z-20 animate-pulse">
+                                        BETA
+                                    </div>
+                                )}
+
                                 <div className="relative z-10 flex flex-col h-full">
                                     <div className="flex justify-between items-start mb-4">
                                         <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500`}>

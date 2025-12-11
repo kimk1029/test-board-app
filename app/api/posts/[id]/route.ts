@@ -17,8 +17,25 @@ export async function GET(
       )
     }
 
-    const post = await prisma.post.findUnique({
+    // Check for user token to determine "liked" status
+    const authHeader = request.headers.get('authorization')
+    let userId: number | null = null
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const payload = verifyToken(token)
+      if (payload) {
+        userId = payload.userId
+      }
+    }
+
+    // Transaction to increment views and fetch post
+    const post = await prisma.post.update({
       where: { id },
+      data: {
+        views: {
+          increment: 1,
+        },
+      },
       include: {
         author: {
           select: {
@@ -27,6 +44,15 @@ export async function GET(
             nickname: true,
           },
         },
+        _count: {
+          select: { likes: true },
+        },
+        likes: userId
+          ? {
+              where: { userId },
+              select: { userId: true },
+            }
+          : false,
       },
     })
 
@@ -45,11 +71,21 @@ export async function GET(
         authorId: post.authorId,
         creation_date: post.createdAt.toISOString(),
         contents: post.content,
+        likes: post._count.likes,
+        liked: userId ? post.likes.length > 0 : false,
+        views: post.views,
       },
       { status: 200 }
     )
   } catch (error) {
     console.error('게시글 조회 오류:', error)
+    // Handle case where post is not found during update
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+        return NextResponse.json(
+            { error: '게시글을 찾을 수 없습니다.' },
+            { status: 404 }
+        )
+    }
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -57,6 +93,7 @@ export async function GET(
   }
 }
 
+// ... PUT and DELETE remain unchanged ...
 // 게시글 수정
 export async function PUT(
   request: NextRequest,

@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import BoardPostModal from './BoardPostModal'
-import { PenSquare } from 'lucide-react'
+import { PenSquare, Eye } from 'lucide-react'
+import { formatRelativeTime } from '@/lib/utils'
 
 interface BoardData {
   bbs_uid: number
@@ -21,6 +22,7 @@ interface BoardData {
   author: string
   creation_date: string
   contents?: string
+  views: number
 }
 
 const Board = () => {
@@ -163,9 +165,12 @@ const Board = () => {
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span className="text-violet-400 font-semibold">{item.author}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-violet-400 font-semibold">{item.author}</span>
+                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {item.views}</span>
+                      </div>
                       <span>
-                        {new Date(item.creation_date).toLocaleDateString('ko-KR')}
+                        {formatRelativeTime(item.creation_date)}
                       </span>
                     </div>
                   </div>
@@ -182,13 +187,14 @@ const Board = () => {
                   <TableHead className="w-[80px] text-center text-slate-400 font-bold">ID</TableHead>
                   <TableHead className="text-slate-400 font-bold">제목</TableHead>
                   <TableHead className="w-[150px] text-slate-400 font-bold">작성자</TableHead>
+                  <TableHead className="w-[80px] text-center text-slate-400 font-bold">조회</TableHead>
                   <TableHead className="w-[120px] text-right text-slate-400 font-bold">작성일</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-12 text-slate-500">
+                    <TableCell colSpan={5} className="text-center py-12 text-slate-500">
                       게시글이 없습니다.
                     </TableCell>
                   </TableRow>
@@ -206,8 +212,9 @@ const Board = () => {
                         {item.title}
                       </TableCell>
                       <TableCell className="text-violet-400 font-semibold">{item.author}</TableCell>
+                      <TableCell className="text-center text-slate-500 text-sm">{item.views}</TableCell>
                       <TableCell className="text-right text-slate-500 text-sm">
-                        {new Date(item.creation_date).toLocaleDateString('ko-KR')}
+                        {formatRelativeTime(item.creation_date)}
                       </TableCell>
                     </TableRow>
                   ))

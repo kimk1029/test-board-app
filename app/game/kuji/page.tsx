@@ -322,7 +322,7 @@ export default function IchibanKujiGame() {
     return (
         <div>
             <HeaderNavigator />
-            <div className="min-h-screen bg-gradient-to-br from-pink-50 via-yellow-50 to-orange-50 text-gray-900 font-sans p-2 sm:p-4 md:p-8 pt-20 sm:pt-24 relative">
+            <div className="min-h-screen bg-gradient-to-br from-pink-50 via-yellow-50 to-orange-50 text-gray-900 font-sans px-0 pb-4 pt-20 sm:p-4 sm:pt-24 md:p-8 relative">
                 
                 {/* 데모 모드 배지 */}
                 {isDemo && (

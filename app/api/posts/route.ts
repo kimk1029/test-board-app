@@ -26,6 +26,7 @@ export async function GET() {
       author: post.author.nickname || post.author.email,
       creation_date: post.createdAt.toISOString(),
       contents: post.content,
+      views: post.views,
     }))
 
     return NextResponse.json(formattedPosts, { status: 200 })

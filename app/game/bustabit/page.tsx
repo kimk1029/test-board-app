@@ -37,12 +37,13 @@ function BustabitGameComponent() {
     
     const navHeight = 64;
     const topMargin = 30;
-    const sideMargin = 50 * 2;
-    const bottomMargin = 30;
     
+    // Check mobile
+    const isMobile = window.innerWidth < 768;
+
     // GameContainer의 pt-20 (80px) 등을 고려
     const totalHeaderHeight = 80; // GameContainer pt-20
-    const totalSidePadding = 100; // GameContainer px-[50px]
+    const totalSidePadding = isMobile ? 0 : 100; // Mobile: 0, Desktop: 100
     const totalBottomPadding = 30; // GameContainer pb-[30px]
     
     const width = Math.max(320, window.innerWidth - totalSidePadding);

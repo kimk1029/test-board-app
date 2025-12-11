@@ -6,7 +6,7 @@ import HeaderNavigator from '@/components/HeaderNavigator'
 import { Button } from '@/components/ui/button'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { motion } from 'framer-motion'
-import { Trophy, Crown, Activity, Gamepad2, ArrowRight } from 'lucide-react'
+import { Trophy, Crown, Activity, Gamepad2, ArrowRight, Coins, MessageSquare, ThumbsUp, Calendar } from 'lucide-react'
 import Link from 'next/link'
 
 interface RankingUser {
@@ -114,16 +114,16 @@ export default function Home() {
                     </p>
                 </div>
                 
-                {/* User Stats Card */}
-                <div className="flex gap-4">
-                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 min-w-[140px]">
+                {/* User Stats Card - Mobile Layout Fixed */}
+                <div className="flex w-full md:w-auto justify-between md:justify-start gap-4">
+                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex-1 md:flex-none md:min-w-[140px]">
                         <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Level</div>
                         <div className="text-2xl font-black text-white flex items-baseline gap-1">
                             {currentUser?.level || 1}
                             <span className="text-xs font-normal text-slate-500">LVL</span>
                         </div>
                     </div>
-                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 min-w-[180px]">
+                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex-1 md:flex-none md:min-w-[180px]">
                         <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Points</div>
                         <div className="text-2xl font-black text-emerald-400 flex items-baseline gap-1">
                             {currentPoints.toLocaleString()}
@@ -134,7 +134,7 @@ export default function Home() {
             </motion.div>
         </section>
 
-        {/* Enter Game Lobby Button - New Section */}
+        {/* Enter Game Lobby Button */}
         <section className="mb-16">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -173,67 +173,114 @@ export default function Home() {
         {/* Dashboard Widgets Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Rank Board */}
-            <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="lg:col-span-1"
-            >
-                <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden h-full">
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                        <h3 className="text-lg font-bold flex items-center gap-2">
-                            <Trophy className="w-5 h-5 text-yellow-500" />
-                            LEADERBOARD
-                        </h3>
-                        <div className="flex gap-1 bg-black/20 p-1 rounded-lg">
-                            {(['daily', 'weekly', 'monthly'] as const).map((period) => (
-                                <button
-                                    key={period}
-                                    onClick={() => setSelectedPeriod(period)}
-                                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                                        selectedPeriod === period 
-                                        ? 'bg-purple-600 text-white shadow-lg' 
-                                        : 'text-slate-500 hover:text-slate-300'
-                                    }`}
-                                >
-                                    {period === 'daily' ? 'D' : period === 'weekly' ? 'W' : 'M'}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="p-4">
-                        {loading ? (
-                            <div className="flex justify-center py-10 text-slate-500 text-sm">Loading ranks...</div>
-                        ) : getCurrentRankings().length === 0 ? (
-                            <div className="flex justify-center py-10 text-slate-500 text-sm">No data available</div>
-                        ) : (
-                            <div className="space-y-3">
-                                {getCurrentRankings().map((user) => (
-                                    <div key={user.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 flex justify-center">
-                                                {getRankIcon(user.rank)}
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-sm text-slate-200 group-hover:text-white transition-colors">
-                                                    {user.nickname || user.email.split('@')[0]}
-                                                </div>
-                                                <div className="text-[10px] font-bold text-slate-500 uppercase">Level {user.level}</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-emerald-400 font-bold text-sm tracking-wide">
-                                            {user.points.toLocaleString()}
-                                        </div>
-                                    </div>
+            {/* Left Column */}
+            <div className="flex flex-col gap-8 lg:col-span-1">
+                {/* Rank Board */}
+                <motion.div 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                    <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
+                        <div className="p-6 border-b border-white/5 flex justify-between items-center">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Trophy className="w-5 h-5 text-yellow-500" />
+                                LEADERBOARD
+                            </h3>
+                            <div className="flex gap-1 bg-black/20 p-1 rounded-lg">
+                                {(['daily', 'weekly', 'monthly'] as const).map((period) => (
+                                    <button
+                                        key={period}
+                                        onClick={() => setSelectedPeriod(period)}
+                                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                                            selectedPeriod === period 
+                                            ? 'bg-purple-600 text-white shadow-lg' 
+                                            : 'text-slate-500 hover:text-slate-300'
+                                        }`}
+                                    >
+                                        {period === 'daily' ? 'D' : period === 'weekly' ? 'W' : 'M'}
+                                    </button>
                                 ))}
                             </div>
-                        )}
+                        </div>
+                        <div className="p-4">
+                            {loading ? (
+                                <div className="flex justify-center py-10 text-slate-500 text-sm">Loading ranks...</div>
+                            ) : getCurrentRankings().length === 0 ? (
+                                <div className="flex justify-center py-10 text-slate-500 text-sm">No data available</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {getCurrentRankings().map((user) => (
+                                        <div key={user.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 flex justify-center">
+                                                    {getRankIcon(user.rank)}
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-sm text-slate-200 group-hover:text-white transition-colors">
+                                                        {user.nickname || user.email.split('@')[0]}
+                                                    </div>
+                                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Level {user.level}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-emerald-400 font-bold text-sm tracking-wide">
+                                                {user.points.toLocaleString()}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </motion.div>
+                </motion.div>
 
-            {/* Chart Widget */}
+                {/* Point Guide Card - NEW */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.6 }}
+                >
+                    <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
+                        <div className="p-6 border-b border-white/5">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Coins className="w-5 h-5 text-amber-400" />
+                                HOW TO EARN
+                            </h3>
+                        </div>
+                        <div className="p-6 space-y-4">
+                             <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+                                        <Calendar className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">Daily Login</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold text-sm">+100 P</span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
+                                        <MessageSquare className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">Write Comment</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold text-sm">+5 P</span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-pink-500/20 text-pink-400">
+                                        <ThumbsUp className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-300">Receive Like</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold text-sm">+1 P</span>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* Right Column (Chart) */}
             <motion.div 
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}

@@ -89,23 +89,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const comment = await prisma.comment.create({
-      data: {
-        content: content.trim(),
-        postId: parseInt(postId),
-        authorId: payload.userId,
-        parentId: parentId ? parseInt(parentId) : null,
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            email: true,
-            nickname: true,
+    const REWARD_POINTS = 5
+
+    // Transaction: Create Comment, Give Points, Log Points
+    const [comment] = await prisma.$transaction([
+      prisma.comment.create({
+        data: {
+          content: content.trim(),
+          postId: parseInt(postId),
+          authorId: payload.userId,
+          parentId: parentId ? parseInt(parentId) : null,
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              email: true,
+              nickname: true,
+            },
           },
         },
-      },
-    })
+      }),
+      prisma.user.update({
+        where: { id: payload.userId },
+        data: { points: { increment: REWARD_POINTS } }
+      }),
+      prisma.gameLog.create({
+        data: {
+          userId: payload.userId,
+          gameType: 'community',
+          betAmount: 0,
+          payout: REWARD_POINTS,
+          profit: REWARD_POINTS,
+          result: 'COMMENT_REWARD',
+          metadata: { type: 'comment', postId: parseInt(postId) }
+        }
+      })
+    ])
 
     return NextResponse.json(comment, { status: 201 })
   } catch (error) {
@@ -116,4 +136,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

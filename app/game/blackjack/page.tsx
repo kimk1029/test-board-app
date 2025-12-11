@@ -23,8 +23,10 @@ function BlackjackGameComponent() {
 
   // [수정] 캔버스 크기 계산 (공통 로직)
   const getCanvasSize = () => {
+    const isMobile = window.innerWidth < 768
     const totalHeaderHeight = 80; 
-    const totalSidePadding = 100; 
+    // Mobile: 0 padding, Desktop: 100 padding (50*2)
+    const totalSidePadding = isMobile ? 0 : 100; 
     const totalBottomPadding = 30; 
     
     const width = Math.max(320, window.innerWidth - totalSidePadding);

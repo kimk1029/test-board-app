@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import HeaderNavigator from '@/components/HeaderNavigator'
-import { Pencil, Trash2, MessageSquare, Reply } from 'lucide-react'
+import { Pencil, Trash2, MessageSquare, Reply, Heart, Eye } from 'lucide-react'
+import { formatRelativeTime } from '@/lib/utils'
 
 interface PostData {
   bbs_uid: number
@@ -24,6 +25,9 @@ interface PostData {
   authorId: number
   creation_date: string
   contents: string
+  likes: number
+  liked: boolean
+  views: number
 }
 
 interface Comment {
@@ -55,6 +59,7 @@ export default function PostDetailPage() {
   const [commentContent, setCommentContent] = useState('')
   const [replyTo, setReplyTo] = useState<number | null>(null)
   const [replyContent, setReplyContent] = useState('')
+  const [likeLoading, setLikeLoading] = useState(false)
 
   useEffect(() => {
     const loadUser = () => {
@@ -77,7 +82,13 @@ export default function PostDetailPage() {
         setLoading(true)
         setError(null)
         const id = params.id as string
-        const response = await fetch(`/api/posts/${id}`)
+        const token = localStorage.getItem('token')
+        const headers: HeadersInit = {}
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const response = await fetch(`/api/posts/${id}`, { headers })
         const data = await response.json()
 
         if (!response.ok) {
@@ -158,7 +169,7 @@ export default function PostDetailPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setPost(data)
+        setPost(prev => prev ? { ...prev, title: data.title, contents: data.contents } : null)
         setEditDialogOpen(false)
       } else {
         const data = await response.json()
@@ -240,6 +251,44 @@ export default function PostDetailPage() {
     }
   }
 
+  const handleLike = async () => {
+    if (!currentUser || !post) {
+      alert('로그인이 필요합니다.')
+      return
+    }
+    if (likeLoading) return
+
+    setLikeLoading(true)
+    const prevLiked = post.liked
+    const prevLikes = post.likes
+
+    // Optimistic Update
+    setPost({ ...post, liked: !prevLiked, likes: prevLiked ? prevLikes - 1 : prevLikes + 1 })
+
+    try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`/api/posts/${post.bbs_uid}/like`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        
+        if (!response.ok) {
+            // Revert on failure
+            setPost({ ...post, liked: prevLiked, likes: prevLikes })
+            alert('좋아요 처리 중 오류가 발생했습니다.')
+        } else {
+            const data = await response.json()
+            // Ensure synced with server response
+            setPost(prev => prev ? { ...prev, liked: data.liked, likes: data.liked ? prevLikes + 1 : prevLikes - 1 } : null)
+        }
+    } catch (e) {
+        console.error(e)
+        setPost({ ...post, liked: prevLiked, likes: prevLikes })
+    } finally {
+        setLikeLoading(false)
+    }
+  }
+
   const isAuthor = post && currentUser && post.authorId === currentUser.id
 
   if (loading) {
@@ -280,9 +329,23 @@ export default function PostDetailPage() {
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
-              <CardTitle className="text-2xl flex-1">{post.title}</CardTitle>
+              <div className="flex-1 mr-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-muted-foreground bg-secondary/20 px-2 py-1 rounded">
+                        #{post.bbs_uid}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                        {formatRelativeTime(post.creation_date)}
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground ml-2">
+                        <Eye className="w-3 h-3" /> {post.views}
+                    </span>
+                  </div>
+                  <CardTitle className="text-2xl sm:text-3xl leading-tight">{post.title}</CardTitle>
+              </div>
+              
               {isAuthor && (
-                <div className="flex gap-2 ml-4">
+                <div className="flex gap-2 shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -303,21 +366,34 @@ export default function PostDetailPage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
-              <span>작성자: {post.author}</span>
-              <span>
-                작성일: {new Date(post.creation_date).toLocaleString('ko-KR')}
-              </span>
+            
+            <div className="flex items-center justify-between mt-4 pb-4 border-b">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-violet-600/20 flex items-center justify-center text-violet-400 font-bold">
+                        {post.author.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-semibold">{post.author}</span>
+                </div>
+                
+                <Button 
+                    variant={post.liked ? "default" : "outline"}
+                    size="sm"
+                    className={`gap-2 ${post.liked ? 'bg-pink-600 hover:bg-pink-700 text-white border-pink-600' : 'hover:text-pink-500 hover:border-pink-500'}`}
+                    onClick={handleLike}
+                >
+                    <Heart className={`w-4 h-4 ${post.liked ? 'fill-current' : ''}`} />
+                    <span>{post.likes}</span>
+                </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="prose max-w-none">
-              <div className="whitespace-pre-wrap break-words min-h-[200px] leading-relaxed">
+          <CardContent className="pt-6">
+            <div className="prose max-w-none dark:prose-invert">
+              <div className="whitespace-pre-wrap break-words min-h-[200px] leading-relaxed text-slate-200">
                 {post.contents}
               </div>
             </div>
-            <div className="mt-6">
-              <Button variant="outline" onClick={() => router.push('/board')}>
+            <div className="mt-8 pt-6 border-t flex justify-center">
+              <Button variant="outline" onClick={() => router.push('/board')} className="px-8">
                 목록으로
               </Button>
             </div>
@@ -327,129 +403,144 @@ export default function PostDetailPage() {
         {/* 댓글 섹션 */}
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <MessageSquare className="h-5 w-5" />
               댓글 ({comments.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* 댓글 작성 */}
-            {currentUser && (
+            {currentUser ? (
               <div className="space-y-2">
                 <Label htmlFor="comment">댓글 작성</Label>
-                <Textarea
-                  id="comment"
-                  placeholder="댓글을 입력하세요..."
-                  value={commentContent}
-                  onChange={(e) => setCommentContent(e.target.value)}
-                  className="min-h-[100px]"
-                />
-                <Button onClick={() => handleCommentSubmit()}>댓글 작성</Button>
+                <div className="flex gap-2">
+                    <Textarea
+                    id="comment"
+                    placeholder="댓글을 입력하세요... (댓글 작성 시 5P 지급)"
+                    value={commentContent}
+                    onChange={(e) => setCommentContent(e.target.value)}
+                    className="min-h-[80px]"
+                    />
+                    <Button onClick={() => handleCommentSubmit()} className="h-auto self-stretch px-6">
+                        등록
+                    </Button>
+                </div>
               </div>
+            ) : (
+                <div className="bg-secondary/20 p-4 rounded-lg text-center text-sm text-muted-foreground">
+                    댓글을 작성하려면 <Button variant="link" className="p-0 h-auto" onClick={() => document.getElementById('login-trigger')?.click()}>로그인</Button>이 필요합니다.
+                </div>
             )}
 
             {/* 댓글 목록 */}
-            <div className="space-y-4">
+            <div className="space-y-6">
               {comments.map((comment) => (
-                <div key={comment.id} className="border-l-2 border-primary/20 pl-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold">
-                          {comment.author.nickname || comment.author.email}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(comment.createdAt).toLocaleString('ko-KR')}
-                        </span>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
-                      {currentUser && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2 h-7"
-                          onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
-                        >
-                          <Reply className="h-3 w-3 mr-1" />
-                          답글
-                        </Button>
-                      )}
-                      {currentUser && comment.authorId === currentUser.id && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2 h-7 text-red-600"
-                          onClick={() => handleDeleteComment(comment.id)}
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          삭제
-                        </Button>
-                      )}
+                <div key={comment.id} className="relative pl-4 sm:pl-0">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-400 shrink-0 mt-1">
+                        {comment.author.nickname?.charAt(0) || comment.author.email.charAt(0)}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm">
+                                {comment.author.nickname || comment.author.email}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                {formatRelativeTime(comment.createdAt)}
+                                </span>
+                            </div>
+                            {currentUser && comment.authorId === currentUser.id && (
+                                <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
+                                onClick={() => handleDeleteComment(comment.id)}
+                                >
+                                <Trash2 className="h-3 w-3" />
+                                </Button>
+                            )}
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap text-slate-300">{comment.content}</p>
+                        
+                        {currentUser && (
+                            <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-primary -ml-2"
+                            onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
+                            >
+                            <Reply className="h-3 w-3 mr-1" />
+                            답글
+                            </Button>
+                        )}
                     </div>
                   </div>
 
                   {/* 대댓글 작성 */}
                   {replyTo === comment.id && (
-                    <div className="mt-3 ml-4 space-y-2">
-                      <Textarea
-                        placeholder="답글을 입력하세요..."
-                        value={replyContent}
-                        onChange={(e) => setReplyContent(e.target.value)}
-                        className="min-h-[80px]"
-                      />
+                    <div className="mt-3 ml-11 space-y-2">
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleCommentSubmit(comment.id)}
-                        >
-                          답글 작성
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setReplyTo(null)
-                            setReplyContent('')
-                          }}
-                        >
-                          취소
-                        </Button>
+                        <Textarea
+                            placeholder="답글을 입력하세요..."
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            className="min-h-[60px]"
+                        />
+                        <div className="flex flex-col gap-2">
+                            <Button
+                            size="sm"
+                            onClick={() => handleCommentSubmit(comment.id)}
+                            className="h-full"
+                            >
+                            등록
+                            </Button>
+                            <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setReplyTo(null)
+                                setReplyContent('')
+                            }}
+                            >
+                            취소
+                            </Button>
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* 대댓글 목록 */}
                   {comment.replies && comment.replies.length > 0 && (
-                    <div className="mt-4 ml-4 space-y-3">
+                    <div className="mt-3 ml-11 space-y-4 border-l-2 border-white/5 pl-4">
                       {comment.replies.map((reply) => (
-                        <div
-                          key={reply.id}
-                          className="border-l-2 border-muted pl-3 py-2"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-semibold text-sm">
-                                  {reply.author.nickname || reply.author.email}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(reply.createdAt).toLocaleString('ko-KR')}
-                                </span>
-                              </div>
-                              <p className="text-sm whitespace-pre-wrap">{reply.content}</p>
-                              {currentUser && reply.authorId === currentUser.id && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="mt-2 h-7 text-red-600"
-                                  onClick={() => handleDeleteComment(reply.id)}
-                                >
-                                  <Trash2 className="h-3 w-3 mr-1" />
-                                  삭제
-                                </Button>
-                              )}
+                        <div key={reply.id} className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-slate-800/50 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0 mt-1">
+                                {reply.author.nickname?.charAt(0) || reply.author.email.charAt(0)}
                             </div>
-                          </div>
+                            <div className="flex-1 space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-xs">
+                                        {reply.author.nickname || reply.author.email}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground">
+                                        {formatRelativeTime(reply.createdAt)}
+                                        </span>
+                                    </div>
+                                    {currentUser && reply.authorId === currentUser.id && (
+                                        <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-5 w-5 p-0 text-muted-foreground hover:text-red-500"
+                                        onClick={() => handleDeleteComment(reply.id)}
+                                        >
+                                        <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                    )}
+                                </div>
+                                <p className="text-sm whitespace-pre-wrap text-slate-300">{reply.content}</p>
+                            </div>
                         </div>
                       ))}
                     </div>
@@ -459,8 +550,8 @@ export default function PostDetailPage() {
             </div>
 
             {comments.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                댓글이 없습니다.
+              <div className="text-center text-muted-foreground py-8 bg-secondary/10 rounded-xl">
+                첫 번째 댓글을 남겨보세요!
               </div>
             )}
           </CardContent>
