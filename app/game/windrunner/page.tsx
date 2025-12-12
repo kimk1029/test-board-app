@@ -240,7 +240,7 @@ const GameComponent = ({ quality, onGameOver }: GameComponentProps) => {
                 this.createPlayerRunTexture('player_run_2', 1);
 
                 // Graphics for basic objects
-                const groundG = this.make.graphics({ x: 0, y: 0, add: false });
+                const groundG = this.make.graphics({ x: 0, y: 0 });
                 groundG.fillStyle(0x1e293b, 1);
                 groundG.fillRect(0, 0, 100, 40);
                 groundG.fillStyle(0x334155, 1);
@@ -255,7 +255,7 @@ const GameComponent = ({ quality, onGameOver }: GameComponentProps) => {
                 groundG.fillPath();
                 groundG.generateTexture('ground', 100, 40);
 
-                const starG = this.make.graphics({ x: 0, y: 0, add: false });
+                const starG = this.make.graphics({ x: 0, y: 0 });
                 starG.fillStyle(0xfacc15, 1);
                 starG.beginPath();
                 starG.moveTo(15, 0);
@@ -268,7 +268,7 @@ const GameComponent = ({ quality, onGameOver }: GameComponentProps) => {
                 starG.fillCircle(15, 15, 5);
                 starG.generateTexture('star', 30, 30);
 
-                const spikeG = this.make.graphics({ x: 0, y: 0, add: false });
+                const spikeG = this.make.graphics({ x: 0, y: 0 });
                 spikeG.fillStyle(0xf43f5e, 1);
                 spikeG.beginPath();
                 spikeG.moveTo(0, 40);
@@ -286,7 +286,7 @@ const GameComponent = ({ quality, onGameOver }: GameComponentProps) => {
                 spikeG.generateTexture('spike', 40, 40);
 
                 // 5. 부스트 (초록색 번개)
-                const boostG = this.make.graphics({ x: 0, y: 0, add: false });
+                const boostG = this.make.graphics({ x: 0, y: 0 });
                 boostG.fillStyle(0x00ff00, 1);
                 boostG.beginPath();
                 boostG.moveTo(20, 0);
@@ -306,7 +306,7 @@ const GameComponent = ({ quality, onGameOver }: GameComponentProps) => {
             }
 
             createPlayerRunTexture(key: string, type: number) {
-                const playerG = this.make.graphics({ x: 0, y: 0, add: false });
+                const playerG = this.make.graphics({ x: 0, y: 0 });
                 playerG.fillStyle(0xffffff, 1);
                 playerG.fillCircle(25, 12, 10);
                 playerG.fillStyle(0x38bdf8, 1);
@@ -492,29 +492,6 @@ const GameComponent = ({ quality, onGameOver }: GameComponentProps) => {
                         this.bgStars.push({ obj: star, speed: 0.2 });
                     }
                 }
-            }
-
-            // 오브젝트 풀링을 위한 도우미 함수: 화면 밖으로 나간 객체 비활성화
-            deactivateObject(group: Phaser.Physics.Arcade.Group, limitX: number) {
-                group.children.iterate((child: any) => {
-                    if (child.active) {
-                        child.x -= this.gameSpeed * 0.016;
-                        // 부스트 아이템 애니메이션
-                        if (group === this.boosts) {
-                             child.angle += 5;
-                             child.scale = 1 + Math.sin(this.time.now / 100) * 0.1;
-                        }
-                        // 별 회전 애니메이션
-                        if (group === this.stars) {
-                            child.angle += 2;
-                        }
-
-                        if (child.x < limitX) {
-                            child.disableBody(true, true); // 비활성화 및 숨김
-                        }
-                    }
-                    return true;
-                });
             }
 
             // 오브젝트 풀링을 위한 도우미 함수: 화면 밖으로 나간 객체 비활성화
