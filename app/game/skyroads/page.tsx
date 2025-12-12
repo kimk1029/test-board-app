@@ -207,7 +207,7 @@ const GameComponent = ({ onGameOver }: GameComponentProps) => {
 
           this.createBackground();
 
-          const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+          const graphics = this.make.graphics({ x: 0, y: 0 });
           graphics.fillStyle(0x00ffff, 1);
           graphics.fillCircle(4, 4, 4);
           graphics.generateTexture('flare', 8, 8);
