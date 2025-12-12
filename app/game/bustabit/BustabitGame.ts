@@ -143,7 +143,7 @@ export class BustabitGame {
       if (this.onMessage) {
           this.onMessage(msg);
       } else {
-          console.log(msg);
+          // console.log(msg);
       }
   }
 

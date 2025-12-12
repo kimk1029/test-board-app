@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion } from 'framer-motion'
-import { Gift, TrendingUp, Clover, Club, ArrowRight, BarChart2, PieChart as PieIcon, Activity, Disc, Layers } from 'lucide-react'
+import { Gift, TrendingUp, Clover, Club, ArrowRight, BarChart2, PieChart as PieIcon, Activity, Disc, Layers, Rocket, Wind } from 'lucide-react'
 import {
   BarChart,
   Bar,
@@ -84,6 +84,28 @@ const games = [
     shadow: 'shadow-cyan-500/20',
     beta: true
   },
+  {
+    id: 'skyroads',
+    name: 'SKYROADS',
+    description: '우주를 질주하라! 장애물을 피하고 연료를 수집하세요.',
+    icon: Rocket,
+    path: '/game/skyroads',
+    color: 'from-indigo-600 to-purple-700',
+    accent: 'text-indigo-500',
+    shadow: 'shadow-indigo-500/20',
+    pcOnly: true
+  },
+  {
+    id: 'windrunner',
+    name: 'WIND RUNNER',
+    description: '바람을 가르며 달려라! 점프 액션 러닝.',
+    icon: Wind,
+    path: '/game/windrunner',
+    color: 'from-cyan-500 to-blue-600',
+    accent: 'text-cyan-400',
+    shadow: 'shadow-cyan-500/20',
+    pcOnly: true
+  },
 ]
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -143,7 +165,7 @@ export default function GamePage() {
         <section className="mb-16">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {games.map((game, idx) => (
-                    <Link href={game.path} key={game.id} className="group relative block h-64">
+                    <Link href={game.path} key={game.id} className="group relative block h-32 md:h-64">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -155,32 +177,36 @@ export default function GamePage() {
                             <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-30 blur-2xl transition-opacity duration-500 rounded-3xl -z-10`} />
                             
                             {/* Card Content */}
-                            <div className="h-full bg-[#131316]/80 backdrop-blur-md border border-white/5 rounded-3xl p-6 flex flex-col justify-between hover:border-white/20 transition-all duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl group-hover:bg-[#131316]/60">
+                            <div className="h-full bg-[#131316]/80 backdrop-blur-md border border-white/5 rounded-3xl p-4 md:p-6 flex flex-col justify-between hover:border-white/20 transition-all duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl group-hover:bg-[#131316]/60">
                                 
                                 { (game as any).beta && (
                                     <div className="absolute top-4 right-4 bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-red-400/50 shadow-[0_0_10px_rgba(239,68,68,0.5)] z-20 animate-pulse">
                                         BETA
                                     </div>
                                 )}
+                                { (game as any).pcOnly && (
+                                    <div className="absolute top-4 right-4 bg-blue-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.5)] z-20">
+                                        PC ONLY
+                                    </div>
+                                )}
 
                                 <div className="relative z-10 flex flex-col h-full">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500`}>
-                                            <game.icon className="w-6 h-6 text-white" />
+                                    <div className="flex justify-between items-start mb-2 md:mb-4">
+                                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500`}>
+                                            <game.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                                         </div>
-                                        <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-white transition-colors" />
                                     </div>
 
                                     <div>
-                                        <h3 className="text-2xl font-black text-white mb-2 tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all">
+                                        <h3 className="text-lg md:text-2xl font-black text-white mb-1 md:mb-2 tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all">
                                             {game.name}
                                         </h3>
-                                        <p className="text-slate-400 text-xs leading-relaxed group-hover:text-slate-200 transition-colors line-clamp-2">
+                                        <p className="text-slate-400 text-xs leading-relaxed group-hover:text-slate-200 transition-colors line-clamp-1 md:line-clamp-2">
                                             {game.description}
                                         </p>
                                     </div>
                                     
-                                    <div className="mt-auto pt-4">
+                                    <div className="mt-auto pt-2 md:pt-4">
                                         <div className={`h-1 w-full rounded-full bg-gradient-to-r ${game.color} opacity-50`} />
                                     </div>
                                 </div>

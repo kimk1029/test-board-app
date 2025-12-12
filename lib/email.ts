@@ -22,7 +22,7 @@ export async function sendVerificationEmail(
 ): Promise<void> {
   // SMTP 설정이 없으면 개발 모드로 간주하고 이메일 발송 건너뛰기
   if (!transporter || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log(`[개발 모드] 이메일 인증 코드: ${code} (${email})`)
+    // console.log(`[개발 모드] 이메일 인증 코드: ${code} (${email})`)
     return // 개발 모드에서는 에러를 던지지 않고 그냥 반환
   }
 

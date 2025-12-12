@@ -57,7 +57,7 @@
     @apply bg-background text-foreground;
     /* 글로벌 배경 설정 (모든 페이지 공통) */
     background: radial-gradient(ellipse at top, #1e1b4b 0%, #020617 100%);
-    min-height: 100vh;
+    min-height: 100dvh; /* 모바일 뷰포트 높이 최적화 (vh -> dvh) */
   }
 }
 

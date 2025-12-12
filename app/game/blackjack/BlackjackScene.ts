@@ -141,7 +141,7 @@ export class BlackjackScene extends Phaser.Scene {
   }
 
   changeState(newState: GameState) {
-    console.log(`State change: ${this.gameState} -> ${newState}`)
+    // console.log(`State change: ${this.gameState} -> ${newState}`)
     this.gameState = newState
 
     switch (newState) {

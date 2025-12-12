@@ -6,7 +6,7 @@ import HeaderNavigator from '@/components/HeaderNavigator'
 import { Button } from '@/components/ui/button'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { motion } from 'framer-motion'
-import { Trophy, Crown, Activity, Gamepad2, ArrowRight, Coins, MessageSquare, ThumbsUp, Calendar } from 'lucide-react'
+import { Activity, Gamepad2, ArrowRight, Coins, MessageSquare, ThumbsUp, Calendar, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 import Billboard from '@/components/Billboard'
 
@@ -21,21 +21,18 @@ interface RankingUser {
 
 export default function Home() {
   const router = useRouter()
+  // 기존 상태 유지
   const [dailyRankings, setDailyRankings] = useState<RankingUser[]>([])
-  const [weeklyRankings, setWeeklyRankings] = useState<RankingUser[]>([])
-  const [monthlyRankings, setMonthlyRankings] = useState<RankingUser[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedPeriod, setSelectedPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [pointsHistory, setPointsHistory] = useState<Array<{ date: string; points: number }>>([])
   const [currentPoints, setCurrentPoints] = useState(0)
   const [currentUser, setCurrentUser] = useState<{ nickname: string; level: number } | null>(null)
   const [isClient, setIsClient] = useState(false)
-
+  
   useEffect(() => {
     setIsClient(true)
     const fetchData = async () => {
       try {
-        // 유저 정보 (간단히 가져오거나 토큰 디코딩 - 여기선 /api/user/me 활용 가정)
         const token = localStorage.getItem('token')
         if (token) {
             const userRes = await fetch('/api/user/me', { headers: { Authorization: `Bearer ${token}` } });
@@ -45,7 +42,6 @@ export default function Home() {
                 setCurrentPoints(userData.points);
             }
             
-            // 포인트 히스토리
             const historyResponse = await fetch('/api/user/points-history', {
                 headers: { Authorization: `Bearer ${token}` },
             })
@@ -55,16 +51,8 @@ export default function Home() {
             }
         }
 
-        // 기간별 랭킹 (초기 로딩 시 다 가져옴)
-        const [dailyRes, weeklyRes, monthlyRes] = await Promise.all([
-            fetch('/api/ranking/period?period=daily&limit=5'),
-            fetch('/api/ranking/period?period=weekly&limit=5'),
-            fetch('/api/ranking/period?period=monthly&limit=5')
-        ]);
-
+        const dailyRes = await fetch('/api/ranking/period?period=daily&limit=3');
         if (dailyRes.ok) setDailyRankings((await dailyRes.json()).rankings || []);
-        if (weeklyRes.ok) setWeeklyRankings((await weeklyRes.json()).rankings || []);
-        if (monthlyRes.ok) setMonthlyRankings((await monthlyRes.json()).rankings || []);
 
       } catch (error) {
         console.error('데이터 조회 오류:', error)
@@ -76,287 +64,154 @@ export default function Home() {
     fetchData()
   }, [])
 
-  const getCurrentRankings = () => {
-    switch (selectedPeriod) {
-      case 'daily': return dailyRankings
-      case 'weekly': return weeklyRankings
-      case 'monthly': return monthlyRankings
-      default: return dailyRankings
-    }
-  }
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" fill="currentColor" />
-    if (rank === 2) return <Trophy className="w-5 h-5 text-slate-300" />
-    if (rank === 3) return <Trophy className="w-5 h-5 text-amber-600" />
-    return <span className="w-5 text-center font-bold text-slate-500">#{rank}</span>
-  }
-
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0a0a0c] to-black text-slate-100 overflow-x-hidden selection:bg-purple-500/30">
       <HeaderNavigator />
       
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 pb-20">
         
-        {/* Billboard Section */}
-        <section className="mb-8">
+        {/* 1. Billboard Section (Top Most) */}
+        <section className="mb-10">
             <Billboard />
         </section>
 
-        {/* Hero / Welcome Section */}
-        <section className="mb-12">
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="flex flex-col md:flex-row justify-between items-end gap-6"
-            >
-                <div>
-                    <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-2 bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">
-                        DASHBOARD
-                    </h1>
-                    <p className="text-slate-400 text-lg">
-                        Welcome back, <span className="text-purple-400 font-bold">{currentUser?.nickname || 'Guest'}</span>.
-                    </p>
-                </div>
-                
-                {/* User Stats Card - Mobile Layout Fixed */}
-                <div className="flex w-full md:w-auto justify-between md:justify-start gap-4">
-                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex-1 md:flex-none md:min-w-[140px]">
-                        <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Level</div>
-                        <div className="text-2xl font-black text-white flex items-baseline gap-1">
-                            {currentUser?.level || 1}
-                            <span className="text-xs font-normal text-slate-500">LVL</span>
-                        </div>
-                    </div>
-                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex-1 md:flex-none md:min-w-[180px]">
-                        <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Points</div>
-                        <div className="text-2xl font-black text-emerald-400 flex items-baseline gap-1">
-                            {currentPoints.toLocaleString()}
-                            <span className="text-xs font-normal text-emerald-600/70">PTS</span>
-                        </div>
-                    </div>
-                </div>
-            </motion.div>
-        </section>
-
-        {/* Enter Game Lobby Button */}
-        <section className="mb-16">
+        {/* 2. Hero Section */}
+        <section className="mb-20 text-center relative py-10">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
+                transition={{ duration: 0.8, type: "spring" }}
             >
-                <Link href="/game" className="group relative block w-full">
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-20 group-hover:opacity-30 blur-2xl transition-opacity duration-500 rounded-3xl -z-10" />
-                    <div className="h-32 md:h-40 bg-[#131316] border border-white/10 rounded-3xl flex items-center justify-between px-8 md:px-16 hover:border-purple-500/50 transition-all duration-300 shadow-2xl overflow-hidden relative group-hover:scale-[1.01]">
-                         <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-                         
-                         <div className="flex items-center gap-6 md:gap-8 relative z-10">
-                            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-purple-500/30 transition-all">
-                                <Gamepad2 className="w-8 h-8 md:w-10 md:h-10 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl md:text-3xl font-black text-white mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-purple-300 transition-all">
-                                    ENTER GAME LOBBY
-                                </h2>
-                                <p className="text-slate-400 text-sm md:text-base group-hover:text-slate-200">
-                                    다양한 미니게임이 기다리고 있습니다. 지금 입장하세요!
-                                </p>
-                            </div>
-                         </div>
-
-                         <div className="hidden md:flex items-center gap-2 text-purple-400 font-bold group-hover:translate-x-2 transition-transform">
-                            PLAY NOW
-                            <ArrowRight className="w-5 h-5" />
-                         </div>
-                    </div>
+                <div className="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-purple-400 mb-6 backdrop-blur-sm">
+                    Welcome to Dopamine Ground
+                </div>
+                <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tight leading-tight">
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 animate-gradient-x">
+                        오늘 당신의 운세는?
+                    </span>
+                    <br />
+                    <span className="text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+                        잭팟에 도전하세요!
+                    </span>
+                </h1>
+                <p className="text-slate-400 text-lg md:text-xl mb-8 max-w-2xl mx-auto leading-relaxed">
+                    무한의 계단, 블랙잭, 바카라 등 다양한 미니게임이 준비되어 있습니다.<br/>
+                    지금 바로 플레이하고 <span className="text-yellow-400 font-bold">랭킹 1위</span>의 주인공이 되어보세요.
+                </p>
+                <Link href="/game">
+                    <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-lg px-10 py-7 rounded-full shadow-[0_0_30px_rgba(168,85,247,0.5)] hover:shadow-[0_0_50px_rgba(168,85,247,0.7)] transition-all transform hover:scale-105 active:scale-95">
+                        <Gamepad2 className="w-6 h-6 mr-2" />
+                        지금 시작하고 100P 받기
+                    </Button>
                 </Link>
             </motion.div>
         </section>
 
-
-        {/* Dashboard Widgets Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Left Column */}
-            <div className="flex flex-col gap-8 lg:col-span-1">
-                {/* Point Guide Card - Moved Up & Translated */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.4 }}
-                >
-                    <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
-                        <div className="p-6 border-b border-white/5">
-                            <h3 className="text-lg font-bold flex items-center gap-2">
-                                <Coins className="w-5 h-5 text-amber-400" />
-                                포인트 획득 방법
-                            </h3>
-                        </div>
-                        <div className="p-6 space-y-4">
-                             <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
-                                        <Calendar className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-300">매일 로그인</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold text-sm">+10 P</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
-                                        <MessageSquare className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-300">댓글 작성</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold text-sm">+5 P</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-pink-500/20 text-pink-400">
-                                        <ThumbsUp className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-300">좋아요 받기</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold text-sm">+1 P</span>
+        {/* 3. Dashboard Summary (Secondary) */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-20">
+            {/* My Stats */}
+            <div className="lg:col-span-1 bg-[#131316]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 flex flex-col justify-between">
+                <div>
+                    <h3 className="text-lg font-bold text-slate-200 mb-6 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-purple-400" />
+                        MY STATUS
+                    </h3>
+                    <div className="space-y-6">
+                        <div>
+                            <div className="text-xs text-slate-500 font-bold uppercase mb-1">Nickname</div>
+                            <div className="text-2xl font-black text-white">
+                                {currentUser?.nickname || 'Guest User'}
                             </div>
                         </div>
-                    </div>
-                </motion.div>
-
-                {/* Rank Board */}
-                <motion.div 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.6, delay: 0.6 }}
-                >
-                    <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
-                        <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                            <h3 className="text-lg font-bold flex items-center gap-2">
-                                <Trophy className="w-5 h-5 text-yellow-500" />
-                                LEADERBOARD
-                            </h3>
-                            <div className="flex gap-1 bg-black/20 p-1 rounded-lg">
-                                {(['daily', 'weekly', 'monthly'] as const).map((period) => (
-                                    <button
-                                        key={period}
-                                        onClick={() => setSelectedPeriod(period)}
-                                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                                            selectedPeriod === period 
-                                            ? 'bg-purple-600 text-white shadow-lg' 
-                                            : 'text-slate-500 hover:text-slate-300'
-                                        }`}
-                                    >
-                                        {period === 'daily' ? 'D' : period === 'weekly' ? 'W' : 'M'}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="p-4">
-                            {loading ? (
-                                <div className="flex justify-center py-10 text-slate-500 text-sm">Loading ranks...</div>
-                            ) : getCurrentRankings().length === 0 ? (
-                                <div className="flex justify-center py-10 text-slate-500 text-sm">No data available</div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {getCurrentRankings().map((user) => (
-                                        <div key={user.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 flex justify-center">
-                                                    {getRankIcon(user.rank)}
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-sm text-slate-200 group-hover:text-white transition-colors">
-                                                        {user.nickname || user.email.split('@')[0]}
-                                                    </div>
-                                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Level {user.level}</div>
-                                                </div>
-                                            </div>
-                                            <div className="text-emerald-400 font-bold text-sm tracking-wide">
-                                                {user.points.toLocaleString()}
-                                            </div>
-                                        </div>
-                                    ))}
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <div className="text-xs text-slate-500 font-bold uppercase mb-1">Level</div>
+                                <div className="text-xl font-bold text-white flex items-center gap-1">
+                                    {currentUser?.level || 1} <span className="text-xs text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">LVL</span>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                </motion.div>
-            </div>
-
-            {/* Right Column (Chart) */}
-            <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-                className="lg:col-span-2"
-            >
-                <div className="bg-[#131316]/80 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden h-full flex flex-col">
-                    <div className="p-6 border-b border-white/5">
-                        <h3 className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-cyan-400" />
-                            PERFORMANCE HISTORY
-                        </h3>
-                    </div>
-                    <div className="p-6 flex-1 min-h-[300px]">
-                        {pointsHistory.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-slate-500 text-sm">
-                                {isClient && localStorage.getItem('token') ? 'Loading history...' : 'Login required'}
                             </div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={pointsHistory}>
-                                    <defs>
-                                        <linearGradient id="colorPoints" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                                    <XAxis 
-                                        dataKey="date" 
-                                        tickFormatter={(value) => {
-                                            const date = new Date(value)
-                                            return `${date.getMonth() + 1}/${date.getDate()}`
-                                        }}
-                                        stroke="#64748b"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        dy={10}
-                                    />
-                                    <YAxis 
-                                        tickFormatter={(value) => `${value}`}
-                                        stroke="#64748b"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        dx={-10}
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
-                                        labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
-                                        formatter={(value: number) => [`${value.toLocaleString()} P`, 'Points']}
-                                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                                    />
-                                    <Line 
-                                        type="monotone" 
-                                        dataKey="points" 
-                                        stroke="#8b5cf6" 
-                                        strokeWidth={3}
-                                        dot={{ r: 4, fill: '#1e293b', stroke: '#8b5cf6', strokeWidth: 2 }}
-                                        activeDot={{ r: 6, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        )}
+                            <div className="flex-1">
+                                <div className="text-xs text-slate-500 font-bold uppercase mb-1">Points</div>
+                                <div className="text-xl font-bold text-emerald-400">
+                                    {currentPoints.toLocaleString()}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </motion.div>
+                
+                <div className="mt-8 pt-6 border-t border-white/5">
+                     <Link href="/game">
+                        <Button className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/10">
+                            게임 기록 확인하기
+                        </Button>
+                    </Link>
+                </div>
+            </div>
 
-        </div>
+            {/* Point History Graph */}
+            <div className="lg:col-span-2 bg-[#131316]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-6 h-[300px] flex flex-col">
+                 <h3 className="text-lg font-bold text-slate-200 mb-6 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-cyan-400" />
+                    POINT HISTORY
+                </h3>
+                <div className="flex-1 w-full min-h-0">
+                    {pointsHistory.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+                            {isClient && localStorage.getItem('token') ? 'No history data' : 'Login required to view history'}
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={pointsHistory}>
+                                <defs>
+                                    <linearGradient id="colorPoints" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                                <XAxis 
+                                    dataKey="date" 
+                                    tickFormatter={(value) => {
+                                        const date = new Date(value)
+                                        return `${date.getMonth() + 1}/${date.getDate()}`
+                                    }}
+                                    stroke="#64748b"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    dy={10}
+                                />
+                                <YAxis 
+                                    tickFormatter={(value) => `${value}`}
+                                    stroke="#64748b"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    dx={-10}
+                                />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                                    labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
+                                    formatter={(value: number) => [`${value.toLocaleString()} P`, 'Points']}
+                                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                                />
+                                <Line 
+                                    type="monotone" 
+                                    dataKey="points" 
+                                    stroke="#8b5cf6" 
+                                    strokeWidth={3}
+                                    dot={{ r: 4, fill: '#1e293b', stroke: '#8b5cf6', strokeWidth: 2 }}
+                                    activeDot={{ r: 6, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+            </div>
+        </section>
+
       </main>
     </div>
   )
