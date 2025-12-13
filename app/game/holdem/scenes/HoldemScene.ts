@@ -14,8 +14,8 @@ interface Player {
   currentBet: number;
   isActive: boolean;
   isAllIn: boolean;
-  position: string | null; // 'dealer', 'small_blind', 'big_blind'
-  holeCards?: Card[]; // Only for me or showdown
+  position: string | null;
+  holeCards?: Card[];
 }
 
 interface RoomData {
@@ -37,39 +37,37 @@ interface RoomData {
 // --- Scene ---
 export class HoldemScene extends Phaser.Scene {
   private roomId!: string;
-  private myUserId: number | null = null; // To identify 'me'
+  private myUserId: number | null = null;
   
   // State
   private roomData: RoomData | null = null;
   private pollingTimer: Phaser.Time.TimerEvent | null = null;
   private isProcessingUpdate = false;
-  private displayedCommunityCards: number = 0; // Number of cards currently shown
+  private displayedCommunityCards: number = 0;
+  private isDealing: boolean = false;
 
   // UI Objects
+  private tableShape!: Phaser.GameObjects.Ellipse;
   private seatContainers: Map<number, Phaser.GameObjects.Container> = new Map();
-  private sitButtons: Phaser.GameObjects.Text[] = []; // Explicit reference for buttons
+  private sitButtons: Phaser.GameObjects.Container[] = [];
   private communityCardContainers: Phaser.GameObjects.Container[] = [];
   private potText!: Phaser.GameObjects.Text;
   private statusText!: Phaser.GameObjects.Text;
+  
+  // Action Controls
   private actionContainer!: Phaser.GameObjects.Container;
+  private raisePopup!: Phaser.GameObjects.Container;
+  private raiseSliderBar!: Phaser.GameObjects.Rectangle;
+  private raiseSliderHandle!: Phaser.GameObjects.Arc;
+  private raiseAmountText!: Phaser.GameObjects.Text;
   private startButton!: Phaser.GameObjects.Container;
   
   // Game Objects
   private deckSprite!: Phaser.GameObjects.Image;
-  private dealerButton!: Phaser.GameObjects.Image; // Just a circle with 'D'
   
-  // Positions
-  private seatPositions = [
-    { x: 600, y: 650 }, // Seat 0 (Bottom Center - Usually Me if adjusted)
-    { x: 200, y: 600 }, // Seat 1
-    { x: 200, y: 200 }, // Seat 2
-    { x: 600, y: 100 }, // Seat 3
-    { x: 1000, y: 200 }, // Seat 4
-    { x: 1000, y: 600 }, // Seat 5
-  ];
-  
-  private communityCardsPos = { x: 400, y: 360, spacing: 90 };
-  private deckPos = { x: 100, y: 100 };
+  // Layout State
+  private isPortrait: boolean = false;
+  private selectedRaiseAmount: number = 0;
 
   constructor() {
     super({ key: 'HoldemScene' });
@@ -77,16 +75,13 @@ export class HoldemScene extends Phaser.Scene {
 
   init(data: { roomId: string }) {
     this.roomId = data.roomId;
-    // Get my user ID from token
     const token = localStorage.getItem('token');
     if (token) {
-        // Simple parse (in real app use a library or the existing payload)
         try {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
             const payload = JSON.parse(window.atob(base64));
             this.myUserId = payload.userId;
-            console.log('My UserId:', this.myUserId);
         } catch (e) {
             console.error('Failed to parse token', e);
         }
@@ -94,18 +89,25 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   create() {
-    // Reset state
-    this.sitButtons = [];
     this.seatContainers = new Map();
+    this.sitButtons = [];
     this.communityCardContainers = [];
+    this.isDealing = false;
+
+    // Setup Resizing
+    this.scale.on('resize', this.handleResize, this);
+    this.isPortrait = this.scale.height > this.scale.width;
 
     this.createTable();
     this.createUI();
     this.createSeats();
     this.createActionControls();
+    this.createRaisePopup();
 
-    // Start Polling
-    this.fetchRoomInfo(); // First fetch
+    // Initial Layout
+    this.handleResize({ width: this.scale.width, height: this.scale.height });
+
+    this.fetchRoomInfo();
     this.pollingTimer = this.time.addEvent({
       delay: 1000,
       callback: this.fetchRoomInfo,
@@ -114,116 +116,263 @@ export class HoldemScene extends Phaser.Scene {
     });
   }
 
-  createTable() {
-    const width = this.scale.width;
-    const height = this.scale.height;
+  handleResize(gameSize: { width: number, height: number }) {
+    const width = gameSize.width;
+    const height = gameSize.height;
+    this.isPortrait = height > width;
 
-    // Green Felt Table
-    const table = this.add.ellipse(width / 2, height / 2, width - 100, height - 150, 0x076324);
-    table.setStrokeStyle(10, 0x3e2723); // Wood border
+    // 1. Table
+    this.tableShape.setPosition(width / 2, height / 2);
+    if (this.isPortrait) {
+        this.tableShape.setSize(width * 0.9, height * 0.6);
+        this.tableShape.setAngle(90);
+    } else {
+        this.tableShape.setSize(width * 0.8, height * 0.7);
+        this.tableShape.setAngle(0);
+    }
+
+    // 2. Center UI
+    const centerY = height / 2;
+    const centerX = width / 2;
     
-    // Pot Area
-    this.add.text(width / 2, 430, 'POT', { fontSize: '16px', color: '#88ff88' }).setOrigin(0.5);
-    this.potText = this.add.text(width / 2, 460, '0', { fontSize: '32px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5);
+    this.statusText.setPosition(centerX, centerY - (this.isPortrait ? 150 : 120));
+    this.potText.setPosition(centerX, centerY + (this.isPortrait ? 80 : 100));
+    
+    // Community Cards Area
+    const cardSpacing = 70;
+    const startX = centerX - (cardSpacing * 2);
+    const cardY = centerY;
+    
+    this.communityCardContainers.forEach((card, index) => {
+        card.setPosition(startX + index * cardSpacing, cardY);
+    });
 
-    // Deck Graphic
-    this.deckSprite = this.add.image(this.deckPos.x, this.deckPos.y, 'card-back').setScale(0.8);
-    this.deckSprite.setAngle(-15);
+    this.deckSprite.setPosition(centerX - 200, centerY);
+
+    // 3. Seats Layout
+    const seatRadiusX = this.isPortrait ? width * 0.4 : width * 0.35;
+    const seatRadiusY = this.isPortrait ? height * 0.35 : height * 0.3;
+    const anglePerSeat = (Math.PI * 2) / 6;
+    
+    for (let i = 0; i < 6; i++) {
+        let angle = i * anglePerSeat + (Math.PI / 2);
+        
+        const seatX = centerX + Math.cos(angle) * seatRadiusX;
+        const seatY = centerY + Math.sin(angle) * seatRadiusY;
+        
+        const container = this.seatContainers.get(i);
+        if (container) {
+            container.setPosition(seatX, seatY);
+        }
+        
+        if (this.sitButtons[i]) {
+            this.sitButtons[i].setPosition(seatX, seatY);
+        }
+    }
+
+    // 4. Controls
+    this.actionContainer.setPosition(centerX, height - 80);
+    this.raisePopup.setPosition(centerX, height - 200);
+    this.startButton.setPosition(centerX, centerY + 150);
+  }
+
+  createTable() {
+    this.tableShape = this.add.ellipse(0, 0, 100, 100, 0x0a3d1d);
+    this.tableShape.setStrokeStyle(15, 0x3e2723);
+    
+    this.add.text(0, 0, 'POT', { fontSize: '14px', color: '#8fbc8f' }).setOrigin(0.5).setName('potLabel');
+    this.potText = this.add.text(0, 0, '0', { fontSize: '32px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5).setShadow(2, 2, '#000', 2, true, true);
+
+    this.deckSprite = this.add.image(0, 0, 'card-back').setScale(0.6).setAngle(-15);
   }
 
   createUI() {
-    // Status Text
-    this.statusText = this.add.text(600, 400, 'Waiting...', { fontSize: '24px', color: '#ffffff' }).setOrigin(0.5);
+    this.statusText = this.add.text(0, 0, '', { 
+        fontSize: '28px', 
+        color: '#ffffff', 
+        fontStyle: 'bold',
+        align: 'center',
+        stroke: '#000000',
+        strokeThickness: 4
+    }).setOrigin(0.5);
     
-    // Start Button (initially hidden)
-    this.startButton = this.createButton(600, 500, 'GAME START', 0x2e7d32, () => this.handleStartGame());
+    this.startButton = this.add.container(0, 0);
+    const bg = this.add.rectangle(0, 0, 200, 60, 0x2e7d32)
+        .setInteractive({ useHandCursor: true })
+        .setStrokeStyle(2, 0xffffff);
+    const txt = this.add.text(0, 0, 'GAME START', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5);
+    this.startButton.add([bg, txt]);
     this.startButton.setVisible(false);
+    
+    bg.on('pointerdown', () => this.handleStartGame());
+    bg.on('pointerover', () => bg.setFillStyle(0x388e3c));
+    bg.on('pointerout', () => bg.setFillStyle(0x2e7d32));
   }
   
   createSeats() {
-    // 6 Seats
     for (let i = 0; i < 6; i++) {
-        const pos = this.seatPositions[i];
-        const container = this.add.container(pos.x, pos.y);
+        const container = this.add.container(0, 0);
         
-        // Avatar Circle
-        const avatar = this.add.circle(0, 0, 40, 0x333333).setStrokeStyle(2, 0xffffff);
-        const nameText = this.add.text(0, 50, `Empty`, { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
-        const chipsText = this.add.text(0, 70, '', { fontSize: '14px', color: '#ffd700' }).setOrigin(0.5);
-        const actionText = this.add.text(0, -60, '', { fontSize: '18px', color: '#00ffff', fontStyle: 'bold' }).setOrigin(0.5);
+        const seatBg = this.add.circle(0, 0, 50, 0x222222).setStrokeStyle(3, 0x555555);
+        const avatarCircle = this.add.circle(0, 0, 46, 0x444444);
+        const avatarText = this.add.text(0, 0, '?', { fontSize: '24px', color: '#aaa' }).setOrigin(0.5);
         
-        // Cards container (relative to seat)
+        const infoBg = this.add.rectangle(0, 65, 120, 50, 0x000000, 0.7).setStrokeStyle(1, 0x444444);
+        const nameText = this.add.text(0, 55, 'Empty', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+        const chipsText = this.add.text(0, 75, '', { fontSize: '12px', color: '#ffd700' }).setOrigin(0.5);
+        
+        const actionText = this.add.text(0, -65, '', { 
+            fontSize: '18px', 
+            color: '#00ffff', 
+            fontStyle: 'bold',
+            stroke: '#000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+        
         const cardsContainer = this.add.container(0, -20);
         
-        container.add([avatar, nameText, chipsText, actionText, cardsContainer]);
+        container.add([seatBg, avatarCircle, avatarText, infoBg, nameText, chipsText, actionText, cardsContainer]);
         this.seatContainers.set(i, container);
 
-        // Sit Button (Green Rectangle)
-        const sitBtn = this.add.text(0, 0, 'SIT', {
-            fontSize: '24px',
-            backgroundColor: '#2e7d32',
-            padding: { x: 20, y: 10 },
-            color: '#ffffff',
-            fontStyle: 'bold'
-        }).setOrigin(0.5)
-          .setInteractive({ useHandCursor: true })
-          .setVisible(false);
+        const sitContainer = this.add.container(0, 0);
+        const sitBg = this.add.circle(0, 0, 40, 0x2e7d32)
+            .setInteractive({ useHandCursor: true })
+            .setStrokeStyle(2, 0xffffff);
+        const sitTxt = this.add.text(0, 0, 'SIT', { fontSize: '20px', fontStyle: 'bold' }).setOrigin(0.5);
         
-        container.add(sitBtn);
-        this.sitButtons[i] = sitBtn;
+        this.tweens.add({
+            targets: sitBg,
+            scale: 1.1,
+            duration: 800,
+            yoyo: true,
+            repeat: -1
+        });
 
-        sitBtn.on('pointerdown', () => this.handleSit(i));
+        sitContainer.add([sitBg, sitTxt]);
+        sitContainer.setVisible(false);
+        this.sitButtons[i] = sitContainer;
+
+        sitBg.on('pointerdown', () => this.handleSit(i));
     }
   }
 
   createActionControls() {
-    // Bottom Action Bar
-    this.actionContainer = this.add.container(600, 720);
+    this.actionContainer = this.add.container(0, 0);
     
+    const barBg = this.add.rectangle(0, 0, 500, 70, 0x000000, 0.8).setStrokeStyle(1, 0x666666);
+    this.actionContainer.add(barBg);
+
     const actions = [
         { label: 'FOLD', color: 0xb71c1c, callback: () => this.sendAction('fold') },
         { label: 'CHECK', color: 0x1565c0, callback: () => this.sendAction('check') },
         { label: 'CALL', color: 0x1565c0, callback: () => this.sendAction('call') },
-        { label: 'RAISE', color: 0xff8f00, callback: () => this.handleRaiseClick() }, // Open Slider?
+        { label: 'RAISE', color: 0xff8f00, callback: () => this.showRaisePopup() },
         { label: 'ALL IN', color: 0xd50000, callback: () => this.sendAction('allin') }
     ];
 
-    let xOffset = -300;
-    actions.forEach(action => {
-        const btn = this.createButton(xOffset, 0, action.label, action.color, action.callback);
-        // Tag buttons to toggle visibility
+    const btnWidth = 90;
+    const spacing = 10;
+    const startX = -((actions.length * btnWidth) + ((actions.length - 1) * spacing)) / 2 + (btnWidth / 2);
+
+    actions.forEach((action, idx) => {
+        const x = startX + idx * (btnWidth + spacing);
+        const btn = this.createButton(x, 0, action.label, action.color, action.callback, btnWidth, 40);
         btn.setName('btn_' + action.label.toLowerCase().replace(' ', ''));
         this.actionContainer.add(btn);
-        xOffset += 150;
     });
 
     this.actionContainer.setVisible(false);
   }
+
+  createRaisePopup() {
+      this.raisePopup = this.add.container(0, 0);
+      const bg = this.add.rectangle(0, 0, 300, 150, 0x111111, 0.95).setStrokeStyle(2, 0xff8f00);
+      
+      this.raiseAmountText = this.add.text(0, -40, 'Raise: $0', { fontSize: '24px', color: '#ffd700' }).setOrigin(0.5);
+      
+      const trackWidth = 240;
+      const track = this.add.rectangle(0, 10, trackWidth, 6, 0x555555);
+      
+      this.raiseSliderHandle = this.add.circle(-trackWidth/2, 10, 15, 0xff8f00)
+          .setInteractive({ draggable: true, useHandCursor: true });
+          
+      const confirmBtn = this.createButton(0, 50, 'CONFIRM', 0xff8f00, () => this.confirmRaise(), 120, 35);
+      
+      this.raisePopup.add([bg, this.raiseAmountText, track, this.raiseSliderHandle, confirmBtn]);
+      this.raisePopup.setVisible(false);
+
+      this.input.setDraggable(this.raiseSliderHandle);
+      this.input.on('drag', (pointer: any, gameObject: any, dragX: number, dragY: number) => {
+          if (gameObject === this.raiseSliderHandle) {
+              const minX = -trackWidth / 2;
+              const maxX = trackWidth / 2;
+              const newX = Phaser.Math.Clamp(dragX, minX, maxX);
+              gameObject.x = newX;
+              const percent = (newX - minX) / trackWidth;
+              this.updateRaiseValue(percent);
+          }
+      });
+  }
+
+  updateRaiseValue(percent: number) {
+      if (!this.roomData || !this.myUserId) return;
+      const me = this.roomData.players.find(p => p.userId === this.myUserId);
+      if (!me) return;
+
+      const highestBet = Math.max(...this.roomData.players.map(p => p.currentBet));
+      const minRaise = this.roomData.gameState.minBet || 20;
+      const toCall = highestBet - me.currentBet;
+      const minTotal = toCall + minRaise; 
+      const maxTotal = me.chips;
+      
+      if (maxTotal <= minTotal) {
+          this.selectedRaiseAmount = maxTotal;
+      } else {
+          this.selectedRaiseAmount = Math.floor(minTotal + percent * (maxTotal - minTotal));
+      }
+      
+      this.raiseAmountText.setText(`Raise: $${this.selectedRaiseAmount}`);
+  }
+
+  showRaisePopup() {
+      if (!this.roomData) return;
+      this.raisePopup.setVisible(true);
+      this.children.bringToTop(this.raisePopup);
+      this.raiseSliderHandle.x = -120;
+      this.updateRaiseValue(0);
+  }
+
+  confirmRaise() {
+      if (this.selectedRaiseAmount > 0) {
+          this.sendAction('raise', this.selectedRaiseAmount);
+          this.raisePopup.setVisible(false);
+      }
+  }
   
-  createButton(x: number, y: number, text: string, color: number, callback: () => void): Phaser.GameObjects.Container {
+  createButton(x: number, y: number, text: string, color: number, callback: () => void, w: number = 120, h: number = 50): Phaser.GameObjects.Container {
       const container = this.add.container(x, y);
-      const bg = this.add.rectangle(0, 0, 120, 50, color).setInteractive({ useHandCursor: true });
-      const txt = this.add.text(0, 0, text, { fontSize: '18px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+      const bg = this.add.rectangle(0, 0, w, h, color)
+        .setInteractive({ useHandCursor: true })
+        .setStrokeStyle(1, 0xffffff, 0.5);
+      
+      const gloss = this.add.rectangle(0, -h/4, w, h/2, 0xffffff, 0.1);
+      const txt = this.add.text(0, 0, text, { fontSize: '16px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
       
       bg.on('pointerdown', callback);
       bg.on('pointerover', () => bg.setAlpha(0.8));
       bg.on('pointerout', () => bg.setAlpha(1));
       
-      container.add([bg, txt]);
+      container.add([bg, gloss, txt]);
       return container;
   }
-
-  // --- Logic ---
 
   async fetchRoomInfo() {
     if (this.isProcessingUpdate) return;
     try {
-        // Add timestamp to prevent caching
         const res = await fetch(`/api/holdem/room?roomId=${this.roomId}&t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
         
-        // Merge room and players structure to match RoomData interface roughly
         const parsedData: RoomData = {
             id: data.room.id,
             status: data.room.status,
@@ -246,31 +395,32 @@ export class HoldemScene extends Phaser.Scene {
     const oldData = this.roomData;
     this.roomData = newData;
 
-    // 1. Update UI Texts
-    this.potText.setText(`${newData.pot.toLocaleString()}`);
+    // Deal Animation Logic
+    if ((!oldData && newData.status === 'playing' && newData.currentRound === 'preflop') ||
+        (oldData && oldData.status !== 'playing' && newData.status === 'playing')) {
+        if (!oldData || oldData.status !== 'playing') {
+             this.resetTableForNewGame();
+             if (newData.currentRound === 'preflop') {
+                 this.playDealAnimation(newData.players);
+             }
+        }
+    }
+
+    this.potText.setText(`POT: $${newData.pot.toLocaleString()}`);
     
-    // Check if I am seated
     const amISeated = newData.players.some(p => p.userId === this.myUserId);
     const playerCount = newData.players.length;
 
-    // Status Text Logic
     if (newData.status === 'waiting') {
         if (playerCount < 2) {
-            if (amISeated) {
-                this.statusText.setText(`Waiting for more players... (${playerCount}/2)`);
-            } else {
-                this.statusText.setText('Click a Green Button to Sit');
-            }
+            this.statusText.setText(amISeated ? `Waiting for players... (${playerCount}/6)` : 'Sit to Play!');
         } else {
             this.statusText.setText('Ready to Start!');
         }
-    } else if (newData.status === 'finished') {
-        // Winner logic handles text
     } else {
         this.statusText.setText('');
     }
 
-    // 2. Start Button Visibility
     if (newData.status === 'waiting' && playerCount >= 2 && amISeated) {
         this.startButton.setVisible(true);
         this.children.bringToTop(this.startButton);
@@ -278,23 +428,19 @@ export class HoldemScene extends Phaser.Scene {
         this.startButton.setVisible(false);
     }
 
-    // 3. Update Seats (Players)
     this.updateSeats(newData.players, newData.gameState.currentTurnSeat);
 
-    // Make seats interactive if not joined
     if (!amISeated) {
         this.enableSeatInteraction(newData.players);
     } else {
         this.disableSeatInteraction();
     }
 
-    // 4. Community Cards Animation
     if (newData.communityCards.length > this.displayedCommunityCards) {
         this.dealCommunityCards(newData.communityCards, this.displayedCommunityCards);
         this.displayedCommunityCards = newData.communityCards.length;
     }
     
-    // 5. My Action Controls
     const myPlayer = newData.players.find(p => p.userId === this.myUserId);
     const isMyTurn = myPlayer && newData.gameState.currentTurnSeat === myPlayer.seatIndex && newData.status === 'playing';
     
@@ -304,14 +450,13 @@ export class HoldemScene extends Phaser.Scene {
         this.children.bringToTop(this.actionContainer);
     } else {
         this.actionContainer.setVisible(false);
+        this.raisePopup.setVisible(false);
     }
     
-    // 6. Check for Showdown / Winners
     if (newData.gameState.winners && (!oldData?.gameState.winners || oldData.gameState.winners.length === 0)) {
         this.handleWinners(newData.gameState.winners);
     }
     
-    // 7. Reset if new game started (detect status change finished -> playing or waiting -> playing)
     if (oldData && oldData.status !== 'playing' && newData.status === 'playing') {
         this.resetTableForNewGame();
     }
@@ -320,56 +465,50 @@ export class HoldemScene extends Phaser.Scene {
   }
   
   updateSeats(players: Player[], currentTurnSeat: number | null) {
-      // Clear empty seats
       this.seatContainers.forEach(c => {
-          const nameTxt = c.getAt(1) as Phaser.GameObjects.Text;
-          nameTxt.setText('Empty');
-          (c.getAt(2) as Phaser.GameObjects.Text).setText(''); // Chips
-          (c.getAt(3) as Phaser.GameObjects.Text).setText(''); // Action
-          (c.getAt(4) as Phaser.GameObjects.Container).removeAll(true); // Cards
-          (c.getAt(0) as Phaser.GameObjects.Shape).setStrokeStyle(2, 0xffffff); // Reset Border
-          (c.getAt(1) as Phaser.GameObjects.Text).setColor('#ffffff'); 
+          (c.getAt(4) as Phaser.GameObjects.Text).setText('Empty');
+          (c.getAt(5) as Phaser.GameObjects.Text).setText('');
+          (c.getAt(6) as Phaser.GameObjects.Text).setText('');
+          (c.getAt(7) as Phaser.GameObjects.Container).removeAll(true);
+          (c.getAt(0) as Phaser.GameObjects.Shape).setStrokeStyle(3, 0x555555);
+          (c.getAt(2) as Phaser.GameObjects.Text).setText('?');
       });
 
       players.forEach(p => {
           const container = this.seatContainers.get(p.seatIndex);
           if (!container) return;
 
-          const avatar = container.getAt(0) as Phaser.GameObjects.Shape;
-          const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
-          const chipsTxt = container.getAt(2) as Phaser.GameObjects.Text;
-          const actionTxt = container.getAt(3) as Phaser.GameObjects.Text;
-          const cardsContainer = container.getAt(4) as Phaser.GameObjects.Container;
+          const seatBg = container.getAt(0) as Phaser.GameObjects.Shape;
+          const avatarText = container.getAt(2) as Phaser.GameObjects.Text;
+          const nameTxt = container.getAt(4) as Phaser.GameObjects.Text;
+          const chipsTxt = container.getAt(5) as Phaser.GameObjects.Text;
+          const actionTxt = container.getAt(6) as Phaser.GameObjects.Text;
+          const cardsContainer = container.getAt(7) as Phaser.GameObjects.Container;
           
           nameTxt.setText(p.nickname);
-          chipsTxt.setText(`$${p.chips}\nBet: ${p.currentBet}`);
+          avatarText.setText(p.nickname.substring(0, 1).toUpperCase());
+          chipsTxt.setText(`$${p.chips}`);
           
-          // Highlight active turn
           if (currentTurnSeat === p.seatIndex) {
-              avatar.setStrokeStyle(4, 0x00ff00);
+              seatBg.setStrokeStyle(4, 0x00ff00);
           } else {
-              avatar.setStrokeStyle(2, 0xffffff);
+              seatBg.setStrokeStyle(3, 0x555555);
           }
           
-          // Show Fold/AllIn status
           if (!p.isActive) actionTxt.setText('FOLD');
           else if (p.isAllIn) actionTxt.setText('ALL IN');
+          else if (p.currentBet > 0) actionTxt.setText(`$${p.currentBet}`);
           else actionTxt.setText('');
 
-          // Draw Cards
-          // Logic: Draw back of cards for others, front for me (or everyone if showdown)
-          if (cardsContainer.list.length === 0 && p.isActive && this.roomData?.status !== 'waiting') {
-               // Only draw if we haven't already (simple check)
-               // For me:
+          // Only draw if not dealing
+          if (cardsContainer.list.length === 0 && p.isActive && this.roomData?.status !== 'waiting' && !this.isDealing) {
                if (p.userId === this.myUserId && p.holeCards) {
                    this.drawHoleCards(cardsContainer, p.holeCards);
                } else {
-                   // For others: Back
                    this.drawBackCards(cardsContainer);
                }
           }
           
-          // Reveal cards at showdown
           if (this.roomData?.currentRound === 'showdown' && p.isActive && p.holeCards) {
               cardsContainer.removeAll(true);
               this.drawHoleCards(cardsContainer, p.holeCards);
@@ -378,44 +517,104 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   enableSeatInteraction(players: Player[]) {
-      // Find occupied seats
       const occupiedSeats = players.map(p => p.seatIndex);
       
       this.seatContainers.forEach((container, index) => {
-          const avatar = container.getAt(0) as Phaser.GameObjects.Shape;
-          const sitBtn = this.sitButtons[index];
+          const sitBtnContainer = this.sitButtons[index];
+          const avatarGroup = [
+              container.getAt(0), // bg
+              container.getAt(1), // circle
+              container.getAt(2), // text
+              container.getAt(3), // info bg
+              container.getAt(4), // name
+              container.getAt(5)  // chips
+          ];
           
           if (!occupiedSeats.includes(index)) {
-              // Empty
-              if (sitBtn) {
-                  sitBtn.setVisible(true);
-                  container.bringToTop(sitBtn); // Ensure button is on top of container
+              if (sitBtnContainer) {
+                  sitBtnContainer.setVisible(true);
+                  sitBtnContainer.setPosition(container.x, container.y);
                   
-                  avatar.setVisible(false); 
-                  const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
-                  nameTxt.setVisible(false);
+                  avatarGroup.forEach((obj: any) => obj.setVisible(false));
               }
           } else {
-              // Occupied
-              if (sitBtn) sitBtn.setVisible(false);
-              
-              // Ensure occupied look is visible
-              avatar.setVisible(true);
-              const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
-              nameTxt.setVisible(true);
+              if (sitBtnContainer) sitBtnContainer.setVisible(false);
+              avatarGroup.forEach((obj: any) => obj.setVisible(true));
           }
       });
   }
 
   disableSeatInteraction() {
-      // Hide all sit buttons
       this.sitButtons.forEach(btn => btn.setVisible(false));
-      // Show all avatars
       this.seatContainers.forEach(container => {
-          const avatar = container.getAt(0) as Phaser.GameObjects.Shape;
-          avatar.setVisible(true);
-          const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
-          nameTxt.setVisible(true);
+          for(let i=0; i<=6; i++) {
+              const obj = container.getAt(i) as any;
+              if(obj) obj.setVisible(true);
+          }
+      });
+  }
+
+  async playDealAnimation(players: Player[]) {
+      if (this.isDealing) return;
+      this.isDealing = true;
+
+      const dealerIdx = this.roomData?.dealerIndex || 0;
+      const dealOrder: Player[] = [];
+      for(let i=1; i<=6; i++) {
+          const seatIdx = (dealerIdx + i) % 6;
+          const p = players.find(pl => pl.seatIndex === seatIdx);
+          if (p && p.isActive) dealOrder.push(p);
+      }
+
+      for (let round = 0; round < 2; round++) {
+          for (const p of dealOrder) {
+              await this.dealOneCardToPlayer(p);
+          }
+      }
+
+      this.isDealing = false;
+  }
+
+  dealOneCardToPlayer(p: Player): Promise<void> {
+      return new Promise(resolve => {
+          const container = this.seatContainers.get(p.seatIndex);
+          if (!container) { resolve(); return; }
+          
+          const cardsContainer = container.getAt(7) as Phaser.GameObjects.Container;
+          
+          const tempCard = this.add.image(this.deckSprite.x, this.deckSprite.y, 'card-back')
+              .setDisplaySize(50, 70)
+              .setAngle(this.deckSprite.angle);
+              
+          const cardIndex = cardsContainer.list.length;
+          const targetLocalX = cardIndex * 40 - 20;
+          const targetLocalY = 0;
+          
+          const targetWorldX = container.x + targetLocalX;
+          const targetWorldY = container.y - 20 + targetLocalY;
+          
+          this.children.bringToTop(tempCard);
+
+          this.tweens.add({
+              targets: tempCard,
+              x: targetWorldX,
+              y: targetWorldY,
+              angle: 360,
+              duration: 150,
+              onComplete: () => {
+                  tempCard.destroy();
+                  if (p.userId === this.myUserId && p.holeCards && p.holeCards[cardIndex]) {
+                      const card = p.holeCards[cardIndex];
+                      const key = `card-${card.suit}-${card.rank}`;
+                      const img = this.add.image(targetLocalX, targetLocalY, key).setDisplaySize(50, 70);
+                      cardsContainer.add(img);
+                  } else {
+                      const img = this.add.image(targetLocalX, targetLocalY, 'card-back').setDisplaySize(50, 70);
+                      cardsContainer.add(img);
+                  }
+                  resolve();
+              }
+          });
       });
   }
 
@@ -425,12 +624,7 @@ export class HoldemScene extends Phaser.Scene {
           alert('Please login to play');
           return;
       }
-
-      // Simple buy-in prompt
-      // const buyIn = window.prompt("Enter buy-in amount (Default: 1000)", "1000");
-      // if (buyIn === null) return;
-      const amount = 1000; // parseInt(buyIn) || 1000;
-
+      const amount = 1000;
       try {
           const res = await fetch('/api/holdem/room', {
               method: 'POST',
@@ -446,8 +640,6 @@ export class HoldemScene extends Phaser.Scene {
           });
           
           if (res.ok) {
-              // Optimistic update or wait for poll
-              // Temporarily hide buttons to give feedback
               this.disableSeatInteraction();
           } else {
               const err = await res.json();
@@ -461,30 +653,30 @@ export class HoldemScene extends Phaser.Scene {
   drawHoleCards(container: Phaser.GameObjects.Container, cards: Card[]) {
       cards.forEach((card, idx) => {
           const key = `card-${card.suit}-${card.rank}`;
-          // Correct key format check: LoadingScene used 'card-hearts-A'
-          // API returns rank: 'A', suit: 'hearts'
-          const img = this.scene.scene.add.image(idx * 30 - 15, 0, key).setDisplaySize(60, 90);
+          const img = this.add.image(idx * 40 - 20, 0, key).setDisplaySize(50, 70); 
           container.add(img);
       });
   }
   
   drawBackCards(container: Phaser.GameObjects.Container) {
-      // 2 cards back
-      const c1 = this.scene.scene.add.image(-15, 0, 'card-back').setDisplaySize(60, 90);
-      const c2 = this.scene.scene.add.image(15, 0, 'card-back').setDisplaySize(60, 90);
+      const c1 = this.add.image(-20, 0, 'card-back').setDisplaySize(50, 70);
+      const c2 = this.add.image(20, 0, 'card-back').setDisplaySize(50, 70);
       container.add([c1, c2]);
   }
   
   dealCommunityCards(cards: Card[], startIndex: number) {
-      // Animate dealing cards from deck to center
+      const centerX = this.scale.width / 2;
+      const centerY = this.scale.height / 2;
+      const cardSpacing = 70;
+      const startX = centerX - (cardSpacing * 2);
+      
       for (let i = startIndex; i < cards.length; i++) {
           const card = cards[i];
-          const targetX = this.communityCardsPos.x + i * this.communityCardsPos.spacing;
-          const targetY = this.communityCardsPos.y;
+          const targetX = startX + i * cardSpacing;
+          const targetY = centerY;
           
-          // Create card back at deck pos
-          const cardObj = this.add.image(this.deckPos.x, this.deckPos.y, 'card-back').setDisplaySize(80, 120);
-          this.communityCardContainers.push(cardObj as any); // Track them
+          const cardObj = this.add.image(centerX, centerY - 200, 'card-back').setDisplaySize(60, 84);
+          this.communityCardContainers.push(cardObj as any);
           
           this.tweens.add({
               targets: cardObj,
@@ -494,18 +686,16 @@ export class HoldemScene extends Phaser.Scene {
               duration: 500,
               ease: 'Power2',
               onComplete: () => {
-                  // Flip
                   this.tweens.add({
                       targets: cardObj,
                       scaleX: 0,
                       duration: 150,
                       onComplete: () => {
                           cardObj.setTexture(`card-${card.suit}-${card.rank}`);
+                          cardObj.setDisplaySize(60, 84); 
                           this.tweens.add({
                               targets: cardObj,
-                              scaleX: 0.8, // Original scale setDisplaySize logic might need adjustment if using scale
-                              // Re-apply display size or scale
-                              onStart: () => cardObj.setDisplaySize(80, 120),
+                              scaleX: 1,
                               duration: 150
                           });
                       }
@@ -516,36 +706,30 @@ export class HoldemScene extends Phaser.Scene {
   }
   
   updateActionButtons(me: Player, room: RoomData) {
-      // Determine valid actions
-      // Check vs Call
       const highestBet = Math.max(...room.players.map(p => p.currentBet));
       const toCall = highestBet - me.currentBet;
       
       const btnCheck = this.actionContainer.getByName('btn_check') as Phaser.GameObjects.Container;
       const btnCall = this.actionContainer.getByName('btn_call') as Phaser.GameObjects.Container;
-      const btnRaise = this.actionContainer.getByName('btn_raise') as Phaser.GameObjects.Container;
       
-      if (toCall === 0) {
-          btnCheck.setVisible(true);
-          btnCall.setVisible(false);
-      } else {
-          btnCheck.setVisible(false);
-          btnCall.setVisible(true);
-          // Update Call Text to "Call $X"
-          const callTxt = btnCall.getAt(1) as Phaser.GameObjects.Text;
-          callTxt.setText(`CALL $${toCall}`);
+      if (btnCheck && btnCall) {
+          if (toCall === 0) {
+              btnCheck.setVisible(true);
+              btnCall.setVisible(false);
+          } else {
+              btnCheck.setVisible(false);
+              btnCall.setVisible(true);
+              const callTxt = btnCall.getAt(2) as Phaser.GameObjects.Text;
+              callTxt.setText(`CALL $${toCall}`);
+          }
       }
-      
-      // Raise Logic (Simple)
-      const minRaise = room.gameState.minBet > 0 ? room.gameState.minBet : room.players[0]?.currentBet || 0; // rough logic
-      // Ideally get minRaise from server or calc properly
   }
 
   async sendAction(action: string, amount: number = 0) {
       const token = localStorage.getItem('token');
       if (!token) return;
       
-      this.actionContainer.setVisible(false); // Hide immediately to prevent double click
+      this.actionContainer.setVisible(false);
       
       try {
           await fetch('/api/holdem/action', {
@@ -560,49 +744,15 @@ export class HoldemScene extends Phaser.Scene {
                   amount
               })
           });
-          // State will update via polling
       } catch (e) {
           console.error(e);
           this.actionContainer.setVisible(true);
       }
   }
   
-  handleRaiseClick() {
-      // For MVP, just raise minBet or 2x BB. 
-      // Let's implement a simple prompt or fixed raise for now.
-      // Ideally we need the Slider here.
-      // Let's assume user wants to raise Min Raise amount.
-      // To implement correctly, we need to know the min raise amount.
-      // roomData.gameState.minBet + highestBet
-      
-      if (!this.roomData) return;
-      const highestBet = Math.max(...this.roomData.players.map(p => p.currentBet));
-      const minRaise = this.roomData.gameState.minBet || this.roomData.players.find(p => p.position === 'big_blind')?.currentBet || 20; // fallback
-      
-      const raiseTo = highestBet + minRaise; 
-      
-      // Send raise amount (Total bet amount? No, backend expects 'amount' as the Raise increment or Total? 
-      // Checking game-logic.ts: 
-      // if action === 'raise', amount is deducted from chips. currentBet += amount.
-      // So 'amount' is the ADDITIONAL chips to put in.
-      // Wait, 'raise' logic in game-logic.ts:
-      // if (amount < toCall + minBet) ...
-      // playerChips -= amount; currentBet += amount;
-      // It implies 'amount' is the TOTAL chips I'm putting in THIS TURN (Call + Raise).
-      // Let's verify: 
-      //  toCall = highest - current.
-      //  amount must be >= toCall + minBet.
-      
-      const toCall = highestBet - (this.roomData.players.find(p => p.userId === this.myUserId)?.currentBet || 0);
-      const amountToPutIn = toCall + minRaise;
-      
-      this.sendAction('raise', amountToPutIn);
-  }
-
   async handleStartGame() {
       const token = localStorage.getItem('token');
       if (!token) return;
-      
       try {
           await fetch('/api/holdem/start', {
               method: 'POST',
@@ -612,9 +762,7 @@ export class HoldemScene extends Phaser.Scene {
               },
               body: JSON.stringify({ roomId: this.roomId })
           });
-      } catch (e) {
-          console.error(e);
-      }
+      } catch (e) { console.error(e); }
   }
 
   handleWinners(winners: any[]) {
@@ -625,22 +773,16 @@ export class HoldemScene extends Phaser.Scene {
       
       this.statusText.setText(winnerText);
       this.statusText.setColor('#ffff00');
-      this.statusText.setFontSize(32);
-      
-      // Animation: Pot to Winner
-      // ...
+      this.children.bringToTop(this.statusText);
   }
   
   resetTableForNewGame() {
       this.displayedCommunityCards = 0;
       this.communityCardContainers.forEach(c => c.destroy());
       this.communityCardContainers = [];
-      
-      // Clear all cards from seats
       this.seatContainers.forEach(c => {
-          (c.getAt(4) as Phaser.GameObjects.Container).removeAll(true);
+          (c.getAt(7) as Phaser.GameObjects.Container).removeAll(true);
       });
-      
       this.statusText.setText('');
   }
 }
