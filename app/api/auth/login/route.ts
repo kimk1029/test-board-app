@@ -26,6 +26,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 구글 로그인 사용자는 비밀번호가 없음
+    if (!user.password) {
+      return NextResponse.json(
+        { error: '이 계정은 구글 로그인을 사용합니다. 구글 로그인을 이용해주세요.' },
+        { status: 401 }
+      )
+    }
+
     // 비밀번호 확인
     const isPasswordValid = await comparePassword(password, user.password)
 

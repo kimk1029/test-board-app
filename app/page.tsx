@@ -31,6 +31,41 @@ export default function Home() {
 
     useEffect(() => {
         setIsClient(true)
+
+        // 구글 로그인 콜백 처리
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search)
+            const token = urlParams.get('token')
+            const userParam = urlParams.get('user')
+            const loginBonus = urlParams.get('loginBonus')
+            const error = urlParams.get('error')
+
+            if (error) {
+                alert(error)
+                // URL에서 에러 파라미터 제거
+                window.history.replaceState({}, document.title, window.location.pathname)
+            }
+
+            if (token && userParam) {
+                try {
+                    const user = JSON.parse(userParam)
+                    localStorage.setItem('token', token)
+                    localStorage.setItem('user', JSON.stringify(user))
+
+                    if (loginBonus) {
+                        alert(`로그인 보너스로 ${loginBonus} 포인트를 받았습니다!`)
+                    }
+
+                    // URL에서 파라미터 제거하고 페이지 새로고침
+                    window.history.replaceState({}, document.title, window.location.pathname)
+                    window.location.reload()
+                    return
+                } catch (e) {
+                    console.error('Failed to parse user data:', e)
+                }
+            }
+        }
+
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token')

@@ -14,6 +14,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!nickname || nickname.trim() === '') {
+      return NextResponse.json(
+        { error: '닉네임은 필수입니다.' },
+        { status: 400 }
+      )
+    }
+
     // 이메일 중복 확인
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
       data: {
         email,
         password: hashedPassword,
-        nickname: nickname || null,
+        nickname: nickname.trim(),
       },
     })
 

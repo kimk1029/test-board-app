@@ -14,7 +14,7 @@ datasource db {
 model User {
   id            Int       @id @default(autoincrement())
   email         String    @unique
-  password      String
+  password      String?   // 구글 로그인 사용자는 비밀번호 없음
   nickname      String?
   points        Float     @default(0)
   level         Int       @default(1)
