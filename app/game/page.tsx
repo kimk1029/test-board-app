@@ -3,365 +3,321 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import HeaderNavigator from '@/components/HeaderNavigator'
-import { motion } from 'framer-motion'
-import { Gift, TrendingUp, Clover, Club, ArrowRight, BarChart2, PieChart as PieIcon, Activity, Disc, Layers, Rocket, Wind, Users } from 'lucide-react'
-
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line
+    Gift, TrendingUp, Clover, Club, Disc, Layers, Rocket, Wind, Users,
+    BarChart2, Trophy, Coins, Zap, LayoutGrid, Dices, Award
+} from 'lucide-react'
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    PieChart, Pie, Cell
 } from 'recharts'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { toast } from 'sonner'
 
-const games = [
-  {
-    id: 'blackjack',
-    name: 'BLACKJACK',
-    description: '전략과 운의 승부! 딜러를 이겨라.',
-    icon: Club,
-    path: '/game/blackjack',
-    color: 'from-slate-700 to-slate-900',
-    accent: 'text-slate-400',
-    shadow: 'shadow-slate-500/20'
-  },
-  {
-    id: 'bustabit',
-    name: 'BUSTABIT',
-    description: '그래프가 터지기 전 탈출하라!',
-    icon: TrendingUp,
-    path: '/game/bustabit',
-    color: 'from-orange-600 to-red-700',
-    accent: 'text-orange-500',
-    shadow: 'shadow-orange-500/20'
-  },
-  {
-    id: 'cloverpit',
-    name: 'CLOVER PIT',
-    description: '행운의 클로버를 찾아라!',
-    icon: Clover,
-    path: '/game/cloverpit',
-    color: 'from-green-600 to-emerald-800',
-    accent: 'text-green-500',
-    shadow: 'shadow-green-500/20'
-  },
-  {
-    id: 'roulette',
-    name: 'ROULETTE',
-    description: '행운의 숫자를 예측하라! 카지노의 꽃.',
-    icon: Disc,
-    path: '/game/roulette',
-    color: 'from-purple-600 to-pink-700',
-    accent: 'text-purple-500',
-    shadow: 'shadow-purple-500/20',
-    beta: true
-  },
-  {
-    id: 'kuji',
-    name: 'ICHIBAN KUJI',
-    description: '원하는 경품을 뽑아보세요!',
-    icon: Gift,
-    path: '/game/kuji',
-    color: 'from-blue-600 to-indigo-700',
-    accent: 'text-blue-500',
-    shadow: 'shadow-blue-500/20'
-  },
-  {
-    id: 'stairs',
-    name: 'INFINITE STAIRS',
-    description: '한계에 도전하라! 무한 계단 오르기.',
-    icon: Layers,
-    path: '/game/stairs',
-    color: 'from-cyan-600 to-blue-700',
-    accent: 'text-cyan-500',
-    shadow: 'shadow-cyan-500/20',
-    beta: true
-  },
-  {
-    id: 'skyroads',
-    name: 'SKYROADS',
-    description: '우주를 질주하라! 장애물을 피하고 연료를 수집하세요.',
-    icon: Rocket,
-    path: '/game/skyroads',
-    color: 'from-indigo-600 to-purple-700',
-    accent: 'text-indigo-500',
-    shadow: 'shadow-indigo-500/20',
-    pcOnly: true
-  },
-  {
-    id: 'windrunner',
-    name: 'WIND RUNNER',
-    description: '바람을 가르며 달려라! 점프 액션 러닝.',
-    icon: Wind,
-    path: '/game/windrunner',
-    color: 'from-cyan-500 to-blue-600',
-    accent: 'text-cyan-400',
-    shadow: 'shadow-cyan-500/20',
-    pcOnly: true
-  },
-  {
-    id: 'holdem',
-    name: 'TEXAS HOLDEM',
-    description: '다른 플레이어들과 실시간으로 포커를 즐기세요!',
-    icon: Users,
-    path: '/game/holdem',
-    color: 'from-red-600 to-rose-800',
-    accent: 'text-red-500',
-    shadow: 'shadow-red-500/20',
-    multiplayer: true
-  },
-]
-
+// --- Game Data ---
+const GAMES = {
+    casino: [
+        { id: 'holdem', name: 'Texas Holdem', desc: '심리전의 정수, 텍사스 홀덤', icon: Users, path: '/game/holdem', color: 'from-red-600 to-rose-900', accent: 'text-red-500' },
+        { id: 'blackjack', name: 'Blackjack', desc: '21을 향한 승부', icon: Club, path: '/game/blackjack', color: 'from-slate-700 to-slate-900', accent: 'text-slate-400' },
+        { id: 'bustabit', name: 'Graph Game', desc: '타이밍이 생명! 그래프', icon: TrendingUp, path: '/game/bustabit', color: 'from-orange-600 to-red-700', accent: 'text-orange-500' },
+        { id: 'roulette', name: 'Roulette', desc: '운명의 휠을 돌려라', icon: Disc, path: '/game/roulette', color: 'from-purple-600 to-pink-700', accent: 'text-purple-500', beta: true },
+        { id: 'cloverpit', name: 'Slots', desc: '잭팟을 노려라', icon: Clover, path: '/game/cloverpit', color: 'from-green-600 to-emerald-800', accent: 'text-green-500' },
+    ],
+    arcade: [
+        { id: 'skyroads', name: 'Sky Roads', desc: '우주를 질주하라', icon: Rocket, path: '/game/skyroads', color: 'from-indigo-600 to-purple-700', accent: 'text-indigo-500', pcOnly: true },
+        { id: 'windrunner', name: 'Wind Runner', desc: '바람을 가르는 질주', icon: Wind, path: '/game/windrunner', color: 'from-cyan-500 to-blue-600', accent: 'text-cyan-400', pcOnly: true },
+        { id: 'stairs', name: 'Infinite Stairs', desc: '무한 계단 오르기', icon: Layers, path: '/game/stairs', color: 'from-blue-600 to-indigo-700', accent: 'text-blue-500', beta: true },
+    ],
+    kuji: [
+        { id: 'kuji', name: 'Ichiban Kuji', desc: '행운의 뽑기! (100P)', icon: Gift, path: '/game/kuji', color: 'from-yellow-500 to-amber-700', accent: 'text-yellow-500' }
+    ]
+}
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-export default function GamePage() {
-  const [stats, setStats] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+export default function GameLobby() {
+    const [stats, setStats] = useState<any>(null)
+    const [loading, setLoading] = useState(true)
+    const [activeTab, setActiveTab] = useState('casino')
+    const [kujiResult, setKujiResult] = useState<any>(null)
+    const [isBuyingKuji, setIsBuyingKuji] = useState(false)
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
+    useEffect(() => {
+        fetchStats()
+    }, [])
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch('/api/stats')
-      if (res.ok) {
-        const data = await res.json()
-        setStats(data)
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
+    const fetchStats = async () => {
+        try {
+            const res = await fetch('/api/stats')
+            if (res.ok) {
+                const data = await res.json()
+                setStats(data)
+            }
+        } catch (e) {
+            console.error(e)
+        } finally {
+            setLoading(false)
+        }
     }
-  }
 
-  // 데이터 가공
-  const pieData = stats?.byGame.map((g: any) => ({
-    name: g.gameType.toUpperCase(),
-    value: g.totalGames
-  })) || []
+    const handleBuyKuji = async () => {
+        if (isBuyingKuji) return;
+        setIsBuyingKuji(true);
+        setKujiResult(null);
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                toast.error('로그인이 필요합니다.');
+                return;
+            }
+            const res = await fetch('/api/shop/kuji', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setKujiResult(data.prize);
+                toast.success(`[Rank ${data.prize.rank}] ${data.prize.name} 당첨!`);
+                fetchStats(); // Update stats/points (indirectly)
+            } else {
+                toast.error(data.error);
+            }
+        } catch (e) {
+            toast.error('구매 중 오류가 발생했습니다.');
+        } finally {
+            setIsBuyingKuji(false);
+        }
+    }
 
-  return (
-    <div className="min-h-screen bg-transparent text-slate-100 overflow-x-hidden">
-      <HeaderNavigator />
-      
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-32 pb-20">
-        
-        {/* Header Section */}
-        <section className="mb-12 text-center">
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
+    // --- Components ---
+
+    const GameCard = ({ game, compact = false }: { game: any, compact?: boolean }) => (
+        <Link href={game.path} className={`group relative block ${compact ? 'h-40' : 'h-48'}`}>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ y: -5 }}
+                className="h-full w-full"
             >
-                <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-6 bg-gradient-to-b from-white via-white to-slate-500 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
-                    GAME LOBBY
-                </h1>
-                <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-                    최고의 승부사를 위한 프리미엄 게임 라운지입니다.<br/>
-                    원하시는 게임을 선택하여 입장해주세요.
-                </p>
+                <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 rounded-2xl -z-10`} />
+                <div className="h-full bg-[#18181b] border border-white/5 rounded-2xl p-5 flex flex-col justify-between hover:border-white/20 hover:bg-[#202023] transition-all duration-300 relative overflow-hidden">
+                    {game.beta && <span className="absolute top-3 right-3 text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-400/20">BETA</span>}
+                    {game.pcOnly && <span className="absolute top-3 right-3 text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20">PC</span>}
+
+                    <div className="z-10">
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg mb-3`}>
+                            <game.icon className="w-5 h-5 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold text-white mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-gray-400 transition-all">
+                            {game.name}
+                        </h3>
+                        <p className="text-gray-400 text-xs line-clamp-2">{game.desc}</p>
+                    </div>
+                </div>
             </motion.div>
-        </section>
+        </Link>
+    )
 
-        {/* --- Game List (1 Row) --- */}
-        <section className="mb-16">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {games.map((game, idx) => (
-                    <Link href={game.path} key={game.id} className="group relative block h-32 md:h-64">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5, delay: idx * 0.1 }}
-                            whileHover={{ y: -5 }}
-                            className="h-full w-full"
-                        >
-                            {/* Background Glow */}
-                            <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-30 blur-2xl transition-opacity duration-500 rounded-3xl -z-10`} />
-                            
-                            {/* Card Content */}
-                            <div className="h-full bg-[#131316]/80 backdrop-blur-md border border-white/5 rounded-3xl p-4 md:p-6 flex flex-col justify-between hover:border-white/20 transition-all duration-300 shadow-xl overflow-hidden relative group-hover:shadow-2xl group-hover:bg-[#131316]/60">
-                                
-                                { (game as any).beta && (
-                                    <div className="absolute top-4 right-4 bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-red-400/50 shadow-[0_0_10px_rgba(239,68,68,0.5)] z-20 animate-pulse">
-                                        BETA
-                                    </div>
-                                )}
-                                { (game as any).pcOnly && (
-                                    <div className="absolute top-4 right-4 bg-blue-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.5)] z-20">
-                                        PC ONLY
-                                    </div>
-                                )}
-                                { (game as any).multiplayer && (
-                                    <div className="absolute top-4 right-4 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.5)] z-20 animate-pulse">
-                                        멀티플레이
-                                    </div>
-                                )}
+    return (
+        <div className="min-h-screen bg-[#09090b] text-slate-100 overflow-x-hidden selection:bg-indigo-500/30">
+            <HeaderNavigator />
 
-
-                                <div className="relative z-10 flex flex-col h-full">
-                                    <div className="flex justify-between items-start mb-2 md:mb-4">
-                                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-500`}>
-                                            <game.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <h3 className="text-lg md:text-2xl font-black text-white mb-1 md:mb-2 tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all">
-                                            {game.name}
-                                        </h3>
-                                        <p className="text-slate-400 text-xs leading-relaxed group-hover:text-slate-200 transition-colors line-clamp-1 md:line-clamp-2">
-                                            {game.description}
-                                        </p>
-                                    </div>
-                                    
-                                    <div className="mt-auto pt-2 md:pt-4">
-                                        <div className={`h-1 w-full rounded-full bg-gradient-to-r ${game.color} opacity-50`} />
-                                    </div>
+            <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 pb-20">
+                <section className="mb-10 flex flex-col md:flex-row justify-between items-end gap-6">
+                    <div>
+                        <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2">GAME CENTER</h1>
+                        <p className="text-slate-400">다양한 게임과 보상이 기다리고 있습니다.</p>
+                    </div>
+                    {/* Stats Summary Mini */}
+                    {stats && (
+                        <div className="flex gap-4">
+                            <div className="bg-[#18181b] border border-white/5 rounded-xl px-4 py-2 text-right">
+                                <div className="text-xs text-slate-500">Live Win Rate</div>
+                                <div className="text-xl font-bold text-emerald-400">{stats.summary.winRate.toFixed(1)}%</div>
+                            </div>
+                            <div className="bg-[#18181b] border border-white/5 rounded-xl px-4 py-2 text-right">
+                                <div className="text-xs text-slate-500">Total Profit</div>
+                                <div className={`text-xl font-bold ${stats.summary.totalProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                                    {stats.summary.totalProfit > 0 ? '+' : ''}{stats.summary.totalProfit.toLocaleString()}
                                 </div>
                             </div>
+                        </div>
+                    )}
+                </section>
+
+                <Tabs defaultValue="casino" value={activeTab} onValueChange={setActiveTab} className="w-full mb-16">
+                    <TabsList className="bg-[#18181b] border border-white/5 p-1 mb-8">
+                        <TabsTrigger value="casino" className="data-[state=active]:bg-[#27272a] data-[state=active]:text-white px-6">
+                            <Dices className="w-4 h-4 mr-2" /> Casino
+                        </TabsTrigger>
+                        <TabsTrigger value="arcade" className="data-[state=active]:bg-[#27272a] data-[state=active]:text-white px-6">
+                            <Zap className="w-4 h-4 mr-2" /> Arcade
+                        </TabsTrigger>
+                        <TabsTrigger value="kuji" className="data-[state=active]:bg-[#27272a] data-[state=active]:text-white px-6">
+                            <Gift className="w-4 h-4 mr-2" /> Event & Kuji
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            <TabsContent value="casino" className="mt-0">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                    {GAMES.casino.map(g => <GameCard key={g.id} game={g} compact />)}
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="arcade" className="mt-0">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    {GAMES.arcade.map(g => <GameCard key={g.id} game={g} compact />)}
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="kuji" className="mt-0">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                                    {/* Kuji Machine UI */}
+                                    <Card className="bg-[#18181b] border-white/10 overflow-hidden relative">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent pointer-events-none" />
+                                        <CardHeader className="text-center pb-2">
+                                            <div className="mx-auto w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mb-4 border border-yellow-500/30">
+                                                <Gift className="w-8 h-8 text-yellow-500" />
+                                            </div>
+                                            <CardTitle className="text-2xl text-white">Ichiban Kuji</CardTitle>
+                                            <CardDescription>100 포인트로 행운을 잡으세요!</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="flex flex-col items-center pt-6 pb-8">
+                                            <AnimatePresence mode="wait">
+                                                {kujiResult ? (
+                                                    <motion.div
+                                                        initial={{ scale: 0.8, opacity: 0 }}
+                                                        animate={{ scale: 1, opacity: 1 }}
+                                                        className="text-center mb-6 p-6 bg-yellow-500/10 rounded-xl border border-yellow-500/30 w-full"
+                                                    >
+                                                        <div className="text-yellow-500 font-black text-4xl mb-2">{kujiResult.rank}</div>
+                                                        <div className="text-white text-lg font-bold">{kujiResult.name}</div>
+                                                    </motion.div>
+                                                ) : (
+                                                    <div className="text-center mb-6 p-6 border border-dashed border-zinc-700 rounded-xl w-full text-zinc-500">
+                                                        결과가 여기에 표시됩니다
+                                                    </div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            <Button
+                                                size="lg"
+                                                className="w-full bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 border-none text-white font-bold h-14 text-lg shadow-lg shadow-yellow-900/20"
+                                                onClick={handleBuyKuji}
+                                                disabled={isBuyingKuji}
+                                            >
+                                                {isBuyingKuji ? "뽑는 중..." : "100P 뽑기"}
+                                            </Button>
+                                            <p className="mt-4 text-xs text-zinc-500 text-center">
+                                                S상: MacBook Pro (0.1%) | A상: iPad (0.5%) | B상: AirPods (2%)<br />
+                                                사용된 포인트는 환불되지 않습니다.
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Event Banner (Dummy) */}
+                                    <Card className="bg-[#18181b] border-white/10 h-full flex flex-col justify-center items-center p-8 text-center opacity-70 hover:opacity-100 transition-opacity">
+                                        <Trophy className="w-12 h-12 text-purple-500 mb-4" />
+                                        <h3 className="text-xl font-bold text-white mb-2">시즌 랭킹 이벤트</h3>
+                                        <p className="text-zinc-400">
+                                            매월 1일, 아케이드 게임 랭킹 1위에게<br />특별한 보상을 드립니다.
+                                        </p>
+                                    </Card>
+                                </div>
+                            </TabsContent>
                         </motion.div>
-                    </Link>
-                ))}
-            </div>
-        </section>
+                    </AnimatePresence>
+                </Tabs>
 
-        {/* --- 통계 대시보드 --- */}
-        <section>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-[#131316]/50 backdrop-blur-md border border-white/5 rounded-3xl p-6 md:p-8"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <BarChart2 className="w-6 h-6 text-violet-400" />
-              <h2 className="text-2xl font-bold text-white">실시간 게임 현황</h2>
-            </div>
+                {/* --- Bottom Stats Section --- */}
+                <section className="border-t border-white/5 pt-12">
+                    <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                        <BarChart2 className="w-6 h-6 text-indigo-500" />
+                        Game Statistics
+                    </h2>
 
-            {loading ? (
-              <div className="h-64 flex items-center justify-center text-slate-500 animate-pulse">
-                데이터 분석 중...
-              </div>
-            ) : !stats ? (
-              <div className="h-64 flex items-center justify-center text-slate-500">
-                데이터가 없습니다.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* 1. 요약 카드 */}
-                <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div className="bg-black/30 rounded-xl p-4 border border-white/5">
-                    <div className="text-slate-400 text-sm mb-1">총 게임 수</div>
-                    <div className="text-2xl font-bold text-white">{stats.summary.totalGames.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-black/30 rounded-xl p-4 border border-white/5">
-                    <div className="text-slate-400 text-sm mb-1">전체 승률</div>
-                    <div className="text-2xl font-bold text-emerald-400">{stats.summary.winRate.toFixed(1)}%</div>
-                  </div>
-                  <div className="bg-black/30 rounded-xl p-4 border border-white/5">
-                    <div className="text-slate-400 text-sm mb-1">평균 환급률(RTP)</div>
-                    <div className="text-2xl font-bold text-yellow-400">{stats.summary.rtp.toFixed(1)}%</div>
-                  </div>
-                  <div className="bg-black/30 rounded-xl p-4 border border-white/5">
-                    <div className="text-slate-400 text-sm mb-1">총 순수익</div>
-                    <div className={`text-2xl font-bold ${stats.summary.totalProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
-                      {stats.summary.totalProfit > 0 ? '+' : ''}{stats.summary.totalProfit.toLocaleString()} P
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Casino Stats Chart */}
+                        <Card className="bg-[#18181b] border-white/10">
+                            <CardHeader>
+                                <CardTitle className="text-lg text-white">Casino Win Rates</CardTitle>
+                                <CardDescription>카지노 게임별 승률 현황</CardDescription>
+                            </CardHeader>
+                            <CardContent className="h-[300px]">
+                                {stats?.byGame ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={stats.byGame} layout="vertical">
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
+                                            <XAxis type="number" stroke="#666" fontSize={12} unit="%" domain={[0, 100]} />
+                                            <YAxis dataKey="gameType" type="category" stroke="#999" fontSize={12} tickFormatter={(v) => v.toUpperCase()} width={80} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#111', borderColor: '#333' }}
+                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                            />
+                                            <Bar dataKey="winRate" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} name="Win Rate" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-zinc-600">No Data</div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Arcade Ranking List */}
+                        <Card className="bg-[#18181b] border-white/10">
+                            <CardHeader>
+                                <CardTitle className="text-lg text-white">Hall of Fame</CardTitle>
+                                <CardDescription>기록 경쟁 게임 최고 득점자 (Top 3)</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Tabs defaultValue="skyroads" className="w-full">
+                                    <TabsList className="bg-[#27272a] mb-4 w-full justify-start">
+                                        <TabsTrigger value="skyroads" className="flex-1">SkyRoads</TabsTrigger>
+                                        <TabsTrigger value="windrunner" className="flex-1">WindRunner</TabsTrigger>
+                                        <TabsTrigger value="stairs" className="flex-1">Stairs</TabsTrigger>
+                                    </TabsList>
+
+                                    {['skyroads', 'windrunner', 'stairs'].map((gameKey) => (
+                                        <TabsContent key={gameKey} value={gameKey}>
+                                            <div className="space-y-3">
+                                                {stats?.rankings?.[gameKey]?.length > 0 ? (
+                                                    stats.rankings[gameKey].map((rank: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/5">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-8 h-8 flex items-center justify-center rounded font-bold ${idx === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+                                                                        idx === 1 ? 'bg-zinc-400/20 text-zinc-400' :
+                                                                            idx === 2 ? 'bg-amber-700/20 text-amber-700' : 'text-zinc-600'
+                                                                    }`}>
+                                                                    {idx + 1}
+                                                                </div>
+                                                                <span className="text-white font-medium">{rank.nickname}</span>
+                                                            </div>
+                                                            <span className="font-mono text-indigo-400">{rank.score.toLocaleString()}</span>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="text-center py-10 text-zinc-600">아직 기록이 없습니다. 도전을 시작하세요!</div>
+                                                )}
+                                            </div>
+                                        </TabsContent>
+                                    ))}
+                                </Tabs>
+                            </CardContent>
+                        </Card>
                     </div>
-                  </div>
-                </div>
-
-                {/* 2. 일별 승률 추이 (Line Chart) */}
-                <div className="lg:col-span-2 bg-black/20 rounded-2xl p-4 border border-white/5 min-h-[300px]">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Activity className="w-4 h-4 text-blue-400" />
-                    <h3 className="font-bold text-slate-300">일별 승률 추이 (최근 7일)</h3>
-                  </div>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={stats.daily}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                      <XAxis dataKey="date" stroke="#666" fontSize={12} tickLine={false} />
-                      <YAxis stroke="#666" fontSize={12} tickLine={false} unit="%" />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '8px' }}
-                        itemStyle={{ color: '#fff' }}
-                      />
-                      <Legend />
-                      <Line type="monotone" dataKey="winRate" name="승률" stroke="#3b82f6" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* 3. 게임별 비중 (Pie Chart) */}
-                <div className="bg-black/20 rounded-2xl p-4 border border-white/5 min-h-[300px]">
-                  <div className="flex items-center gap-2 mb-4">
-                    <PieIcon className="w-4 h-4 text-orange-400" />
-                    <h3 className="font-bold text-slate-300">게임별 점유율</h3>
-                  </div>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '8px' }}
-                        itemStyle={{ color: '#fff' }}
-                      />
-                      <Legend verticalAlign="bottom" height={36}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* 4. 게임별 상세 (Bar Chart) */}
-                <div className="lg:col-span-3 bg-black/20 rounded-2xl p-4 border border-white/5 min-h-[300px]">
-                  <div className="flex items-center gap-2 mb-4">
-                    <BarChart2 className="w-4 h-4 text-emerald-400" />
-                    <h3 className="font-bold text-slate-300">게임별 승률 및 환급률 비교</h3>
-                  </div>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={stats.byGame}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                      <XAxis dataKey="gameType" stroke="#666" fontSize={12} tickLine={false} tickFormatter={(val) => val.toUpperCase()} />
-                      <YAxis stroke="#666" fontSize={12} tickLine={false} unit="%" />
-                      <Tooltip 
-                        cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                        contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '8px' }}
-                        itemStyle={{ color: '#fff' }}
-                      />
-                      <Legend />
-                      <Bar dataKey="winRate" name="승률 (%)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
-                      <Bar dataKey="rtp" name="환급률 (%)" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-              </div>
-            )}
-          </motion.div>
-        </section>
-
-      </main>
-    </div>
-  )
+                </section>
+            </main>
+        </div>
+    )
 }

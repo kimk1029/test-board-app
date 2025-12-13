@@ -82,6 +82,32 @@ export async function GET() {
       profit: Number(stat.profit)
     }))
 
+    // 4. 아케이드 게임 랭킹 (각 게임별 Top 3)
+    const arcadeGames = ['stairs', 'skyroads', 'windrunner'];
+    const rankings: Record<string, any[]> = {};
+
+    for (const type of arcadeGames) {
+      const topScores = await prisma.gameScore.findMany({
+        where: { gameType: type },
+        orderBy: { score: 'desc' },
+        take: 3,
+        include: {
+          user: {
+            select: {
+              nickname: true,
+              email: true
+            }
+          }
+        }
+      });
+      
+      rankings[type] = topScores.map(s => ({
+        nickname: s.user.nickname || s.user.email.split('@')[0],
+        score: s.score,
+        date: s.createdAt
+      }));
+    }
+
     return NextResponse.json({
       summary: {
         totalGames,
@@ -91,7 +117,8 @@ export async function GET() {
         avgMultiplier: aggregations._avg.multiplier || 0
       },
       byGame: gameStats,
-      daily: serializedDailyStats
+      daily: serializedDailyStats,
+      rankings
     })
 
   } catch (error) {
