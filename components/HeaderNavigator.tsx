@@ -35,6 +35,9 @@ export const refreshUserPoints = () => {
 
 const HeaderNavigator = () => {
   const pathname = usePathname()
+  // 충전소('/charge') 페이지에서는 네비게이션을 숨김
+  if (pathname === '/charge') return null;
+
   const [isVisibleLogin, setIsVisibleLogin] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [user, setUser] = useState<User | null>(null)

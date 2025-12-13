@@ -33,11 +33,33 @@ export default function OnlineUsers({ className }: OnlineUsersProps) {
       return
     }
 
+    // 현재 유저 식별자 생성
+    // 로그인한 유저라면 user_id, 비로그인이라면 브라우저 단위 고유 ID 생성
+    let userId = ''
+    try {
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        const user = JSON.parse(storedUser)
+        userId = `user-${user.id}`
+      } else {
+        // 비로그인 유저도 탭마다 다르지 않고 브라우저 세션 단위로 유지하기 위해
+        // sessionStorage 사용 (또는 localStorage 사용 시 브라우저 닫아도 유지)
+        let guestId = localStorage.getItem('guest_id')
+        if (!guestId) {
+            guestId = `guest-${Math.random().toString(36).substring(7)}`
+            localStorage.setItem('guest_id', guestId)
+        }
+        userId = guestId
+      }
+    } catch (e) {
+      userId = `anon-${Math.random().toString(36).substring(7)}`
+    }
+
     // 'online-users' 채널 구독
     const channel = supabase.channel('online-users', {
       config: {
         presence: {
-          key: `user-${Math.random().toString(36).substring(7)}`,
+          key: userId, // 고유 식별자 사용
         },
       },
     })
@@ -95,7 +117,7 @@ export default function OnlineUsers({ className }: OnlineUsersProps) {
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Live</span>
             <span className="text-sm font-bold text-slate-200 tracking-wide group-hover:text-white transition-colors">
                 <span className="text-emerald-400 mr-1">{onlineCount.toLocaleString()}</span>
-                USERS
+                Playing...
             </span>
         </div>
       </div>

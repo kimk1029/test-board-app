@@ -3,59 +3,51 @@
 import { useState, useEffect } from 'react'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion } from 'framer-motion'
-import { Trophy, Crown, Zap, Rocket, BarChart3, Search } from 'lucide-react'
+import { Trophy, Crown, Zap, Rocket, BarChart3, Search, Loader2 } from 'lucide-react'
 import Billboard from '@/components/Billboard'
 
-// 더미 데이터 (각 게임별 랭킹)
-const GAME_RANKINGS = {
-    blackjack: [
-        { rank: 1, name: 'CardMaster', points: 54000, detail: 'Win Rate 62%' },
-        { rank: 2, name: 'DealerBuster', points: 42000, detail: 'Win Rate 58%' },
-        { rank: 3, name: 'AceHigh', points: 38000, detail: 'Win Rate 55%' },
-        { rank: 4, name: 'BlackjackPro', points: 31000, detail: 'Win Rate 51%' },
-        { rank: 5, name: 'HitOrStand', points: 28000, detail: 'Win Rate 49%' },
-        { rank: 6, name: 'JackPot777', points: 25000, detail: 'Win Rate 48%' },
-        { rank: 7, name: 'LuckyGuy', points: 21000, detail: 'Win Rate 45%' },
-        { rank: 8, name: 'CasinoRoyale', points: 18000, detail: 'Win Rate 42%' },
-    ],
-    skyroads: [
-        { rank: 1, name: 'SpacePilot', points: 25000, detail: 'Stage 12 Clear' },
-        { rank: 2, name: 'GalaxyDrifter', points: 21000, detail: 'Stage 10 Clear' },
-        { rank: 3, name: 'StarWalker', points: 18000, detail: 'Stage 9 Clear' },
-        { rank: 4, name: 'VoidJumper', points: 15500, detail: 'Stage 8 Clear' },
-        { rank: 5, name: 'CosmicRacer', points: 12000, detail: 'Stage 7 Clear' },
-        { rank: 6, name: 'NebulaSurfer', points: 10500, detail: 'Stage 6 Clear' },
-        { rank: 7, name: 'AstroBoy', points: 9000, detail: 'Stage 5 Clear' },
-        { rank: 8, name: 'SpeedDemon', points: 7500, detail: 'Stage 4 Clear' },
-    ],
-    bustabit: [
-        { rank: 1, name: 'ToTheMoon', points: 45000, detail: 'Max Multi x84.5' },
-        { rank: 2, name: 'HodlGang', points: 32000, detail: 'Max Multi x52.0' },
-        { rank: 3, name: 'RocketMan', points: 28000, detail: 'Max Multi x31.2' },
-        { rank: 4, name: 'CrashTest', points: 22000, detail: 'Max Multi x25.5' },
-        { rank: 5, name: 'EarlyExit', points: 19000, detail: 'Max Multi x18.0' },
-        { rank: 6, name: 'DiamondHands', points: 15000, detail: 'Max Multi x15.0' },
-        { rank: 7, name: 'PaperHands', points: 12000, detail: 'Max Multi x12.5' },
-        { rank: 8, name: 'FomoBuyer', points: 10000, detail: 'Max Multi x10.0' },
-    ]
-};
-
-// 통합 랭킹 더미
-const TOTAL_RANKING_DUMMY = [
-    { rank: 1, name: 'JackpotKing', points: 125000, level: 42 },
-    { rank: 2, name: 'SpeedRunner', points: 95400, level: 35 },
-    { rank: 3, name: 'Lucky777', points: 88200, level: 28 },
-    { rank: 4, name: 'DopamineAddict', points: 82000, level: 25 },
-    { rank: 5, name: 'GameMaster', points: 78000, level: 24 },
-    { rank: 6, name: 'NewbieKiller', points: 75000, level: 22 },
-    { rank: 7, name: 'ProGamer', points: 71000, level: 20 },
-    { rank: 8, name: 'WeekendWarrior', points: 68000, level: 19 },
-    { rank: 9, name: 'CasualPlayer', points: 65000, level: 18 },
-    { rank: 10, name: 'Guest1234', points: 62000, level: 15 },
-];
+interface RankingItem {
+    rank: number
+    name: string
+    points: number // Total: Points, Game: Profit
+    level?: number // Total Only
+    detail?: string // Game Only (e.g. Win Rate, Profit)
+}
 
 export default function LeaderboardPage() {
-  const [leaderboardTab, setLeaderboardTab] = useState<'total' | 'blackjack' | 'skyroads' | 'bustabit'>('total');
+  const [leaderboardTab, setLeaderboardTab] = useState<'total' | 'blackjack' | 'skyroads' | 'bustabit' | 'kuji'>('total')
+  const [rankings, setRankings] = useState<RankingItem[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchRankings = async (type: string) => {
+    setLoading(true)
+    try {
+        let url = ''
+        if (type === 'total') {
+            url = '/api/ranking/total?limit=50'
+        } else {
+            // 게임별 랭킹 (순수익 기준)
+            url = `/api/ranking/game?gameType=${type}&limit=50`
+        }
+
+        const res = await fetch(url)
+        if (res.ok) {
+            const data = await res.json()
+            setRankings(data.rankings || [])
+        } else {
+            setRankings([])
+        }
+    } catch (error) {
+        console.error('Failed to fetch rankings', error)
+        setRankings([])
+    } finally {
+        setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchRankings(leaderboardTab)
+  }, [leaderboardTab])
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" fill="currentColor" />
@@ -65,11 +57,27 @@ export default function LeaderboardPage() {
   }
 
   const renderLeaderboardList = () => {
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+            </div>
+        )
+    }
+
+    if (rankings.length === 0) {
+        return (
+            <div className="flex justify-center items-center h-64 text-slate-500">
+                랭킹 데이터가 없습니다.
+            </div>
+        )
+    }
+
     if (leaderboardTab === 'total') {
         // 상위 3명
-        const top3 = TOTAL_RANKING_DUMMY.slice(0, 3);
+        const top3 = rankings.slice(0, 3);
         // 나머지
-        const rest = TOTAL_RANKING_DUMMY.slice(3);
+        const rest = rankings.slice(3);
         
         return (
             <div>
@@ -103,6 +111,9 @@ export default function LeaderboardPage() {
                                 <div className="text-xs font-bold text-slate-500 uppercase mb-3">Level {user.level}</div>
                                 <div className="text-2xl font-black text-emerald-400">
                                     {user.points.toLocaleString()} P
+                                </div>
+                                <div className="text-[10px] text-slate-600 mt-2 font-mono">
+                                    Activity Score
                                 </div>
                             </div>
                         </motion.div>
@@ -142,18 +153,17 @@ export default function LeaderboardPage() {
             </div>
         );
     } else {
-        // 게임별 랭킹 리스트
-        const currentList = GAME_RANKINGS[leaderboardTab];
+        // 게임별 랭킹 리스트 (순수익 기준)
         return (
             <div className="bg-[#1a1a20]/80 backdrop-blur-md rounded-3xl border border-white/10 overflow-hidden">
                  <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/5 text-xs font-bold text-slate-500 uppercase tracking-wider">
                     <div className="col-span-2 text-center">Rank</div>
                     <div className="col-span-5">Player</div>
-                    <div className="col-span-3 text-right">Points</div>
+                    <div className="col-span-3 text-right">Net Profit</div>
                     <div className="col-span-2 text-right">Detail</div>
                 </div>
                 <div className="divide-y divide-white/5">
-                    {currentList.map((user, idx) => (
+                    {rankings.map((user, idx) => (
                         <motion.div 
                             key={idx}
                             initial={{ opacity: 0, x: -10 }}
@@ -167,8 +177,8 @@ export default function LeaderboardPage() {
                             <div className="col-span-5 font-bold text-slate-200">
                                 {user.name}
                             </div>
-                            <div className="col-span-3 text-right font-bold text-emerald-400">
-                                {user.points.toLocaleString()}
+                            <div className={`col-span-3 text-right font-bold ${user.points >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {user.points > 0 ? '+' : ''}{user.points.toLocaleString()}
                             </div>
                             <div className="col-span-2 text-right text-xs font-medium text-slate-400">
                                 {user.detail}
@@ -187,11 +197,6 @@ export default function LeaderboardPage() {
       
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 pb-20">
         
-        {/* Billboard (Optional on sub-page, but nice to have) */}
-        {/* <section className="mb-10">
-            <Billboard />
-        </section> */}
-
         <section className="mb-12 text-center">
             <div className="flex flex-col items-center mb-6">
                 <div className="flex items-center gap-2 text-yellow-400 mb-2 animate-pulse">
@@ -203,7 +208,7 @@ export default function LeaderboardPage() {
                     LEADERBOARD
                 </h1>
                 <p className="text-slate-400 max-w-xl mx-auto">
-                    최고의 플레이어들에 도전하세요. 매주 월요일 00:00에 랭킹이 초기화됩니다.
+                    활동량과 게임 실력으로 증명된 최고의 플레이어들입니다.
                 </p>
             </div>
         </section>
@@ -212,10 +217,10 @@ export default function LeaderboardPage() {
         <div className="flex justify-center mb-10">
             <div className="flex p-1 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden overflow-x-auto max-w-full">
                 {[
-                    { id: 'total', label: '전체 랭킹', icon: Trophy },
+                    { id: 'total', label: '종합 활동 랭킹', icon: Trophy },
                     { id: 'blackjack', label: 'Blackjack', icon: Zap },
-                    { id: 'skyroads', label: 'Skyroads', icon: Rocket },
                     { id: 'bustabit', label: 'Bustabit', icon: BarChart3 },
+                    { id: 'kuji', label: 'Kuji', icon: Rocket },
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -242,4 +247,3 @@ export default function LeaderboardPage() {
     </div>
   )
 }
-
