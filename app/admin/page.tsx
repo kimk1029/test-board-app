@@ -10,18 +10,26 @@ import { toast } from 'sonner'
 import { RefreshCcw, Save, ShieldAlert } from 'lucide-react'
 
 // 기본값
-const DEFAULT_PRIZES = {
-    A: 2,
-    B: 3,
-    C: 5,
-    D: 10,
-    E: 15,
-    F: 20,
-    G: 25
+interface PrizeConfig {
+    rank: string;
+    name: string;
+    qty: number;
+    color: string;
 }
 
+const DEFAULT_PRIZE_CONFIG: PrizeConfig[] = [
+    { rank: 'A', name: '초특대 피규어 (1/7)', qty: 2, color: '#ff4757' },
+    { rank: 'B', name: '일러스트 보드', qty: 3, color: '#ffa502' },
+    { rank: 'C', name: '캐릭터 인형', qty: 5, color: '#2ed573' },
+    { rank: 'D', name: '유리컵 세트', qty: 10, color: '#1e90ff' },
+    { rank: 'E', name: '핸드 타올', qty: 15, color: '#5352ed' },
+    { rank: 'F', name: '아크릴 참', qty: 20, color: '#3742fa' },
+    { rank: 'G', name: '클리어 파일', qty: 25, color: '#7bed9f' },
+    { rank: 'LAST_ONE', name: '라스트원 스페셜 Ver.', qty: 1, color: '#000000' } // LAST_ONE 추가 (qty는 1 고정 권장)
+]
+
 export default function AdminPage() {
-    const [prizes, setPrizes] = useState<Record<string, number>>(DEFAULT_PRIZES)
+    const [prizes, setPrizes] = useState<PrizeConfig[]>(DEFAULT_PRIZE_CONFIG)
     const [loading, setLoading] = useState(false)
     const [isAdmin, setIsAdmin] = useState(false)
 
@@ -64,12 +72,20 @@ export default function AdminPage() {
         }
     }
 
-    const handleChange = (rank: string, val: string) => {
-        const num = parseInt(val) || 0
-        setPrizes(prev => ({ ...prev, [rank]: num }))
+    const handleChange = (rank: string, field: keyof PrizeConfig, val: string) => {
+        setPrizes(prev => prev.map(p => {
+            if (p.rank === rank) {
+                if (field === 'qty') {
+                    return { ...p, qty: parseInt(val) || 0 }
+                }
+                return { ...p, [field]: val }
+            }
+            return p
+        }))
     }
 
-    const totalTickets = Object.values(prizes).reduce((a, b) => a + b, 0)
+    // LAST_ONE 제외한 티켓 총합 (LAST_ONE은 별도)
+    const totalTickets = prizes.filter(p => p.rank !== 'LAST_ONE').reduce((a, b) => a + b.qty, 0)
 
     if (!isAdmin) return null
 
@@ -88,34 +104,52 @@ export default function AdminPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Kuji Configuration */}
-                    <Card className="bg-[#18181b] border-white/10">
+                    <Card className="bg-[#18181b] border-white/10 lg:col-span-2">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <RefreshCcw className="w-5 h-5 text-yellow-500" />
                                 Ichiban Kuji Settings
                             </CardTitle>
                             <CardDescription>
-                                각 등급별 티켓 수량을 설정하고 박스를 초기화합니다.
+                                각 등급별 상품명과 티켓 수량을 설정하고 박스를 초기화합니다. (LAST_ONE은 수량 1개 고정)
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                                {Object.keys(DEFAULT_PRIZES).map((rank) => (
-                                    <div key={rank} className="space-y-2">
-                                        <Label className="text-slate-300 font-bold">Rank {rank}</Label>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            value={prizes[rank]}
-                                            onChange={(e) => handleChange(rank, e.target.value)}
-                                            className="bg-black/40 border-white/10 text-white font-mono"
-                                        />
+                            <div className="space-y-4 mb-6">
+                                {prizes.map((prize) => (
+                                    <div key={prize.rank} className="flex flex-col sm:flex-row gap-4 items-center bg-black/20 p-3 rounded-lg border border-white/5">
+                                        <div className="w-12 h-12 rounded flex items-center justify-center font-black text-lg text-white shrink-0" style={{ backgroundColor: prize.color }}>
+                                            {prize.rank}
+                                        </div>
+
+                                        <div className="flex-1 w-full">
+                                            <Label className="text-xs text-slate-400 mb-1 block">Product Name</Label>
+                                            <Input
+                                                type="text"
+                                                value={prize.name}
+                                                onChange={(e) => handleChange(prize.rank, 'name', e.target.value)}
+                                                className="bg-black/40 border-white/10 text-white"
+                                                placeholder="상품명 입력"
+                                            />
+                                        </div>
+
+                                        <div className="w-full sm:w-32">
+                                            <Label className="text-xs text-slate-400 mb-1 block">Quantity</Label>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                value={prize.qty}
+                                                onChange={(e) => handleChange(prize.rank, 'qty', e.target.value)}
+                                                className="bg-black/40 border-white/10 text-white font-mono"
+                                                disabled={prize.rank === 'LAST_ONE'} // LAST_ONE 수량 고정
+                                            />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
 
                             <div className="bg-black/40 p-4 rounded-lg mb-6 border border-white/5 flex justify-between items-center">
-                                <span className="text-slate-400">Total Tickets</span>
+                                <span className="text-slate-400">Total Playable Tickets</span>
                                 <span className="text-2xl font-black text-white">{totalTickets}</span>
                             </div>
 
@@ -124,19 +158,8 @@ export default function AdminPage() {
                                 disabled={loading}
                                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-lg"
                             >
-                                {loading ? '초기화 중...' : '박스 초기화 및 적용 (RESET)'}
+                                {loading ? '초기화 중...' : '설정 저장 및 박스 초기화 (RESET)'}
                             </Button>
-                        </CardContent>
-                    </Card>
-
-                    {/* Other Admin Features (Placeholder) */}
-                    <Card className="bg-[#18181b] border-white/10 opacity-50 cursor-not-allowed">
-                        <CardHeader>
-                            <CardTitle className="text-white">User Management</CardTitle>
-                            <CardDescription>준비 중입니다.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="h-[200px] flex items-center justify-center text-slate-500">
-                            Coming Soon
                         </CardContent>
                     </Card>
                 </div>

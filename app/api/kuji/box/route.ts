@@ -38,6 +38,7 @@ export async function GET() {
         isTaken: t.isTaken,
         takenBy: t.takenBy,
       })),
+      prizeInfo: activeBox.prizeInfo, // [NEW] 메타데이터 포함
     })
   } catch (error) {
     console.error('Kuji box fetch error:', error)

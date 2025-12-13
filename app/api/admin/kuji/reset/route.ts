@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 export async function POST(req: NextRequest) {
   try {
     const { prizes } = await req.json()
-    // prizes: { [rank: string]: number }  e.g. { 'A': 2, 'B': 3 ... }
+    // prizes: Array<{ rank: string, name: string, qty: number, color: string }>
 
     // 1. 기존 활성 박스 비활성화
     await prisma.kujiBox.updateMany({
@@ -15,16 +15,17 @@ export async function POST(req: NextRequest) {
     // 2. 새 박스 티켓 생성
     const tickets: Array<{ ticketId: number; rank: string }> = []
     let ticketId = 0
-    const ranks = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+    
+    // prizes 배열을 순회하며 티켓 생성 (LAST_ONE 제외)
+    prizes.forEach((prize: any) => {
+        if (prize.rank === 'LAST_ONE') return; // 라스트원은 티켓으로 만들지 않음 (별도 로직)
 
-    ranks.forEach((rank) => {
-      const qty = prizes[rank] || 0
-      for (let i = 0; i < qty; i++) {
-        tickets.push({
-          ticketId: ticketId++,
-          rank: rank,
-        })
-      }
+        for (let i = 0; i < prize.qty; i++) {
+            tickets.push({
+                ticketId: ticketId++,
+                rank: prize.rank,
+            })
+        }
     })
 
     // 3. 셔플 (Fisher-Yates)
@@ -39,10 +40,11 @@ export async function POST(req: NextRequest) {
       ticketId: idx,
     }))
 
-    // 5. 박스 생성
+    // 5. 박스 생성 (prizeInfo 메타데이터 저장)
     const box = await prisma.kujiBox.create({
       data: {
         isActive: true,
+        prizeInfo: prizes, // [NEW] 프론트에서 받은 상품 설정 저장
         tickets: {
           create: shuffledTickets,
         },

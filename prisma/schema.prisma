@@ -78,6 +78,7 @@ model KujiBox {
   boxNumber Int       @default(1) // 박스 번호
   isActive  Boolean   @default(true) // 현재 활성 박스인지
   tickets   KujiTicket[]
+  prizeInfo Json?     // [NEW] 박스별 경품 메타데이터 (등급, 이름, 이미지, 컬러 등)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
