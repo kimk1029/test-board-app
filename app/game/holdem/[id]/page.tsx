@@ -1,8 +1,10 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import HoldemGame from '../HoldemGame'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
+
+const HoldemGame = dynamic(() => import('../HoldemGame'), { ssr: false })
 
 export default function HoldemRoomPage() {
   const params = useParams()
