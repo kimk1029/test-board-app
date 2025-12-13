@@ -234,7 +234,13 @@ export class HoldemScene extends Phaser.Scene {
     // Status Text Logic
     if (newData.status === 'waiting') {
         if (newData.players.length < 2) {
-            this.statusText.setText('Waiting for more players...');
+            // Check if I am seated
+            const amISeated = newData.players.some(p => p.userId === this.myUserId);
+            if (amISeated) {
+                this.statusText.setText('Waiting for more players...');
+            } else {
+                this.statusText.setText('Please sit down to play');
+            }
         } else {
             // 2명 이상이면 버튼이 보이므로 텍스트는 숨기거나 안내 문구
             this.statusText.setText('Ready to Start!');
@@ -255,6 +261,13 @@ export class HoldemScene extends Phaser.Scene {
 
     // 3. Update Seats (Players)
     this.updateSeats(newData.players, newData.gameState.currentTurnSeat);
+
+    // Make seats interactive if not joined
+    if (this.roomData && !this.roomData.players.find(p => p.userId === this.myUserId)) {
+        this.enableSeatInteraction(this.roomData.players);
+    } else {
+        this.disableSeatInteraction();
+    }
 
     // 4. Community Cards Animation
     if (newData.communityCards.length > this.displayedCommunityCards) {
@@ -295,6 +308,8 @@ export class HoldemScene extends Phaser.Scene {
           (c.getAt(3) as Phaser.GameObjects.Text).setText(''); // Action
           (c.getAt(4) as Phaser.GameObjects.Container).removeAll(true); // Cards
           (c.getAt(0) as Phaser.GameObjects.Shape).setStrokeStyle(2, 0xffffff); // Reset Border
+          (c.getAt(1) as Phaser.GameObjects.Text).setText('Empty'); // Reset Text
+          (c.getAt(1) as Phaser.GameObjects.Text).setColor('#ffffff'); 
       });
 
       players.forEach(p => {
@@ -341,6 +356,70 @@ export class HoldemScene extends Phaser.Scene {
               this.drawHoleCards(cardsContainer, p.holeCards);
           }
       });
+  }
+
+  enableSeatInteraction(players: Player[]) {
+      // Find occupied seats
+      const occupiedSeats = players.map(p => p.seatIndex);
+      
+      this.seatContainers.forEach((container, index) => {
+          const avatar = container.getAt(0) as Phaser.GameObjects.Shape;
+          const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
+          
+          if (!occupiedSeats.includes(index)) {
+              // Interactive Empty Seat
+              avatar.setInteractive({ useHandCursor: true });
+              avatar.setStrokeStyle(2, 0xffff00); // Yellow highlight for available
+              nameTxt.setText('SIT HERE');
+              nameTxt.setColor('#ffff00');
+              
+              avatar.off('pointerdown'); // Clear previous
+              avatar.on('pointerdown', () => this.handleSit(index));
+          } else {
+              avatar.disableInteractive();
+          }
+      });
+  }
+
+  disableSeatInteraction() {
+      this.seatContainers.forEach((container) => {
+          const avatar = container.getAt(0) as Phaser.GameObjects.Shape;
+          avatar.disableInteractive();
+      });
+  }
+
+  async handleSit(seatIndex: number) {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Simple buy-in prompt
+      // const buyIn = window.prompt("Enter buy-in amount (Default: 1000)", "1000");
+      // if (buyIn === null) return;
+      const amount = 1000; // parseInt(buyIn) || 1000;
+
+      try {
+          const res = await fetch('/api/holdem/room', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                  roomId: this.roomId,
+                  seatIndex: seatIndex,
+                  buyIn: amount
+              })
+          });
+          
+          if (res.ok) {
+              // Optimistic update or wait for poll
+          } else {
+              const err = await res.json();
+              alert(err.error || 'Failed to join');
+          }
+      } catch (e) {
+          console.error(e);
+      }
   }
   
   drawHoleCards(container: Phaser.GameObjects.Container, cards: Card[]) {

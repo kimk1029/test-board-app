@@ -7,6 +7,26 @@ export const dynamic = 'force-dynamic'
 // 방 목록 조회
 export async function GET() {
   try {
+    // [청소 로직] 5분 이상 지난 빈 방 삭제
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    // 조건: status가 'waiting'이고, 플레이어가 0명이며, updatedAt이 5분 전인 방
+    // Prisma deleteMany는 relation count 필터를 직접 지원하지 않으므로, 
+    // 먼저 오래된 waiting 방을 찾고, 그 중 플레이어가 없는 방을 찾아 지웁니다.
+    // 하지만 Relation 필터를 where 절에 쓸 수 있음 (none)
+
+    await prisma.holdemRoom.deleteMany({
+      where: {
+        status: 'waiting',
+        updatedAt: {
+          lt: fiveMinutesAgo
+        },
+        players: {
+          none: {} // 플레이어가 한 명도 없는 경우
+        }
+      }
+    });
+
     const rooms = await prisma.holdemRoom.findMany({
       where: {
         status: { in: ['waiting', 'playing'] }
