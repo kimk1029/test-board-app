@@ -27,9 +27,8 @@ interface Ticket {
     isTaken: boolean;    // 누군가(혹은 내가) 가져갔는가
 }
 
-// --- Data (가상의 쿠지 세트 - 이제 서버에서 오버라이드됨) ---
-// 이 값은 로딩 전 초기값 또는 fallback으로만 사용됨
-let PRIZE_LIST: Prize[] = [
+// 초기 데이터 (서버 로드 전)
+const INITIAL_PRIZE_LIST: Prize[] = [
     { rank: 'A', name: '초특대 피규어 (1/7)', image: '🧸', color: '#ff4757', totalQty: 2 },
     { rank: 'B', name: '일러스트 보드', image: '🎨', color: '#ffa502', totalQty: 3 },
     { rank: 'C', name: '캐릭터 인형', image: '🐰', color: '#2ed573', totalQty: 5 },
@@ -39,38 +38,9 @@ let PRIZE_LIST: Prize[] = [
     { rank: 'G', name: '클리어 파일', image: '📁', color: '#7bed9f', totalQty: 25 },
 ];
 
-let LAST_ONE_PRIZE: Prize = {
+const INITIAL_LAST_ONE_PRIZE: Prize = {
     rank: 'LAST_ONE', name: '라스트원 스페셜 Ver.', image: '👑', color: '#000000', totalQty: 1
 };
-
-// --- Utils ---
-const generateBox = (): Ticket[] => {
-    let tickets: Ticket[] = [];
-    let idCounter = 0;
-
-    PRIZE_LIST.forEach(prize => {
-        for (let i = 0; i < prize.totalQty; i++) {
-            tickets.push({
-                id: idCounter++,
-                rank: prize.rank,
-                isRevealed: false,
-                isSelected: false,
-                isTaken: false,
-            });
-        }
-    });
-
-    // 셔플 (Fisher-Yates)
-    for (let i = tickets.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [tickets[i], tickets[j]] = [tickets[j], tickets[i]];
-    }
-
-    // ID는 셔플 후 재정렬하여 그리드 위치 고정 (실제 쿠지처럼 뜯는 위치는 고정)
-    return tickets.map((t, idx) => ({ ...t, id: idx }));
-};
-
-// --- Components ---
 
 export default function IchibanKujiGame() {
     const router = useRouter();
@@ -84,7 +54,11 @@ export default function IchibanKujiGame() {
     const [loading, setLoading] = useState(true);
     const [userPoints, setUserPoints] = useState<number>(0);
     const [purchaseLoading, setPurchaseLoading] = useState(false);
-    const [isDemo, setIsDemo] = useState(false); // 데모 모드 상태
+    const [isDemo, setIsDemo] = useState(false);
+
+    // State로 변환된 상품 목록
+    const [prizeList, setPrizeList] = useState<Prize[]>(INITIAL_PRIZE_LIST);
+    const [lastOnePrize, setLastOnePrize] = useState<Prize>(INITIAL_LAST_ONE_PRIZE);
 
     // 초기화 - 서버에서 티켓 상태 가져오기
     useEffect(() => {
@@ -131,7 +105,10 @@ export default function IchibanKujiGame() {
     // 서버에서 박스 상태 로드
     const loadBoxState = async () => {
         try {
-            setLoading(true);
+            // 로딩 인디케이터는 최초 1회만, 혹은 명시적 새로고침 시에만 보여주는 것이 좋음
+            // polling 시마다 깜빡이는 것을 방지하기 위해 setLoading은 조건부로 사용하거나 제거
+            // setLoading(true); 
+
             const response = await fetch('/api/kuji/box');
 
             if (response.ok) {
@@ -140,10 +117,6 @@ export default function IchibanKujiGame() {
 
                 // [NEW] 서버에서 상품 정보(prizeInfo)가 오면 PRIZE_LIST 업데이트
                 if (data.prizeInfo && Array.isArray(data.prizeInfo)) {
-                    // 서버 메타데이터를 기반으로 PRIZE_LIST 재구성
-                    // (주의: React State가 아닌 전역 변수를 수정하고 있음 - 컴포넌트 리렌더링을 위해 forceUpdate 필요할 수 있으나
-                    //  loading 상태 변경으로 인해 리렌더링되므로 일단 적용)
-
                     const serverPrizes = data.prizeInfo;
 
                     // 1. 일반 등급 업데이트
@@ -152,25 +125,25 @@ export default function IchibanKujiGame() {
                         .map((p: any) => ({
                             rank: p.rank as Rank,
                             name: p.name,
-                            image: PRIZE_LIST.find(def => def.rank === p.rank)?.image || '🎁', // 이미지는 기존 매핑 유지하거나 별도 설정 필요
+                            image: INITIAL_PRIZE_LIST.find(def => def.rank === p.rank)?.image || '🎁',
                             color: p.color || '#888',
                             totalQty: p.qty
                         }));
 
                     if (newPrizeList.length > 0) {
-                        PRIZE_LIST = newPrizeList;
+                        setPrizeList(newPrizeList);
                     }
 
                     // 2. 라스트원 업데이트
                     const lastOne = serverPrizes.find((p: any) => p.rank === 'LAST_ONE');
                     if (lastOne) {
-                        LAST_ONE_PRIZE = {
+                        setLastOnePrize({
                             rank: 'LAST_ONE',
                             name: lastOne.name,
                             image: '👑',
                             color: lastOne.color || '#000',
                             totalQty: 1
-                        };
+                        });
                     }
                 }
 
@@ -185,26 +158,17 @@ export default function IchibanKujiGame() {
 
                 setTickets(convertedTickets);
 
-                // PRIZE_LIST의 totalQty를 현재 티켓 상태 기반으로 재확인 (방어 코드)
-                PRIZE_LIST.forEach(prize => {
-                    // 서버 설정값이 있으면(위에서 업데이트됨) 그게 우선, 없으면 기존 방식 유지
-                    // 여기서는 이미 prize.totalQty가 서버 설정값으로 들어가 있으므로 
-                    // 실제 생성된 티켓 수와 일치하는지 검증만 하거나 생략 가능
-                });
-
             } else {
                 console.error('Failed to load box state');
-                alert('박스 상태를 불러오는데 실패했습니다.');
             }
         } catch (error) {
             console.error('Error loading box state:', error);
-            alert('박스 상태를 불러오는데 오류가 발생했습니다.');
         } finally {
             setLoading(false);
         }
     };
 
-    // 남은 수량 계산
+    // 남은 수량 계산 (tickets 상태 기반)
     const getRemainingCount = (rank: Rank) => {
         return tickets.filter(t => t.rank === rank && !t.isTaken).length;
     };
@@ -250,7 +214,7 @@ export default function IchibanKujiGame() {
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    action: 'bet', // [FIX] 필수 필드 action 추가
+                    action: 'bet',
                     game: 'kuji',
                     amount: totalCost,
                     result: 'bet'
@@ -322,8 +286,13 @@ export default function IchibanKujiGame() {
                 });
 
                 if (response.ok) {
-                    // 서버에서 최신 상태 다시 불러오기 (다른 사용자도 볼 수 있도록)
-                    await loadBoxState();
+                    // 성공 시 로컬 상태 즉시 업데이트 (UI 반응성 향상)
+                    setTickets(prev => prev.map(t =>
+                        t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
+                    ));
+
+                    // 백그라운드에서 최신 상태 다시 불러오기 (검증용)
+                    loadBoxState();
                 } else {
                     const errorData = await response.json();
                     alert(errorData.error || '티켓 업데이트에 실패했습니다.');
@@ -345,7 +314,7 @@ export default function IchibanKujiGame() {
         setWonPrizes(prev => [...prev, currentTicket]);
 
         // 폭죽 효과 (Confetti)
-        const prizeInfo = PRIZE_LIST.find(p => p.rank === currentTicket.rank);
+        const prizeInfo = prizeList.find(p => p.rank === currentTicket.rank);
         const color = prizeInfo?.color || '#ffffff';
         confetti({
             particleCount: 150,
@@ -378,11 +347,13 @@ export default function IchibanKujiGame() {
         await loadBoxState();
         await loadUserPoints();
 
-        const remaining = tickets.filter(t => !t.isTaken).length;
-        if (remaining === 0) {
-            alert("박스가 매진되었습니다! 새 박스가 자동으로 생성됩니다.");
-            // loadBoxState에서 자동으로 새 박스를 생성함
-        }
+        // 상태 업데이트 후의 티켓을 참조하기 위해 함수형 업데이트 사용이 어렵다면 loadBoxState 완료 후 tickets 참조
+        // loadBoxState는 비동기이므로 여기서 tickets은 이전 상태일 수 있음.
+        // 하지만 loadBoxState 내부에서 setTickets가 호출되므로, 리렌더링 후 반영됨.
+        // 여기서는 간단히 새로고침 로직을 위해 약간의 딜레이를 주거나 사용자에게 알림.
+
+        // 주의: getRemainingCount나 totalRemaining은 렌더링 시 계산되므로 여기서는 직접 계산 불가할 수 있음
+        // 하지만 React State 업데이트 큐에 의해 다음 렌더링에 반영됨.
     };
 
     return (
@@ -428,7 +399,7 @@ export default function IchibanKujiGame() {
                                 </p>
                             </div>
                             <div className="text-right bg-white/5 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-md">
-                                <div className="text-3xl font-black text-yellow-400 drop-shadow-md">{totalRemaining} <span className="text-xl text-slate-500">/ 80</span></div>
+                                <div className="text-3xl font-black text-yellow-400 drop-shadow-md">{totalRemaining} <span className="text-xl text-slate-500">/ {tickets.length}</span></div>
                                 <div className="text-xs text-slate-400 uppercase tracking-widest font-bold">Remaining Tickets</div>
                             </div>
                         </motion.div>
@@ -446,7 +417,7 @@ export default function IchibanKujiGame() {
                                 PRIZE LIST
                             </h2>
                             <div className="space-y-3">
-                                {PRIZE_LIST.map((prize) => {
+                                {prizeList.map((prize) => {
                                     const remaining = getRemainingCount(prize.rank);
                                     const isSoldOut = remaining === 0;
                                     return (
@@ -608,7 +579,7 @@ export default function IchibanKujiGame() {
                                                 >
                                                     {ticket.isTaken ? (
                                                         <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20">
-                                                            <div className="text-3xl font-black rotate-12 drop-shadow-lg" style={{ color: PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || '#555' }}>
+                                                            <div className="text-3xl font-black rotate-12 drop-shadow-lg" style={{ color: prizeList.find(p => p.rank === ticket.rank)?.color || '#555' }}>
                                                                 {ticket.rank}
                                                             </div>
                                                         </div>
@@ -650,6 +621,7 @@ export default function IchibanKujiGame() {
                                             key={selectedIds[currentPeelIndex]} // Key 변경으로 컴포넌트 리셋
                                             ticketId={selectedIds[currentPeelIndex]}
                                             realRank={tickets.find(t => t.id === selectedIds[currentPeelIndex])?.rank || 'G'}
+                                            prizeList={prizeList}
                                             onPeelComplete={handlePeelComplete}
                                         />
                                     </motion.div>
@@ -668,7 +640,7 @@ export default function IchibanKujiGame() {
 
                                     <div className="flex flex-wrap justify-center gap-6 mb-12 w-full overflow-y-auto max-h-[400px] px-4">
                                         {wonPrizes.map((ticket, idx) => {
-                                            const prizeInfo = PRIZE_LIST.find(p => p.rank === ticket.rank);
+                                            const prizeInfo = prizeList.find(p => p.rank === ticket.rank);
                                             return (
                                                 <motion.div
                                                     key={idx}
@@ -702,7 +674,7 @@ export default function IchibanKujiGame() {
                                                     <div className="text-5xl mb-4 animate-bounce">👑</div>
                                                     <div className="text-center w-full">
                                                         <div className="text-sm font-black text-yellow-500 mb-1 tracking-widest">LAST ONE</div>
-                                                        <div className="text-xs font-bold text-white line-clamp-2 leading-tight">{LAST_ONE_PRIZE.name}</div>
+                                                        <div className="text-xs font-bold text-white line-clamp-2 leading-tight">{lastOnePrize.name}</div>
                                                     </div>
                                                 </div>
                                             </motion.div>
@@ -727,10 +699,10 @@ export default function IchibanKujiGame() {
 }
 
 // --- Sub Component: Peeling Ticket (뜯는 애니메이션) ---
-function PeelingTicket({ ticketId, realRank, onPeelComplete }: { ticketId: number, realRank: Rank, onPeelComplete: () => void }) {
+function PeelingTicket({ ticketId, realRank, prizeList, onPeelComplete }: { ticketId: number, realRank: Rank, prizeList: Prize[], onPeelComplete: () => void }) {
     const [isPeeling, setIsPeeling] = useState(false);
     const [isRevealed, setIsRevealed] = useState(false);
-    const prizeInfo = PRIZE_LIST.find(p => p.rank === realRank);
+    const prizeInfo = prizeList.find(p => p.rank === realRank);
 
     const handleDragEnd = (event: any, info: any) => {
         // 아래로 충분히 드래그했으면 뜯김 처리

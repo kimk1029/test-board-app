@@ -7,7 +7,24 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { RefreshCcw, Save, ShieldAlert } from 'lucide-react'
+import { RefreshCcw, Save, ShieldAlert, History, Users } from 'lucide-react'
+import {
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
 
 // 기본값
 interface PrizeConfig {
@@ -33,6 +50,11 @@ export default function AdminPage() {
     const [loading, setLoading] = useState(false)
     const [isAdmin, setIsAdmin] = useState(false)
 
+    // History State
+    const [history, setHistory] = useState<any[]>([])
+    const [selectedBox, setSelectedBox] = useState<any>(null)
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false)
+
     useEffect(() => {
         // 간단한 어드민 체크 (실제로는 서버사이드에서 검증하거나 미들웨어 사용 권장)
         const userStr = localStorage.getItem('user')
@@ -40,6 +62,7 @@ export default function AdminPage() {
             const user = JSON.parse(userStr)
             if (user.userType === 1) {
                 setIsAdmin(true)
+                fetchHistory() // Load history on init
             } else {
                 window.location.href = '/'
             }
@@ -47,6 +70,21 @@ export default function AdminPage() {
             window.location.href = '/'
         }
     }, [])
+
+    const fetchHistory = async () => {
+        setIsHistoryLoading(true)
+        try {
+            const res = await fetch('/api/admin/kuji/history')
+            if (res.ok) {
+                const data = await res.json()
+                setHistory(data.history || [])
+            }
+        } catch (e) {
+            console.error("Failed to load history", e)
+        } finally {
+            setIsHistoryLoading(false)
+        }
+    }
 
     const handleReset = async () => {
         if (!confirm('정말로 쿠지 박스를 초기화하시겠습니까? 현재 진행 중인 박스는 종료됩니다.')) return
@@ -61,6 +99,7 @@ export default function AdminPage() {
 
             if (res.ok) {
                 toast.success('쿠지 박스가 성공적으로 초기화되었습니다.')
+                fetchHistory() // Refresh history after reset
             } else {
                 toast.error('초기화 실패')
             }
@@ -160,6 +199,108 @@ export default function AdminPage() {
                             >
                                 {loading ? '초기화 중...' : '설정 저장 및 박스 초기화 (RESET)'}
                             </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Game History Section */}
+                    <Card className="bg-[#18181b] border-white/10 lg:col-span-2">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <History className="w-5 h-5 text-indigo-500" />
+                                Game History
+                            </CardTitle>
+                            <CardDescription>
+                                종료된 게임의 결과와 당첨자 내역을 조회합니다.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {isHistoryLoading ? (
+                                <div className="text-center py-8 text-slate-500">Loading history...</div>
+                            ) : history.length === 0 ? (
+                                <div className="text-center py-8 text-slate-500">No history found.</div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="border-white/10 hover:bg-white/5">
+                                                <TableHead className="text-slate-400">Date (Ended)</TableHead>
+                                                <TableHead className="text-slate-400">Box ID</TableHead>
+                                                <TableHead className="text-slate-400">Tickets Sold</TableHead>
+                                                <TableHead className="text-right text-slate-400">Action</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {history.map((box) => (
+                                                <TableRow key={box.id} className="border-white/10 hover:bg-white/5">
+                                                    <TableCell className="font-mono text-slate-300">
+                                                        {new Date(box.updatedAt).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-slate-300">#{box.id}</TableCell>
+                                                    <TableCell className="text-slate-300">{box.totalSold}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Dialog>
+                                                            <DialogTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20"
+                                                                    onClick={() => setSelectedBox(box)}
+                                                                >
+                                                                    <Users className="w-4 h-4 mr-2" />
+                                                                    View Winners
+                                                                </Button>
+                                                            </DialogTrigger>
+                                                            <DialogContent className="bg-[#18181b] border-white/10 text-slate-100 max-w-3xl max-h-[80vh] overflow-y-auto">
+                                                                <DialogHeader>
+                                                                    <DialogTitle>Winner List (Box #{box.id})</DialogTitle>
+                                                                    <DialogDescription>
+                                                                        해당 회차의 당첨자 목록입니다.
+                                                                    </DialogDescription>
+                                                                </DialogHeader>
+                                                                <Table>
+                                                                    <TableHeader>
+                                                                        <TableRow className="border-white/10 hover:bg-white/5">
+                                                                            <TableHead className="text-slate-400 w-16">Rank</TableHead>
+                                                                            <TableHead className="text-slate-400">Prize</TableHead>
+                                                                            <TableHead className="text-slate-400">User</TableHead>
+                                                                            <TableHead className="text-slate-400">Email</TableHead>
+                                                                            <TableHead className="text-right text-slate-400">Time</TableHead>
+                                                                        </TableRow>
+                                                                    </TableHeader>
+                                                                    <TableBody>
+                                                                        {box.winners.map((winner: any, idx: number) => (
+                                                                            <TableRow key={idx} className="border-white/10 hover:bg-white/5">
+                                                                                <TableCell className="font-bold text-white">
+                                                                                    <span className="px-2 py-1 rounded bg-white/10 text-xs">
+                                                                                        {winner.rank}
+                                                                                    </span>
+                                                                                </TableCell>
+                                                                                <TableCell className="text-slate-300">{winner.prizeName}</TableCell>
+                                                                                <TableCell className="font-medium text-indigo-400">{winner.user}</TableCell>
+                                                                                <TableCell className="text-slate-500 text-xs">{winner.email}</TableCell>
+                                                                                <TableCell className="text-right font-mono text-slate-500 text-xs">
+                                                                                    {new Date(winner.at).toLocaleTimeString()}
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                        {box.winners.length === 0 && (
+                                                                            <TableRow>
+                                                                                <TableCell colSpan={5} className="text-center py-4 text-slate-500">
+                                                                                    당첨 내역이 없습니다.
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        )}
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </DialogContent>
+                                                        </Dialog>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

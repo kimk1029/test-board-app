@@ -193,22 +193,6 @@ const HeaderNavigator = () => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="w-full cursor-pointer font-bold flex items-center gap-2 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white">
-                      <UserIcon className="w-4 h-4" />
-                      MY PROFILE
-                    </Link>
-                  </DropdownMenuItem>
-                  {/* Admin Link for admin users */}
-                  {user.userType === 1 && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin" className="w-full cursor-pointer font-bold flex items-center gap-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 focus:bg-red-500/10 focus:text-red-300">
-                        <LayoutDashboard className="w-4 h-4" />
-                        ADMIN PAGE
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem
                     onClick={handleLogout}
                     className="text-red-400 focus:text-red-300 focus:bg-red-500/10 cursor-pointer font-bold"
