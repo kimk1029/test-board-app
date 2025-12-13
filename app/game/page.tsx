@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion } from 'framer-motion'
-import { Gift, TrendingUp, Clover, Club, ArrowRight, BarChart2, PieChart as PieIcon, Activity, Disc, Layers, Rocket, Wind } from 'lucide-react'
+import { Gift, TrendingUp, Clover, Club, ArrowRight, BarChart2, PieChart as PieIcon, Activity, Disc, Layers, Rocket, Wind, Users } from 'lucide-react'
+
 import {
   BarChart,
   Bar,
@@ -106,7 +107,19 @@ const games = [
     shadow: 'shadow-cyan-500/20',
     pcOnly: true
   },
+  {
+    id: 'holdem',
+    name: 'TEXAS HOLDEM',
+    description: '다른 플레이어들과 실시간으로 포커를 즐기세요!',
+    icon: Users,
+    path: '/game/holdem',
+    color: 'from-red-600 to-rose-800',
+    accent: 'text-red-500',
+    shadow: 'shadow-red-500/20',
+    multiplayer: true
+  },
 ]
+
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -189,6 +202,12 @@ export default function GamePage() {
                                         PC ONLY
                                     </div>
                                 )}
+                                { (game as any).multiplayer && (
+                                    <div className="absolute top-4 right-4 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.5)] z-20 animate-pulse">
+                                        멀티플레이
+                                    </div>
+                                )}
+
 
                                 <div className="relative z-10 flex flex-col h-full">
                                     <div className="flex justify-between items-start mb-2 md:mb-4">

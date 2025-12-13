@@ -29,6 +29,7 @@ model User {
   achievements  UserAchievement[] // 획득한 업적 관계
   likes         Like[]    // 좋아요 한 기록
   missionRewards Json?    @default("[]") // 수령한 미션 보상 목록 (예: ["post_10", "comment_50"])
+  holdemPlayers HoldemPlayer[] // 홀덤 플레이어 관계
 }
 
 model Post {
@@ -171,5 +172,48 @@ model UserAchievement {
   achievement   Achievement @relation(fields: [achievementId], references: [id])
 
   @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+// 홀덤 게임 방
+model HoldemRoom {
+  id            String   @id @default(uuid())
+  name          String
+  maxPlayers    Int      @default(6)
+  smallBlind    Float    @default(10)
+  bigBlind      Float    @default(20)
+  status        String   @default("waiting") // 'waiting', 'playing', 'finished'
+  currentRound  String?  // 'preflop', 'flop', 'turn', 'river', 'showdown'
+  pot           Float    @default(0)
+  dealerIndex   Int      @default(0)
+  communityCards Json?   // 공통 카드 5장
+  gameState     Json?    // 게임 상태 전체 (덱, 현재 플레이어 등)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  players       HoldemPlayer[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// 홀덤 플레이어 (방 참여자)
+model HoldemPlayer {
+  id          Int      @id @default(autoincrement())
+  roomId      String
+  room        HoldemRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  seatIndex   Int      // 좌석 번호 (0-8)
+  holeCards   Json?    // 손패 2장 [{suit, rank}, {suit, rank}]
+  chips       Float    // 현재 칩 수
+  currentBet  Float    @default(0) // 이번 라운드 베팅액
+  isActive    Boolean  @default(true) // 폴드했는지
+  isAllIn     Boolean  @default(false)
+  position    String?  // 'dealer', 'small_blind', 'big_blind', 'utg' 등
+  createdAt   DateTime @default(now())
+  
+  @@unique([roomId, userId])
+  @@unique([roomId, seatIndex])
+  @@index([roomId])
   @@index([userId])
 }
