@@ -9,6 +9,7 @@ interface GameState {
   lastRaise: number;
   minBet: number;
   winners: { seatIndex: number, hand: HandResult, amount: number }[] | null;
+  actedPlayers: number[];
 }
 
 export type RoomWithPlayers = HoldemRoom & { players: HoldemPlayer[] };
@@ -45,29 +46,10 @@ export function startGame(room: RoomWithPlayers): { roomUpdates: any, playerUpda
   // Move Dealer Button
   const nextDealerIndex = (room.dealerIndex + 1) % room.maxPlayers;
   // Find actual players for SB and BB
-  // Simply: Dealer -> SB -> BB -> UTG
-  // We need to find the next active seat indices
   const seatIndices = activePlayers.map(p => p.seatIndex);
   
-  // Helper to find next seat with a player
-  const getNextSeat = (currentSeat: number) => {
-    let idx = seatIndices.findIndex(s => s === currentSeat);
-    if (idx === -1) idx = 0; // Should not happen if passed correctly
-    return seatIndices[(idx + 1) % seatIndices.length];
-  };
-
   // Find dealer's seat (or closest next)
-  // For simplicity, let's just use the sorted array index logic for now, but seatIndex is better
-  // Let's assume dealerIndex is just an index in the players array for MVP, 
-  // BUT the schema says dealerIndex (int). Let's treat it as seatIndex.
-  
-  // Actually, standard is: Button moves. SB is next, BB is next.
-  // We need to robustly find the next player clockwise.
-  
-  // Ensure dealerIndex points to a valid player or move to next
-  let dealerSeat = room.dealerIndex; // This might be an old seat
-  // Find next valid seat
-  // ... (Simplification: Just rotate dealer among active players)
+  let dealerSeat = room.dealerIndex; 
   
   const dealerPlayerIdx = activePlayers.findIndex(p => p.seatIndex >= dealerSeat);
   const actualDealerIdx = dealerPlayerIdx === -1 ? 0 : dealerPlayerIdx;
@@ -77,7 +59,6 @@ export function startGame(room: RoomWithPlayers): { roomUpdates: any, playerUpda
   const utgPlayer = activePlayers[(actualDealerIdx + 3) % activePlayers.length]; // First to act preflop
 
   // Apply Blinds
-  // Note: Need to handle All-in if chips < blind
   const sbAmount = Math.min(sbPlayer.chips, room.smallBlind);
   const bbAmount = Math.min(bbPlayer.chips, room.bigBlind);
 
@@ -108,7 +89,8 @@ export function startGame(room: RoomWithPlayers): { roomUpdates: any, playerUpda
     currentTurnSeat: utgPlayer.seatIndex,
     lastRaise: room.bigBlind, // Initial raise is the BB amount
     minBet: room.bigBlind,
-    winners: null
+    winners: null,
+    actedPlayers: []
   };
 
   return {
@@ -128,7 +110,6 @@ export function nextRound(room: RoomWithPlayers): { roomUpdates: any, playerUpda
   const gameState = room.gameState as unknown as GameState;
   const currentRound = room.currentRound as Round;
   let deck = gameState.deck;
-  // Fix: Explicitly cast JSON type to unknown then Card[]
   let communityCards = (room.communityCards as unknown as Card[]) || [];
   
   let nextRoundName: Round;
@@ -157,8 +138,6 @@ export function nextRound(room: RoomWithPlayers): { roomUpdates: any, playerUpda
   // Find starting player for post-flop (SB or next active)
   const activePlayers = room.players.filter(p => p.isActive).sort((a, b) => a.seatIndex - b.seatIndex);
   
-  // Post-flop starts from SB (or next active player after Dealer)
-  // Dealer index is stored in room
   const dealerSeat = room.dealerIndex;
   // Find first active player strictly after dealerSeat
   let nextPlayer = activePlayers.find(p => p.seatIndex > dealerSeat);
@@ -179,7 +158,8 @@ export function nextRound(room: RoomWithPlayers): { roomUpdates: any, playerUpda
         deck: remaining,
         currentTurnSeat: nextPlayer.seatIndex,
         minBet: 0,
-        lastRaise: 0
+        lastRaise: 0,
+        actedPlayers: []
       }
     },
     playerUpdates
@@ -188,12 +168,10 @@ export function nextRound(room: RoomWithPlayers): { roomUpdates: any, playerUpda
 
 function handleShowdown(room: RoomWithPlayers): { roomUpdates: any, playerUpdates: any[] } {
   const activePlayers = room.players.filter(p => p.isActive);
-  // Fix: Explicitly cast JSON type to unknown then Card[]
   const communityCards = room.communityCards as unknown as Card[];
   
   // Evaluate all hands
   const results = activePlayers.map(player => {
-    // Fix: Explicitly cast JSON type to unknown then Card[]
     const holeCards = player.holeCards as unknown as Card[];
     const handResult = evaluateHand(holeCards, communityCards);
     return {
@@ -230,7 +208,8 @@ function handleShowdown(room: RoomWithPlayers): { roomUpdates: any, playerUpdate
       gameState: {
         ...gameState,
         winners: winners.map(w => ({ seatIndex: w.seatIndex, hand: w.hand, amount: winAmount })),
-        currentTurnSeat: null
+        currentTurnSeat: null,
+        actedPlayers: []
       }
     },
     playerUpdates
@@ -279,8 +258,7 @@ export function handlePlayerAction(
     }
   } else if (action === 'raise') {
     if (amount < toCall + gameState.minBet && amount < playerChips) {
-       // Allow simpler logic for now: if raise, must be at least minRaise
-       // Assume frontend handles min/max constraints, we just validate sanity
+       // Allow simpler logic for now
     }
     if (playerChips < amount) throw new Error('Not enough chips');
     
@@ -295,9 +273,7 @@ export function handlePlayerAction(
   }
   
   if (action === 'allin') {
-    // If it was a generic "allin" action from UI without specific calc:
-    amount = playerChips; // Take all remaining
-    
+    amount = playerChips; 
     playerChips -= amount;
     currentBet += amount;
     pot += amount;
@@ -323,6 +299,19 @@ export function handlePlayerAction(
     }
   };
 
+  // --- Logic Update for actedPlayers ---
+  let newActedPlayers = [...(gameState.actedPlayers || [])];
+  
+  const isRaise = action === 'raise' || (action === 'allin' && currentBet > highestBet);
+  
+  if (isRaise) {
+      newActedPlayers = [player.seatIndex];
+  } else {
+      if (!newActedPlayers.includes(player.seatIndex)) {
+          newActedPlayers.push(player.seatIndex);
+      }
+  }
+  
   // Check for Round End or Game End
   
   // 1. Fold Win Condition
@@ -331,7 +320,6 @@ export function handlePlayerAction(
   );
   
   if (remainingPlayers.length === 1) {
-    // Immediate Winner
     const winner = remainingPlayers[0];
     return {
       roomUpdates: {
@@ -354,12 +342,10 @@ export function handlePlayerAction(
   }
 
   // 2. Round Transition Check
-  // Determine next turn
   let nextSeat = gameState.currentTurnSeat!;
   let foundNext = false;
   let loopCount = 0;
   
-  // Find next active non-all-in player
   const sortedPlayers = room.players.sort((a,b) => a.seatIndex - b.seatIndex);
   let idx = sortedPlayers.findIndex(p => p.seatIndex === nextSeat);
   
@@ -375,9 +361,7 @@ export function handlePlayerAction(
     loopCount++;
   }
 
-  // Calculate new highest bet considering the current action
   const newHighestBet = Math.max(highestBet, currentBet);
-  
   const playersInHand = room.players.filter(p => (p.userId === userId ? isActive : p.isActive));
   const activeNonAllIn = playersInHand.filter(p => (p.userId === userId ? !isAllIn : !p.isAllIn));
   
@@ -387,20 +371,12 @@ export function handlePlayerAction(
     return pBet === newHighestBet || pAllIn;
   });
 
-  const isPreflop = room.currentRound === 'preflop';
-  
+  const allActed = activeNonAllIn.every(p => newActedPlayers.includes(p.seatIndex));
+
   let roundOver = false;
   
-  if (allMatched) {
-      if (isPreflop && newHighestBet === room.bigBlind) {
-          if (player.position === 'big_blind' && action === 'check') {
-              roundOver = true;
-          }
-      } else {
-          if (action !== 'raise' && action !== 'allin') { 
-               roundOver = true;
-          }
-      }
+  if (allMatched && allActed) {
+      roundOver = true;
   }
   
   if (activeNonAllIn.length === 0 && allMatched) {
@@ -412,7 +388,7 @@ export function handlePlayerAction(
           ...room, 
           pot,
           players: room.players.map(p => p.userId === userId ? { ...p, ...playerUpdate.data } : p),
-          gameState: { ...gameState, lastRaise: 0, minBet: 0 } as unknown as any // Fix: Force cast compatible type
+          gameState: { ...gameState, lastRaise: 0, minBet: 0, actedPlayers: [] } as unknown as any
       } as RoomWithPlayers);
       
       if (nextRoundResult) {
@@ -433,7 +409,8 @@ export function handlePlayerAction(
         ...gameState,
         currentTurnSeat: nextSeat,
         minBet: gameState.minBet,
-        lastRaise: gameState.lastRaise
+        lastRaise: gameState.lastRaise,
+        actedPlayers: newActedPlayers
       }
     },
     playerUpdates: [playerUpdate]

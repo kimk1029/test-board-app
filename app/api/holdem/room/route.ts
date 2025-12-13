@@ -157,29 +157,7 @@ export async function POST(request: NextRequest) {
         include: { players: true }
       });
 
-      if (updatedRoom) {
-        // 게임 시작 조건 확인 (대기 중이고 2명 이상)
-        if (updatedRoom.status === 'waiting' && updatedRoom.players.length >= 2) {
-          const { roomUpdates, playerUpdates } = startGame(updatedRoom as RoomWithPlayers);
-          
-          await tx.holdemRoom.update({
-            where: { id: roomId },
-            data: roomUpdates
-          });
-
-          for (const update of playerUpdates) {
-            await tx.holdemPlayer.update({
-              where: { 
-                roomId_userId: {
-                  roomId,
-                  userId: update.userId
-                }
-              },
-              data: update.data
-            });
-          }
-        }
-      }
+      // 자동 게임 시작 로직 제거됨
     })
 
     return NextResponse.json({
