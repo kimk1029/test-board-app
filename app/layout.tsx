@@ -4,6 +4,7 @@ import GoogleAdsense from '@/components/GoogleAdsense'
 import OnlineUsers from '@/components/OnlineUsers'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://dopamine-ground.vercel.app'),
   title: '🎰 잭팟 & 무한의 계단 | 미니게임 천국',
   description: '지금 접속하면 100포인트 무료! 실시간 랭킹 1위에 도전하세요.',
   icons: {
