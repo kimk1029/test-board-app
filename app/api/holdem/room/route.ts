@@ -169,3 +169,81 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to join seat' }, { status: 500 })
   }
 }
+
+// 플레이어 나가기
+export async function DELETE(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
+    }
+
+    const token = authHeader.substring(7)
+    const payload = verifyToken(token)
+
+    if (!payload) {
+      return NextResponse.json({ error: '유효하지 않은 토큰입니다.' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { roomId } = body
+
+    if (!roomId) {
+      return NextResponse.json({ error: 'roomId is required' }, { status: 400 })
+    }
+
+    // 트랜잭션: 플레이어 제거 및 포인트 환불(선택사항, 일단은 칩 증발 or 저장. 여기선 그냥 나감 처리만)
+    // 실제로는 남은 칩을 포인트로 돌려줘야 함
+    await prisma.$transaction(async (tx) => {
+      const player = await tx.holdemPlayer.findUnique({
+        where: {
+          roomId_userId: {
+            roomId,
+            userId: payload.userId
+          }
+        }
+      })
+
+      if (!player) {
+        // 이미 없으면 성공 처리
+        return
+      }
+
+      // 포인트 환불 (남은 칩만큼)
+      if (player.chips > 0) {
+        await tx.user.update({
+          where: { id: payload.userId },
+          data: {
+            points: {
+              increment: player.chips
+            }
+          }
+        })
+      }
+
+      // 플레이어 삭제
+      await tx.holdemPlayer.delete({
+        where: {
+          roomId_userId: {
+            roomId,
+            userId: payload.userId
+          }
+        }
+      })
+      
+      // 방에 아무도 없으면 방 삭제? (선택사항, 다른 API에서 처리중이면 생략)
+      /*
+      const remainingPlayers = await tx.holdemPlayer.count({ where: { roomId } });
+      if (remainingPlayers === 0) {
+           await tx.holdemRoom.delete({ where: { id: roomId } });
+      }
+      */
+    })
+
+    return NextResponse.json({ success: true })
+
+  } catch (error) {
+    console.error('플레이어 나가기 오류:', error)
+    return NextResponse.json({ error: 'Failed to leave room' }, { status: 500 })
+  }
+}

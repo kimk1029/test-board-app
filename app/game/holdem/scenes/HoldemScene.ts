@@ -201,12 +201,6 @@ export class HoldemScene extends Phaser.Scene {
         const maskShape = this.make.graphics();
         maskShape.fillCircle(0, 0, 40); // Local to mask, needs to be positioned
         
-        // Mask needs to be created dynamically in update loop or positioned correctly
-        // Since we are adding to container, let's use a simpler approach for mask:
-        // Mask coordinates are world coordinates unless masking a container locally.
-        // For simplicity, we just crop circular or use overlay.
-        // Actually, GeometryMask uses World Coordinates. We need to update mask position in updateLayout.
-        // Let's store maskShape to update it.
         (avatarImg as any).maskShape = maskShape; 
         const mask = maskShape.createGeometryMask();
         avatarImg.setMask(mask);
@@ -252,15 +246,14 @@ export class HoldemScene extends Phaser.Scene {
         { label: 'ALL IN', color: 0xd50000, callback: () => this.sendAction('allin') }
     ];
 
+    // Buttons created here, but positioning will be updated in updateLayout
     const btnWidth = 100;
     const spacing = 10;
-    let currentX = -(actions.length * (btnWidth + spacing)) / 2 + btnWidth/2;
-
-    actions.forEach(action => {
-        const btn = this.createButton(currentX, 0, action.label, action.color, action.callback, btnWidth, 50);
+    
+    actions.forEach((action, index) => {
+        const btn = this.createButton(0, 0, action.label, action.color, action.callback, btnWidth, 50);
         btn.setName('btn_' + action.label.toLowerCase().replace(' ', ''));
         this.actionContainer.add(btn);
-        currentX += btnWidth + spacing;
     });
   }
 
@@ -324,13 +317,13 @@ export class HoldemScene extends Phaser.Scene {
     const maxRy = (height * 0.4) - 40; 
     
     if (this.layoutMode === 'mobile') {
-        rx = width * 0.42; 
+        rx = width * 0.32; // Tighter width for mobile
         ry = Math.min(height * 0.35, maxRy);
         this.deckSprite.setPosition(cx, cy - 80);
         cardYOffset = 50;
     } else if (this.layoutMode === 'tablet') {
         rx = width * 0.4;
-        ry = Math.min(height * 0.30, maxRy); // Tighter on tablet
+        ry = Math.min(height * 0.30, maxRy);
         this.deckSprite.setPosition(cx - 100, cy);
     } else {
         rx = width * 0.35;
@@ -345,17 +338,26 @@ export class HoldemScene extends Phaser.Scene {
     this.tableGraphics.fillEllipse(cx, cy, rx * 2, ry * 2);
 
     // Positions
-    const potY = cy + 50 + cardYOffset; // Below community cards
+    const potY = cy + 50 + cardYOffset; 
     this.potText.setPosition(cx, potY);
     
     this.statusText.setPosition(cx, cy + 120 + cardYOffset); 
     this.startButton.setPosition(cx, cy + 150 + cardYOffset);
 
     // Calculate Seat Positions
-    const seatPositions = this.calculateSeatPositions(cx, cy, rx, ry);
+    const seatOffset = this.layoutMode === 'mobile' ? 35 : 60; // Tighter offset for mobile
+    const seatPositions = this.calculateSeatPositions(cx, cy, rx, ry, seatOffset);
     
     this.seatContainers.forEach((container, i) => {
         container.setPosition(seatPositions[i].x, seatPositions[i].y);
+        
+        // Scale down seat container in mobile if needed to fit
+        if (this.layoutMode === 'mobile') {
+            container.setScale(0.85); // Scale down avatars/info slightly
+        } else {
+            container.setScale(1);
+        }
+
         this.sitButtons[i].setPosition(seatPositions[i].x, seatPositions[i].y);
         
         // Update mask position
@@ -367,21 +369,70 @@ export class HoldemScene extends Phaser.Scene {
         }
     });
 
-    // Action Container always at bottom
+    // Action Container Positioning
     this.actionContainer.setPosition(cx, height - 50); 
     this.raiseContainer.setPosition(cx, cy);
 
+    // Reposition Action Buttons dynamically
+    const buttons = this.actionContainer.list as Phaser.GameObjects.Container[];
+    const btnWidth = this.layoutMode === 'mobile' ? 80 : 100; // Smaller buttons on mobile
+    const btnHeight = 50;
+    const spacing = 10;
+    
+    if (this.layoutMode === 'mobile') {
+        // Two rows for mobile: 3 top, 2 bottom
+        // Top: Fold, Check, Call
+        // Bottom: Raise, All In
+        const topRowY = -30;
+        const botRowY = 30;
+        
+        // Helper to position
+        const setBtnPos = (name: string, rowX: number, rowY: number) => {
+            const btn = this.actionContainer.getByName(name) as Phaser.GameObjects.Container;
+            if (btn) {
+                btn.setPosition(rowX, rowY);
+                // Adjust button background width
+                const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
+                const gloss = btn.getAt(1) as Phaser.GameObjects.Rectangle;
+                bg.setSize(btnWidth, btnHeight);
+                gloss.setSize(btnWidth, btnHeight/2);
+            }
+        };
+
+        setBtnPos('btn_fold', -(btnWidth + spacing), topRowY);
+        setBtnPos('btn_check', 0, topRowY);
+        setBtnPos('btn_call', (btnWidth + spacing), topRowY);
+        
+        setBtnPos('btn_raise', -btnWidth/2 - spacing/2, botRowY);
+        setBtnPos('btn_allin', btnWidth/2 + spacing/2, botRowY);
+
+        this.actionContainer.setPosition(cx, height - 80); // Move up a bit for 2 rows
+
+    } else {
+        // Single row for Tablet/PC
+        let currentX = -(buttons.length * (btnWidth + spacing)) / 2 + btnWidth/2;
+        buttons.forEach(btn => {
+             btn.setPosition(currentX, 0);
+             const bg = btn.getAt(0) as Phaser.GameObjects.Rectangle;
+             const gloss = btn.getAt(1) as Phaser.GameObjects.Rectangle;
+             bg.setSize(btnWidth, btnHeight);
+             gloss.setSize(btnWidth, btnHeight/2);
+             currentX += btnWidth + spacing;
+        });
+    }
+
+
     // Community Cards (Smaller)
-    const spacing = 55; // Tighter spacing
+    const cardSpacing = 55; 
     const cardsY = cy + cardYOffset;
-    const cardsX = cx - (spacing * 2); 
+    const cardsX = cx - (cardSpacing * 2); 
     
     this.communityCardContainers.forEach((container, i) => {
-        container.setPosition(cardsX + i * spacing, cardsY);
+        container.setPosition(cardsX + i * cardSpacing, cardsY);
     });
   }
 
-  calculateSeatPositions(cx: number, cy: number, rx: number, ry: number) {
+  calculateSeatPositions(cx: number, cy: number, rx: number, ry: number, offset: number) {
       const angles = [
           Math.PI / 2,         // 0: Bottom
           Math.PI * 0.85,      // 1: Bottom Left
@@ -390,8 +441,6 @@ export class HoldemScene extends Phaser.Scene {
           -Math.PI * 0.15,     // 4: Top Right
           Math.PI * 0.15       // 5: Bottom Right
       ];
-      
-      const offset = 60; 
       
       return angles.map(angle => ({
           x: cx + (rx + offset) * Math.cos(angle),
@@ -442,7 +491,12 @@ export class HoldemScene extends Phaser.Scene {
             if (this.turnTimerEvent) this.turnTimerEvent.remove();
             this.turnTimerEvent = this.time.addEvent({
                 delay: this.turnTotalTime,
-                callback: () => { /* Time out logic could trigger auto-fold here if wanted */ }
+                callback: () => { 
+                    if (this.currentTimerSeat !== null && 
+                        this.roomData?.players.find(p => p.userId === this.myUserId)?.seatIndex === this.currentTimerSeat) {
+                        this.sendAction('fold');
+                    }
+                }
             });
         }
     } else {
