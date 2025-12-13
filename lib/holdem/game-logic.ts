@@ -36,7 +36,7 @@ export function startGame(room: RoomWithPlayers): { roomUpdates: any, playerUpda
         isActive: true,
         isAllIn: false,
         currentBet: 0,
-        handRank: null // Reset generic field if any
+        // Remove handRank: null
       }
     });
   }
