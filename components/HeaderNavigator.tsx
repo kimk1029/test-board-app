@@ -141,7 +141,7 @@ const HeaderNavigator = () => {
               D
             </div>
             <span className="text-xl font-bold tracking-tighter text-white group-hover:text-violet-300 transition-colors">
-              도파민랜드
+              DOPAMINE LAND
             </span>
           </Link>
 
