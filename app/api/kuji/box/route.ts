@@ -5,8 +5,10 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
   try {
     // 활성 박스 찾기 또는 생성
+    // [FIX] 항상 최신(가장 큰 ID)의 활성 박스를 가져오도록 수정하여 리셋 직후 반영되도록 함
     let activeBox = await prisma.kujiBox.findFirst({
       where: { isActive: true },
+      orderBy: { id: 'desc' }, // [NEW] 최신 박스 우선
       include: {
         tickets: {
           orderBy: { ticketId: 'asc' },
