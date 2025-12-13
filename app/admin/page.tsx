@@ -30,7 +30,7 @@ export default function AdminPage() {
         const userStr = localStorage.getItem('user')
         if (userStr) {
             const user = JSON.parse(userStr)
-            if (user.email === 'admin@test.com' || user.email.includes('admin')) {
+            if (user.userType === 1) {
                 setIsAdmin(true)
             } else {
                 window.location.href = '/'

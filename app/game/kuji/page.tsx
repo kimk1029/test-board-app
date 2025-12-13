@@ -445,8 +445,8 @@ export default function IchibanKujiGame() {
                                                     </div>
                                                     <div className="text-[10px] text-slate-500">
                                                         / {prize.totalQty}
-                                                    </div>
-                                                </div>
+                                            </div>
+                                        </div>
                                         </div>
                                     </div>
                                 );
@@ -579,7 +579,7 @@ export default function IchibanKujiGame() {
                                                         <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20">
                                                             <div className="text-3xl font-black rotate-12 drop-shadow-lg" style={{ color: PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || '#555' }}>
                                                                 {ticket.rank}
-                                                            </div>
+                                                        </div>
                                                     </div>
                                                 ) : (
                                                     <>
@@ -609,7 +609,7 @@ export default function IchibanKujiGame() {
                                 <motion.div
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                         className="absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black/90 backdrop-blur-md rounded-[2.5rem]"
-                                    >
+                                >
                                         <div className="text-center mb-10">
                                             <h2 className="text-3xl font-black text-white mb-2 tracking-tight">OPEN YOUR LUCK</h2>
                                             <p className="text-indigo-300 font-mono">{currentPeelIndex + 1} / {purchaseCount}</p>
@@ -665,7 +665,7 @@ export default function IchibanKujiGame() {
                                         <motion.div
                                             initial={{ scale: 0 }} animate={{ scale: 1.1 }}
                                                 className="w-40 h-56 rounded-2xl shadow-2xl flex flex-col items-center justify-between p-1 relative overflow-hidden bg-black border-2 border-yellow-500 shadow-yellow-500/20"
-                                            >
+                                        >
                                                 <div className="absolute inset-0 bg-yellow-500/10 animate-pulse" />
                                                 <div className="w-full h-full bg-black rounded-xl flex flex-col items-center justify-center relative z-10 p-4">
                                                     <div className="text-5xl mb-4 animate-bounce">👑</div>

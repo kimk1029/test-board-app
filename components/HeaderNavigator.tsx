@@ -23,6 +23,7 @@ interface User {
   nickname?: string
   points?: number
   level?: number
+  userType?: number
 }
 
 let updateUserPoints: (() => void) | null = null
@@ -110,7 +111,7 @@ const HeaderNavigator = () => {
   const progress = getLevelProgress(points, level)
   const nextLevelPoints = getPointsForNextLevel(level)
   const pointsNeeded = nextLevelPoints - points
-  const isTestAccount = user?.email?.endsWith('@test.com') || false
+  const isAdmin = user?.userType === 1
 
   const navLinks = [
     { href: '/', label: 'HOME', icon: LayoutDashboard },
@@ -121,7 +122,7 @@ const HeaderNavigator = () => {
     { href: '/notice', label: 'NOTICE', icon: Bell },
   ]
 
-  if (isTestAccount) {
+  if (isAdmin) {
     navLinks.push({ href: '/admin', label: 'ADMIN', icon: UserIcon })
   }
 
@@ -129,8 +130,8 @@ const HeaderNavigator = () => {
     <>
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${isScrolled
-            ? 'bg-black/80 backdrop-blur-md border-white/10 h-16'
-            : 'bg-transparent border-transparent h-20'
+          ? 'bg-black/80 backdrop-blur-md border-white/10 h-16'
+          : 'bg-transparent border-transparent h-20'
           }`}
       >
         <div className="container mx-auto h-full flex items-center justify-between px-4 sm:px-6">
@@ -151,8 +152,8 @@ const HeaderNavigator = () => {
                 key={link.href}
                 href={link.href}
                 className={`text-sm font-bold tracking-wide transition-all flex items-center gap-2 ${pathname === link.href
-                    ? 'text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]'
-                    : 'text-slate-400 hover:text-white hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]'
+                  ? 'text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]'
+                  : 'text-slate-400 hover:text-white hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]'
                   }`}
               >
                 <link.icon className="w-4 h-4" />
@@ -198,6 +199,15 @@ const HeaderNavigator = () => {
                       MY PROFILE
                     </Link>
                   </DropdownMenuItem>
+                  {/* Admin Link for admin users */}
+                  {user.userType === 1 && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="w-full cursor-pointer font-bold flex items-center gap-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 focus:bg-red-500/10 focus:text-red-300">
+                        <LayoutDashboard className="w-4 h-4" />
+                        ADMIN PAGE
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem
                     onClick={handleLogout}
@@ -235,8 +245,8 @@ const HeaderNavigator = () => {
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`text-lg font-bold py-2 px-4 rounded-lg flex items-center gap-3 ${pathname === link.href
-                    ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
                   }`}
               >
                 <link.icon className="w-5 h-5" />
