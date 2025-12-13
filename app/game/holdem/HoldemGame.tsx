@@ -18,10 +18,10 @@ export default function HoldemGame({ roomId }: HoldemGameProps) {
     const config: Phaser.Types.Core.GameConfig = {
       type: AUTO,
       parent: 'phaser-holdem-game',
-      width: 1200,
-      height: 800,
+      width: '100%',
+      height: '100%',
       scale: {
-        mode: Scale.FIT,
+        mode: Scale.RESIZE, // 창 크기에 맞춰 리사이즈
         autoCenter: Scale.CENTER_BOTH,
       },
       backgroundColor: '#1a1a1a',

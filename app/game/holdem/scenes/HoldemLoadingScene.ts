@@ -50,6 +50,9 @@ export class HoldemLoadingScene extends Phaser.Scene {
       })
     })
     
+    // 기본 아바타 (placeholder)
+    this.load.image('avatar-placeholder', 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y')
+
     // 테이블 텍스처 (단색으로 쓸 것이므로 이미지 로드 생략 가능하지만, 필요한 경우 추가)
     // 칩 이미지 등도 Graphics로 그릴 예정
 

@@ -40,3 +40,7 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations
+
+# yarn
+.yarn/install-state.gz
+install-state.gz
