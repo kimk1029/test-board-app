@@ -47,6 +47,7 @@ export class HoldemScene extends Phaser.Scene {
 
   // UI Objects
   private seatContainers: Map<number, Phaser.GameObjects.Container> = new Map();
+  private sitButtons: Phaser.GameObjects.Text[] = []; // Explicit reference for buttons
   private communityCardContainers: Phaser.GameObjects.Container[] = [];
   private potText!: Phaser.GameObjects.Text;
   private statusText!: Phaser.GameObjects.Text;
@@ -85,6 +86,7 @@ export class HoldemScene extends Phaser.Scene {
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
             const payload = JSON.parse(window.atob(base64));
             this.myUserId = payload.userId;
+            console.log('My UserId:', this.myUserId);
         } catch (e) {
             console.error('Failed to parse token', e);
         }
@@ -92,8 +94,14 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   create() {
+    // Reset state
+    this.sitButtons = [];
+    this.seatContainers = new Map();
+    this.communityCardContainers = [];
+
     this.createTable();
     this.createUI();
+    this.createSeats();
     this.createActionControls();
 
     // Start Polling
@@ -149,6 +157,22 @@ export class HoldemScene extends Phaser.Scene {
         
         container.add([avatar, nameText, chipsText, actionText, cardsContainer]);
         this.seatContainers.set(i, container);
+
+        // Sit Button (Green Rectangle)
+        const sitBtn = this.add.text(0, 0, 'SIT', {
+            fontSize: '24px',
+            backgroundColor: '#2e7d32',
+            padding: { x: 20, y: 10 },
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5)
+          .setInteractive({ useHandCursor: true })
+          .setVisible(false);
+        
+        container.add(sitBtn);
+        this.sitButtons[i] = sitBtn;
+
+        sitBtn.on('pointerdown', () => this.handleSit(i));
     }
   }
 
@@ -173,13 +197,6 @@ export class HoldemScene extends Phaser.Scene {
         xOffset += 150;
     });
 
-    // Slider for Raise (Simple mock for now - Phaser sliders are complex)
-    // We will just do a fixed Min Raise or 2x Pot for simplicity in MVP, 
-    // or add basic slider later. For now, let's implement Raise as "Min Raise" 
-    // or use HTML overlay for complex inputs?
-    // Let's stick to buttons: "Raise Min", "Raise Half Pot", "Raise Pot" if needed.
-    // For now, Raise button just does a default raise (min raise).
-    
     this.actionContainer.setVisible(false);
   }
   
@@ -201,7 +218,8 @@ export class HoldemScene extends Phaser.Scene {
   async fetchRoomInfo() {
     if (this.isProcessingUpdate) return;
     try {
-        const res = await fetch(`/api/holdem/room?roomId=${this.roomId}`);
+        // Add timestamp to prevent caching
+        const res = await fetch(`/api/holdem/room?roomId=${this.roomId}&t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
         
@@ -231,30 +249,31 @@ export class HoldemScene extends Phaser.Scene {
     // 1. Update UI Texts
     this.potText.setText(`${newData.pot.toLocaleString()}`);
     
+    // Check if I am seated
+    const amISeated = newData.players.some(p => p.userId === this.myUserId);
+    const playerCount = newData.players.length;
+
     // Status Text Logic
     if (newData.status === 'waiting') {
-        if (newData.players.length < 2) {
-            // Check if I am seated
-            const amISeated = newData.players.some(p => p.userId === this.myUserId);
+        if (playerCount < 2) {
             if (amISeated) {
-                this.statusText.setText('Waiting for more players...');
+                this.statusText.setText(`Waiting for more players... (${playerCount}/2)`);
             } else {
-                this.statusText.setText('Please sit down to play');
+                this.statusText.setText('Click a Green Button to Sit');
             }
         } else {
-            // 2명 이상이면 버튼이 보이므로 텍스트는 숨기거나 안내 문구
             this.statusText.setText('Ready to Start!');
         }
     } else if (newData.status === 'finished') {
-        // Winner logic handles text, so maybe skip or append
+        // Winner logic handles text
     } else {
         this.statusText.setText('');
     }
 
     // 2. Start Button Visibility
-    // Show if waiting and players >= 2
-    if (newData.status === 'waiting' && newData.players.length >= 2) {
+    if (newData.status === 'waiting' && playerCount >= 2 && amISeated) {
         this.startButton.setVisible(true);
+        this.children.bringToTop(this.startButton);
     } else {
         this.startButton.setVisible(false);
     }
@@ -263,8 +282,8 @@ export class HoldemScene extends Phaser.Scene {
     this.updateSeats(newData.players, newData.gameState.currentTurnSeat);
 
     // Make seats interactive if not joined
-    if (this.roomData && !this.roomData.players.find(p => p.userId === this.myUserId)) {
-        this.enableSeatInteraction(this.roomData.players);
+    if (!amISeated) {
+        this.enableSeatInteraction(newData.players);
     } else {
         this.disableSeatInteraction();
     }
@@ -282,6 +301,7 @@ export class HoldemScene extends Phaser.Scene {
     if (isMyTurn) {
         this.actionContainer.setVisible(true);
         this.updateActionButtons(myPlayer!, newData);
+        this.children.bringToTop(this.actionContainer);
     } else {
         this.actionContainer.setVisible(false);
     }
@@ -308,7 +328,6 @@ export class HoldemScene extends Phaser.Scene {
           (c.getAt(3) as Phaser.GameObjects.Text).setText(''); // Action
           (c.getAt(4) as Phaser.GameObjects.Container).removeAll(true); // Cards
           (c.getAt(0) as Phaser.GameObjects.Shape).setStrokeStyle(2, 0xffffff); // Reset Border
-          (c.getAt(1) as Phaser.GameObjects.Text).setText('Empty'); // Reset Text
           (c.getAt(1) as Phaser.GameObjects.Text).setColor('#ffffff'); 
       });
 
@@ -364,33 +383,48 @@ export class HoldemScene extends Phaser.Scene {
       
       this.seatContainers.forEach((container, index) => {
           const avatar = container.getAt(0) as Phaser.GameObjects.Shape;
-          const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
+          const sitBtn = this.sitButtons[index];
           
           if (!occupiedSeats.includes(index)) {
-              // Interactive Empty Seat
-              avatar.setInteractive({ useHandCursor: true });
-              avatar.setStrokeStyle(2, 0xffff00); // Yellow highlight for available
-              nameTxt.setText('SIT HERE');
-              nameTxt.setColor('#ffff00');
-              
-              avatar.off('pointerdown'); // Clear previous
-              avatar.on('pointerdown', () => this.handleSit(index));
+              // Empty
+              if (sitBtn) {
+                  sitBtn.setVisible(true);
+                  container.bringToTop(sitBtn); // Ensure button is on top of container
+                  
+                  avatar.setVisible(false); 
+                  const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
+                  nameTxt.setVisible(false);
+              }
           } else {
-              avatar.disableInteractive();
+              // Occupied
+              if (sitBtn) sitBtn.setVisible(false);
+              
+              // Ensure occupied look is visible
+              avatar.setVisible(true);
+              const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
+              nameTxt.setVisible(true);
           }
       });
   }
 
   disableSeatInteraction() {
-      this.seatContainers.forEach((container) => {
+      // Hide all sit buttons
+      this.sitButtons.forEach(btn => btn.setVisible(false));
+      // Show all avatars
+      this.seatContainers.forEach(container => {
           const avatar = container.getAt(0) as Phaser.GameObjects.Shape;
-          avatar.disableInteractive();
+          avatar.setVisible(true);
+          const nameTxt = container.getAt(1) as Phaser.GameObjects.Text;
+          nameTxt.setVisible(true);
       });
   }
 
   async handleSit(seatIndex: number) {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token) {
+          alert('Please login to play');
+          return;
+      }
 
       // Simple buy-in prompt
       // const buyIn = window.prompt("Enter buy-in amount (Default: 1000)", "1000");
@@ -413,6 +447,8 @@ export class HoldemScene extends Phaser.Scene {
           
           if (res.ok) {
               // Optimistic update or wait for poll
+              // Temporarily hide buttons to give feedback
+              this.disableSeatInteraction();
           } else {
               const err = await res.json();
               alert(err.error || 'Failed to join');
