@@ -48,8 +48,14 @@ export class HoldemScene extends Phaser.Scene {
   private displayedCommunityCards: number = 0;
   private layoutMode: LayoutMode = 'pc';
 
+  // Timer
+  private turnTimerEvent: Phaser.Time.TimerEvent | null = null;
+  private turnTotalTime = 20000;
+  private currentTimerSeat: number | null = null;
+
   // UI Objects
   private tableGraphics!: Phaser.GameObjects.Graphics;
+  private timerGraphics!: Phaser.GameObjects.Graphics;
   private seatContainers: Map<number, Phaser.GameObjects.Container> = new Map();
   private sitButtons: Phaser.GameObjects.Container[] = [];
   private communityCardContainers: Phaser.GameObjects.Container[] = [];
@@ -75,15 +81,17 @@ export class HoldemScene extends Phaser.Scene {
 
   init(data: { roomId: string }) {
     this.roomId = data.roomId;
-    const token = localStorage.getItem('token');
-    if (token) {
-        try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const payload = JSON.parse(window.atob(base64));
-            this.myUserId = payload.userId;
-        } catch (e) {
-            console.error('Failed to parse token', e);
+    if (typeof window !== 'undefined' && window.localStorage) {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const payload = JSON.parse(window.atob(base64));
+                this.myUserId = payload.userId;
+            } catch (e) {
+                console.error('Failed to parse token', e);
+            }
         }
     }
   }
@@ -95,6 +103,7 @@ export class HoldemScene extends Phaser.Scene {
     this.displayedCommunityCards = 0;
 
     this.createTable();
+    this.timerGraphics = this.add.graphics().setDepth(15);
     this.createUI();
     this.createSeats();
     this.createActionControls();
@@ -112,9 +121,35 @@ export class HoldemScene extends Phaser.Scene {
     });
   }
 
+  update() {
+    // Update Timer Graphics
+    if (this.turnTimerEvent && this.currentTimerSeat !== null) {
+        const container = this.seatContainers.get(this.currentTimerSeat);
+        if (container) {
+            const progress = this.turnTimerEvent.getProgress(); // 0 to 1
+            const remaining = 1 - progress;
+            const endAngle = Phaser.Math.DegToRad(360 * remaining - 90);
+            
+            this.timerGraphics.clear();
+            this.timerGraphics.lineStyle(6, 0x00ff00);
+            // Draw arc around avatar (radius 46)
+            this.timerGraphics.beginPath();
+            this.timerGraphics.arc(container.x, container.y, 46, Phaser.Math.DegToRad(-90), endAngle, false);
+            this.timerGraphics.strokePath();
+
+            if (remaining <= 0) {
+                this.timerGraphics.clear();
+            }
+        }
+    } else {
+        this.timerGraphics.clear();
+    }
+  }
+
   handleResize() {
     const { width, height } = this.scale;
     
+    // Adjusted breakpoints and logic for Tablet height issues
     if (width < 768) {
         this.layoutMode = 'mobile';
     } else if (width < 1200) {
@@ -133,11 +168,11 @@ export class HoldemScene extends Phaser.Scene {
 
   createUI() {
     this.potText = this.add.text(0, 0, 'POT: 0', { 
-        fontSize: '28px', 
+        fontSize: '18px',  // Smaller pot text
         color: '#ffd700', 
         fontStyle: 'bold',
         stroke: '#000000',
-        strokeThickness: 4
+        strokeThickness: 3
     }).setOrigin(0.5).setDepth(10);
 
     this.statusText = this.add.text(0, 0, '', { 
@@ -164,7 +199,15 @@ export class HoldemScene extends Phaser.Scene {
         // Avatar Image
         const avatarImg = this.add.image(0, 0, 'avatar-placeholder').setDisplaySize(80, 80);
         const maskShape = this.make.graphics();
-        maskShape.fillCircle(0, 0, 40);
+        maskShape.fillCircle(0, 0, 40); // Local to mask, needs to be positioned
+        
+        // Mask needs to be created dynamically in update loop or positioned correctly
+        // Since we are adding to container, let's use a simpler approach for mask:
+        // Mask coordinates are world coordinates unless masking a container locally.
+        // For simplicity, we just crop circular or use overlay.
+        // Actually, GeometryMask uses World Coordinates. We need to update mask position in updateLayout.
+        // Let's store maskShape to update it.
+        (avatarImg as any).maskShape = maskShape; 
         const mask = maskShape.createGeometryMask();
         avatarImg.setMask(mask);
         
@@ -184,7 +227,7 @@ export class HoldemScene extends Phaser.Scene {
         container.add([avatarBg, avatarImg, infoBg, nameText, chipsText, actionText, cardsContainer]);
         this.seatContainers.set(i, container);
 
-        // Sit Button - Make it larger for touch
+        // Sit Button
         const sitContainer = this.add.container(0, 0).setDepth(20).setVisible(false);
         const sitBg = this.add.rectangle(0, 0, 120, 60, 0x2e7d32)
             .setInteractive({ useHandCursor: true })
@@ -201,7 +244,6 @@ export class HoldemScene extends Phaser.Scene {
 
   createActionControls() {
     this.actionContainer = this.add.container(0, 0).setDepth(50).setVisible(false);
-    // ... same controls ...
     const actions = [
         { label: 'FOLD', color: 0xb71c1c, callback: () => this.sendAction('fold') },
         { label: 'CHECK', color: 0x1565c0, callback: () => this.sendAction('check') },
@@ -223,13 +265,12 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   createRaiseUI() {
-      // ... same raise UI ...
       this.raiseContainer = this.add.container(0, 0).setDepth(60).setVisible(false);
       
       const bg = this.add.rectangle(0, -100, 300, 150, 0x000000, 0.9).setStrokeStyle(2, 0xff8f00);
       const sliderLine = this.add.rectangle(0, -100, 200, 4, 0x888888);
       
-      this.raiseHandle = this.add.circle(-100, -100, 20, 0xff8f00) // Bigger handle
+      this.raiseHandle = this.add.circle(-100, -100, 20, 0xff8f00)
           .setInteractive({ useHandCursor: true, draggable: true });
           
       this.raiseAmountText = this.add.text(0, -150, 'Raise: 0', { fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
@@ -276,50 +317,64 @@ export class HoldemScene extends Phaser.Scene {
     this.tableGraphics.clear();
     
     // Layout Config
-    let rx, ry; // Table radius
+    let rx, ry; 
     let cardYOffset = 0;
+    
+    // Ensure table fits within height, leaving space for UI
+    const maxRy = (height * 0.4) - 40; 
     
     if (this.layoutMode === 'mobile') {
         rx = width * 0.42; 
-        ry = height * 0.35;
+        ry = Math.min(height * 0.35, maxRy);
         this.deckSprite.setPosition(cx, cy - 80);
         cardYOffset = 50;
     } else if (this.layoutMode === 'tablet') {
         rx = width * 0.4;
-        ry = height * 0.38;
-        this.deckSprite.setPosition(cx - 120, cy);
+        ry = Math.min(height * 0.30, maxRy); // Tighter on tablet
+        this.deckSprite.setPosition(cx - 100, cy);
     } else {
         rx = width * 0.35;
-        ry = height * 0.38;
+        ry = Math.min(height * 0.35, maxRy);
         this.deckSprite.setPosition(cx - 160, cy);
     }
 
     // Draw Table
-    this.tableGraphics.fillStyle(0x4e342e); // Wood
+    this.tableGraphics.fillStyle(0x4e342e); 
     this.tableGraphics.fillEllipse(cx, cy, rx * 2 + 30, ry * 2 + 30);
-    this.tableGraphics.fillStyle(0x35654d); // Green
+    this.tableGraphics.fillStyle(0x35654d); 
     this.tableGraphics.fillEllipse(cx, cy, rx * 2, ry * 2);
 
     // Positions
-    this.potText.setPosition(cx, cy - 40 - cardYOffset);
-    this.statusText.setPosition(cx, cy + 100 + cardYOffset); 
+    const potY = cy + 50 + cardYOffset; // Below community cards
+    this.potText.setPosition(cx, potY);
+    
+    this.statusText.setPosition(cx, cy + 120 + cardYOffset); 
     this.startButton.setPosition(cx, cy + 150 + cardYOffset);
 
-    // Calculate Seat Positions (Elliptical distribution)
+    // Calculate Seat Positions
     const seatPositions = this.calculateSeatPositions(cx, cy, rx, ry);
     
     this.seatContainers.forEach((container, i) => {
         container.setPosition(seatPositions[i].x, seatPositions[i].y);
         this.sitButtons[i].setPosition(seatPositions[i].x, seatPositions[i].y);
+        
+        // Update mask position
+        const avatarImg = container.getAt(1) as Phaser.GameObjects.Image;
+        const maskShape = (avatarImg as any).maskShape as Phaser.GameObjects.Graphics;
+        if (maskShape) {
+            maskShape.clear();
+            maskShape.fillCircle(seatPositions[i].x, seatPositions[i].y, 40);
+        }
     });
 
-    this.actionContainer.setPosition(cx, height - 60);
+    // Action Container always at bottom
+    this.actionContainer.setPosition(cx, height - 50); 
     this.raiseContainer.setPosition(cx, cy);
 
-    // Community Cards
-    const spacing = this.layoutMode === 'mobile' ? 55 : 70;
+    // Community Cards (Smaller)
+    const spacing = 55; // Tighter spacing
     const cardsY = cy + cardYOffset;
-    const cardsX = cx - (spacing * 2); // Start pos for 5 cards centered
+    const cardsX = cx - (spacing * 2); 
     
     this.communityCardContainers.forEach((container, i) => {
         container.setPosition(cardsX + i * spacing, cardsY);
@@ -327,15 +382,6 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   calculateSeatPositions(cx: number, cy: number, rx: number, ry: number) {
-      // 6 Seats around ellipse
-      // 0: Bottom
-      // 1: Bottom Left
-      // 2: Top Left
-      // 3: Top
-      // 4: Top Right
-      // 5: Bottom Right
-      
-      // Angles in radians. 0 is Right. Math.PI/2 is Bottom.
       const angles = [
           Math.PI / 2,         // 0: Bottom
           Math.PI * 0.85,      // 1: Bottom Left
@@ -345,8 +391,7 @@ export class HoldemScene extends Phaser.Scene {
           Math.PI * 0.15       // 5: Bottom Right
       ];
       
-      // Adjust offset from table edge
-      const offset = 60; // Distance from table edge
+      const offset = 60; 
       
       return angles.map(angle => ({
           x: cx + (rx + offset) * Math.cos(angle),
@@ -389,6 +434,22 @@ export class HoldemScene extends Phaser.Scene {
     
     const amISeated = newData.players.some(p => p.userId === this.myUserId);
     const playerCount = newData.players.length;
+
+    // Timer Logic
+    if (newData.status === 'playing' && newData.gameState.currentTurnSeat !== null) {
+        if (this.currentTimerSeat !== newData.gameState.currentTurnSeat) {
+            this.currentTimerSeat = newData.gameState.currentTurnSeat;
+            if (this.turnTimerEvent) this.turnTimerEvent.remove();
+            this.turnTimerEvent = this.time.addEvent({
+                delay: this.turnTotalTime,
+                callback: () => { /* Time out logic could trigger auto-fold here if wanted */ }
+            });
+        }
+    } else {
+        if (this.turnTimerEvent) this.turnTimerEvent.remove();
+        this.turnTimerEvent = null;
+        this.currentTimerSeat = null;
+    }
 
     if (newData.status === 'waiting') {
         if (playerCount < 2) {
@@ -447,7 +508,7 @@ export class HoldemScene extends Phaser.Scene {
           (c.getAt(3) as Phaser.GameObjects.Text).setText('Empty');
           (c.getAt(4) as Phaser.GameObjects.Text).setText('');
           (c.getAt(5) as Phaser.GameObjects.Text).setText('');
-          (c.getAt(6) as Phaser.GameObjects.Container).removeAll(true);
+          // Don't remove cards immediately if round active, handled below
           (c.getAt(0) as Phaser.GameObjects.Shape).setStrokeStyle(3, 0xaaaaaa);
       });
 
@@ -474,17 +535,28 @@ export class HoldemScene extends Phaser.Scene {
           else if (p.isAllIn) actionTxt.setText('ALL IN').setColor('#ff0000');
           else actionTxt.setText('');
 
-          if (cardsContainer.list.length === 0 && p.isActive && this.roomData?.status !== 'waiting') {
-               if (p.userId === this.myUserId && p.holeCards) {
-                   this.drawHoleCards(cardsContainer, p.holeCards);
-               } else {
-                   this.drawBackCards(cardsContainer);
-               }
+          // Dealing Logic
+          if (this.roomData?.status === 'playing' && p.isActive) {
+              // If container empty, deal
+              if (cardsContainer.list.length === 0) {
+                  if (p.userId === this.myUserId && p.holeCards) {
+                      this.animateDealHoleCards(cardsContainer, p.holeCards, true, container);
+                  } else {
+                      this.animateDealHoleCards(cardsContainer, [], false, container);
+                  }
+              }
+          } else if (this.roomData?.status === 'waiting') {
+               cardsContainer.removeAll(true);
           }
           
+          // Showdown reveal
           if (this.roomData?.currentRound === 'showdown' && p.isActive && p.holeCards) {
-              cardsContainer.removeAll(true);
-              this.drawHoleCards(cardsContainer, p.holeCards);
+              // Only redraw if not already showing faces (check first child texture key)
+              const firstChild = cardsContainer.list[0] as Phaser.GameObjects.Image;
+              if (firstChild && firstChild.texture.key === 'card-back') {
+                  cardsContainer.removeAll(true);
+                  this.drawHoleCards(cardsContainer, p.holeCards, false); // No animation needed for reveal, or simple flip
+              }
           }
       });
   }
@@ -528,7 +600,7 @@ export class HoldemScene extends Phaser.Scene {
       } catch (e) { console.error(e); }
   }
   
-  // ... Raise UI Logic (Same as before) ...
+  // ... Raise UI Logic ...
   toggleRaiseUI() {
       if (!this.roomData) return;
       const me = this.roomData.players.find(p => p.userId === this.myUserId);
@@ -569,23 +641,81 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   // --- Cards ---
-  drawHoleCards(container: Phaser.GameObjects.Container, cards: Card[]) {
+  
+  // Animation for dealing hole cards
+  animateDealHoleCards(container: Phaser.GameObjects.Container, cards: Card[], isMe: boolean, seatContainer: Phaser.GameObjects.Container) {
+      const startX = this.deckSprite.x - seatContainer.x;
+      const startY = this.deckSprite.y - seatContainer.y;
+      
+      const scale = isMe ? 0.5 : 0.3; // Bigger for me
+      const spacing = isMe ? 40 : 20;
+      const offset = isMe ? -20 : -10;
+      const yPos = isMe ? -50 : -40;
+
+      const cardCount = isMe ? cards.length : 2;
+      
+      for(let i=0; i<cardCount; i++) {
+          const targetX = i * spacing + offset;
+          const targetY = yPos;
+          
+          const cardObj = this.add.image(startX, startY, 'card-back').setScale(scale);
+          container.add(cardObj);
+          
+          this.tweens.add({
+              targets: cardObj,
+              x: targetX,
+              y: targetY,
+              duration: 500,
+              ease: 'Power2',
+              delay: i * 100, // Stagger deal
+              onComplete: () => {
+                  if (isMe && cards[i]) {
+                      // Flip animation for my cards
+                      this.tweens.add({
+                          targets: cardObj,
+                          scaleX: 0,
+                          duration: 150,
+                          onComplete: () => {
+                              cardObj.setTexture(`card-${cards[i].suit}-${cards[i].rank}`);
+                              this.tweens.add({
+                                  targets: cardObj,
+                                  scaleX: scale,
+                                  duration: 150
+                              });
+                          }
+                      });
+                  }
+              }
+          });
+      }
+  }
+
+  drawHoleCards(container: Phaser.GameObjects.Container, cards: Card[], isMe: boolean) {
+      const scale = isMe ? 0.5 : 0.3;
+      const spacing = isMe ? 40 : 20;
+      const offset = isMe ? -20 : -10;
+      const yPos = isMe ? -50 : -40;
+      
       cards.forEach((card, idx) => {
           const key = `card-${card.suit}-${card.rank}`;
-          const img = this.scene.scene.add.image(idx * 25 - 12, -40, key).setScale(0.2); 
+          const img = this.scene.scene.add.image(idx * spacing + offset, yPos, key).setScale(scale); 
           container.add(img);
       });
   }
   
   drawBackCards(container: Phaser.GameObjects.Container) {
-      const c1 = this.scene.scene.add.image(-12, -40, 'card-back').setScale(0.2);
-      const c2 = this.scene.scene.add.image(12, -40, 'card-back').setScale(0.2);
+      const scale = 0.3;
+      const spacing = 20;
+      const offset = -10;
+      const yPos = -40;
+      
+      const c1 = this.scene.scene.add.image(offset, yPos, 'card-back').setScale(scale);
+      const c2 = this.scene.scene.add.image(offset + spacing, yPos, 'card-back').setScale(scale);
       container.add([c1, c2]);
   }
   
   dealCommunityCards(cards: Card[], startIndex: number) {
-      // Calculate startX based on spacing and count (always center 5 cards space)
-      const spacing = this.layoutMode === 'mobile' ? 55 : 70;
+      const spacing = 55;
       const { width, height } = this.scale;
       const cx = width / 2;
       const cy = height / 2;
@@ -598,11 +728,11 @@ export class HoldemScene extends Phaser.Scene {
           const targetX = startX + i * spacing;
           const targetY = cardsY;
           
-          // Use deckSprite position if available, else center
           const deckX = this.deckSprite.x;
           const deckY = this.deckSprite.y;
           
-          const cardObj = this.add.image(deckX, deckY, 'card-back').setScale(0.3);
+          // Community Cards smaller (0.25)
+          const cardObj = this.add.image(deckX, deckY, 'card-back').setScale(0.25);
           this.communityCardContainers.push(cardObj as any);
           
           this.tweens.add({
@@ -620,7 +750,7 @@ export class HoldemScene extends Phaser.Scene {
                           cardObj.setTexture(`card-${card.suit}-${card.rank}`);
                           this.tweens.add({
                               targets: cardObj,
-                              scaleX: 0.3, 
+                              scaleX: 0.25, 
                               duration: 150
                           });
                       }
@@ -651,6 +781,12 @@ export class HoldemScene extends Phaser.Scene {
       if (!token) return;
       this.actionContainer.setVisible(false);
       this.raiseContainer.setVisible(false);
+      if (this.turnTimerEvent) {
+          this.turnTimerEvent.remove(); // Stop timer on action
+          this.turnTimerEvent = null;
+          this.currentTimerSeat = null;
+          this.timerGraphics.clear();
+      }
       try {
           await fetch('/api/holdem/action', {
               method: 'POST',
@@ -689,5 +825,9 @@ export class HoldemScene extends Phaser.Scene {
       this.seatContainers.forEach(c => {
           (c.getAt(6) as Phaser.GameObjects.Container).removeAll(true);
       });
+      this.currentTimerSeat = null;
+      if (this.turnTimerEvent) this.turnTimerEvent.remove();
+      this.turnTimerEvent = null;
+      this.timerGraphics.clear();
   }
 }
