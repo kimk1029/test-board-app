@@ -146,6 +146,20 @@ export default function IchibanKujiGame() {
                 }));
 
                 setTickets(convertedTickets);
+
+                // [NEW] 서버 데이터 기반으로 PRIZE_LIST의 totalQty 업데이트
+                // 이렇게 하면 어드민에서 설정한 수량이 반영됨
+                PRIZE_LIST.forEach(prize => {
+                    // 해당 랭크의 전체 티켓 수 계산
+                    const totalForRank = convertedTickets.filter(t => t.rank === prize.rank).length;
+                    // PRIZE_LIST는 const지만 객체 내부 속성은 변경 가능 (얕은 복사나 상태 관리가 더 좋지만, 
+                    // 여기서는 전역 상수를 업데이트하여 컴포넌트 전체에 반영)
+                    // *주의*: 리액트 리렌더링을 위해 상태로 관리하는 것이 정석이나, 
+                    // PRIZE_LIST가 컴포넌트 외부에 있어 직접 수정함. 
+                    // 더 좋은 방법은 PRIZE_LIST를 state로 관리하는 것임.
+                    prize.totalQty = totalForRank > 0 ? totalForRank : prize.totalQty;
+                });
+
             } else {
                 console.error('Failed to load box state');
                 alert('박스 상태를 불러오는데 실패했습니다.');
@@ -314,7 +328,7 @@ export default function IchibanKujiGame() {
                 // 모든 티켓 오픈 완료
                 setGameState('RESULT');
             }
-        }, 2000); // 결과 보여주는 시간
+        }, 3000); // 결과 보여주는 시간
     };
 
     // 리셋
@@ -558,8 +572,10 @@ export default function IchibanKujiGame() {
                                                     `}
                                                 >
                                                     {ticket.isTaken ? (
-                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                                                            <span className="text-2xl font-black text-slate-700 rotate-12">SOLD</span>
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20">
+                                                            <div className="text-3xl font-black rotate-12 drop-shadow-lg" style={{ color: PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || '#555' }}>
+                                                                {ticket.rank}
+                                                            </div>
                                                         </div>
                                                     ) : (
                                                         <>
@@ -690,7 +706,7 @@ function PeelingTicket({ ticketId, realRank, onPeelComplete }: { ticketId: numbe
                 // 결과 보여주고 부모에게 알림
                 setTimeout(() => {
                     onPeelComplete();
-                }, 1500); // 결과 확인 시간 늘림
+                }, 100); // 즉시 결과 확인 및 폭죽
             }, 300);
         }
     };

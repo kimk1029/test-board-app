@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 // --- Game Data ---
 const GAMES = {
     casino: [
-        { id: 'holdem', name: 'Texas Holdem', desc: '심리전의 정수, 텍사스 홀덤', icon: Users, path: '/game/holdem', color: 'from-red-600 to-rose-900', accent: 'text-red-500' },
+        { id: 'holdem', name: 'Texas Holdem', desc: '심리전의 정수, 텍사스 홀덤', icon: Users, path: '/game/holdem', color: 'from-red-600 to-rose-900', accent: 'text-red-500', multiplayer: true },
         { id: 'blackjack', name: 'Blackjack', desc: '21을 향한 승부', icon: Club, path: '/game/blackjack', color: 'from-slate-700 to-slate-900', accent: 'text-slate-400' },
         { id: 'bustabit', name: 'Graph Game', desc: '타이밍이 생명! 그래프', icon: TrendingUp, path: '/game/bustabit', color: 'from-orange-600 to-red-700', accent: 'text-orange-500' },
         { id: 'roulette', name: 'Roulette', desc: '운명의 휠을 돌려라', icon: Disc, path: '/game/roulette', color: 'from-purple-600 to-pink-700', accent: 'text-purple-500', beta: true },
@@ -105,7 +105,7 @@ export default function GameLobby() {
     // --- Components ---
 
     const GameCard = ({ game }: { game: any }) => (
-        <Link href={game.path} onClick={(e) => handleGameClick(e, game)} className="group relative block h-48">
+        <Link href={game.path} onClick={(e) => handleGameClick(e, game)} className="group relative block h-40">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -113,19 +113,19 @@ export default function GameLobby() {
                 className="h-full w-full"
             >
                 <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 rounded-2xl -z-10`} />
-                <div className="h-full bg-[#18181b] border border-white/5 rounded-2xl p-5 flex flex-col justify-between hover:border-white/20 hover:bg-[#202023] transition-all duration-300 relative overflow-hidden">
+                <div className="h-full bg-[#18181b] border border-white/5 rounded-2xl p-4 flex flex-col justify-between hover:border-white/20 hover:bg-[#202023] transition-all duration-300 relative overflow-hidden">
                     {game.beta && <span className="absolute top-3 right-3 text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-400/20">BETA</span>}
                     {game.pcOnly && <span className="absolute top-3 right-3 text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20">PC</span>}
                     {game.multiplayer && <span className="absolute top-3 right-3 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20 animate-pulse">MULTI</span>}
 
                     <div className="z-10">
-                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg mb-3`}>
-                            <game.icon className="w-5 h-5 text-white" />
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg mb-3`}>
+                            <game.icon className="w-4 h-4 text-white" />
                         </div>
-                        <h3 className="text-lg font-bold text-white mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-gray-400 transition-all">
+                        <h3 className="text-base font-bold text-white mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-gray-400 transition-all">
                             {game.name}
                         </h3>
-                        <p className="text-gray-400 text-xs line-clamp-2">{game.desc}</p>
+                        <p className="text-gray-400 text-[11px] line-clamp-1">{game.desc}</p>
                     </div>
                 </div>
             </motion.div>
