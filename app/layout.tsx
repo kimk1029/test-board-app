@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import GoogleAdsense from '@/components/GoogleAdsense'
+import OnlineUsers from '@/components/OnlineUsers'
 
 export const metadata: Metadata = {
   title: '🎰 잭팟 & 무한의 계단 | 미니게임 천국',
@@ -36,7 +38,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <head>
+        <GoogleAdsense pId={process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_ID || ''} />
+      </head>
+      <body>
+        {children}
+        <OnlineUsers />
+      </body>
     </html>
   )
 }

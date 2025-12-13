@@ -28,6 +28,7 @@ model User {
   billboardEvents BillboardEvent[] // 전광판 이벤트
   achievements  UserAchievement[] // 획득한 업적 관계
   likes         Like[]    // 좋아요 한 기록
+  missionRewards Json?    @default("[]") // 수령한 미션 보상 목록 (예: ["post_10", "comment_50"])
 }
 
 model Post {
