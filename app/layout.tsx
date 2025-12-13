@@ -5,7 +5,7 @@ import OnlineUsers from '@/components/OnlineUsers'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://dopamine-ground.vercel.app'),
-  title: '🎰 잭팟 & 무한의 계단 | 미니게임 천국',
+  title: '도파민랜드 | DOPAMINE LAND',
   description: '지금 접속하면 100포인트 무료! 실시간 랭킹 1위에 도전하세요.',
   icons: {
     icon: [
@@ -15,16 +15,16 @@ export const metadata: Metadata = {
     apple: '/arcade-icon.svg',
   },
   openGraph: {
-    title: '🎰 잭팟 & 무한의 계단 | 미니게임 천국',
+    title: '도파민랜드 | DOPAMINE LAND',
     description: '지금 접속하면 100포인트 무료! 실시간 랭킹 1위에 도전하세요.',
     url: 'https://dopamine-ground.vercel.app',
-    siteName: 'Dopamine Ground',
+    siteName: '도파민랜드',
     images: [
       {
         url: '/images/og-default.png',
         width: 1200,
         height: 630,
-        alt: 'Dopamine Ground Main Preview',
+        alt: '도파민랜드 Main Preview',
       },
     ],
     locale: 'ko_KR',

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { RefreshCcw, Save, ShieldAlert, History, Users } from 'lucide-react'
+import { RefreshCcw, Save, ShieldAlert, History, Users, LayoutDashboard, Settings } from 'lucide-react'
 import {
     Table,
     TableBody,
@@ -25,6 +25,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // 기본값
 interface PrizeConfig {
@@ -141,169 +142,202 @@ export default function AdminPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Kuji Configuration */}
-                    <Card className="bg-[#18181b] border-white/10 lg:col-span-2">
-                        <CardHeader>
-                            <CardTitle className="text-white flex items-center gap-2">
-                                <RefreshCcw className="w-5 h-5 text-yellow-500" />
-                                Ichiban Kuji Settings
-                            </CardTitle>
-                            <CardDescription>
-                                각 등급별 상품명과 티켓 수량을 설정하고 박스를 초기화합니다. (LAST_ONE은 수량 1개 고정)
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4 mb-6">
-                                {prizes.map((prize) => (
-                                    <div key={prize.rank} className="flex flex-col sm:flex-row gap-4 items-center bg-black/20 p-3 rounded-lg border border-white/5">
-                                        <div className="w-12 h-12 rounded flex items-center justify-center font-black text-lg text-white shrink-0" style={{ backgroundColor: prize.color }}>
-                                            {prize.rank}
-                                        </div>
+                <Tabs defaultValue="kuji" className="w-full">
+                    <TabsList className="bg-[#18181b] border border-white/10 mb-8">
+                        <TabsTrigger value="kuji" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                            Ichiban Kuji
+                        </TabsTrigger>
+                        <TabsTrigger value="users" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                            User Management
+                        </TabsTrigger>
+                        <TabsTrigger value="settings" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                            System Settings
+                        </TabsTrigger>
+                    </TabsList>
 
-                                        <div className="flex-1 w-full">
-                                            <Label className="text-xs text-slate-400 mb-1 block">Product Name</Label>
-                                            <Input
-                                                type="text"
-                                                value={prize.name}
-                                                onChange={(e) => handleChange(prize.rank, 'name', e.target.value)}
-                                                className="bg-black/40 border-white/10 text-white"
-                                                placeholder="상품명 입력"
-                                            />
-                                        </div>
+                    <TabsContent value="kuji">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Kuji Configuration */}
+                            <Card className="bg-[#18181b] border-white/10">
+                                <CardHeader>
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <RefreshCcw className="w-5 h-5 text-yellow-500" />
+                                        Configuration
+                                    </CardTitle>
+                                    <CardDescription>
+                                        각 등급별 상품명과 수량 설정 (LAST_ONE 1개 고정)
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3 mb-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {prizes.map((prize) => (
+                                            <div key={prize.rank} className="flex flex-col sm:flex-row gap-3 items-center bg-black/20 p-2 rounded-lg border border-white/5 text-sm">
+                                                <div className="w-8 h-8 rounded flex items-center justify-center font-black text-sm text-white shrink-0" style={{ backgroundColor: prize.color }}>
+                                                    {prize.rank}
+                                                </div>
 
-                                        <div className="w-full sm:w-32">
-                                            <Label className="text-xs text-slate-400 mb-1 block">Quantity</Label>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                value={prize.qty}
-                                                onChange={(e) => handleChange(prize.rank, 'qty', e.target.value)}
-                                                className="bg-black/40 border-white/10 text-white font-mono"
-                                                disabled={prize.rank === 'LAST_ONE'} // LAST_ONE 수량 고정
-                                            />
-                                        </div>
+                                                <div className="flex-1 w-full">
+                                                    <Input
+                                                        type="text"
+                                                        value={prize.name}
+                                                        onChange={(e) => handleChange(prize.rank, 'name', e.target.value)}
+                                                        className="bg-black/40 border-white/10 text-white h-8 text-xs"
+                                                        placeholder="상품명"
+                                                    />
+                                                </div>
+
+                                                <div className="w-full sm:w-20">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        value={prize.qty}
+                                                        onChange={(e) => handleChange(prize.rank, 'qty', e.target.value)}
+                                                        className="bg-black/40 border-white/10 text-white font-mono h-8 text-xs"
+                                                        disabled={prize.rank === 'LAST_ONE'}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
 
-                            <div className="bg-black/40 p-4 rounded-lg mb-6 border border-white/5 flex justify-between items-center">
-                                <span className="text-slate-400">Total Playable Tickets</span>
-                                <span className="text-2xl font-black text-white">{totalTickets}</span>
-                            </div>
+                                    <div className="bg-black/40 p-3 rounded-lg mb-4 border border-white/5 flex justify-between items-center text-sm">
+                                        <span className="text-slate-400">Total Tickets</span>
+                                        <span className="text-xl font-black text-white">{totalTickets}</span>
+                                    </div>
 
-                            <Button
-                                onClick={handleReset}
-                                disabled={loading}
-                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-lg"
-                            >
-                                {loading ? '초기화 중...' : '설정 저장 및 박스 초기화 (RESET)'}
-                            </Button>
-                        </CardContent>
-                    </Card>
+                                    <Button
+                                        onClick={handleReset}
+                                        disabled={loading}
+                                        className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 text-sm"
+                                    >
+                                        {loading ? 'Processing...' : 'RESET BOX'}
+                                    </Button>
+                                </CardContent>
+                            </Card>
 
-                    {/* Game History Section */}
-                    <Card className="bg-[#18181b] border-white/10 lg:col-span-2">
-                        <CardHeader>
-                            <CardTitle className="text-white flex items-center gap-2">
-                                <History className="w-5 h-5 text-indigo-500" />
-                                Game History
-                            </CardTitle>
-                            <CardDescription>
-                                종료된 게임의 결과와 당첨자 내역을 조회합니다.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {isHistoryLoading ? (
-                                <div className="text-center py-8 text-slate-500">Loading history...</div>
-                            ) : history.length === 0 ? (
-                                <div className="text-center py-8 text-slate-500">No history found.</div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="border-white/10 hover:bg-white/5">
-                                                <TableHead className="text-slate-400">Date (Ended)</TableHead>
-                                                <TableHead className="text-slate-400">Box ID</TableHead>
-                                                <TableHead className="text-slate-400">Tickets Sold</TableHead>
-                                                <TableHead className="text-right text-slate-400">Action</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {history.map((box) => (
-                                                <TableRow key={box.id} className="border-white/10 hover:bg-white/5">
-                                                    <TableCell className="font-mono text-slate-300">
-                                                        {new Date(box.updatedAt).toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell className="text-slate-300">#{box.id}</TableCell>
-                                                    <TableCell className="text-slate-300">{box.totalSold}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Dialog>
-                                                            <DialogTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20"
-                                                                    onClick={() => setSelectedBox(box)}
-                                                                >
-                                                                    <Users className="w-4 h-4 mr-2" />
-                                                                    View Winners
-                                                                </Button>
-                                                            </DialogTrigger>
-                                                            <DialogContent className="bg-[#18181b] border-white/10 text-slate-100 max-w-3xl max-h-[80vh] overflow-y-auto">
-                                                                <DialogHeader>
-                                                                    <DialogTitle>Winner List (Box #{box.id})</DialogTitle>
-                                                                    <DialogDescription>
-                                                                        해당 회차의 당첨자 목록입니다.
-                                                                    </DialogDescription>
-                                                                </DialogHeader>
-                                                                <Table>
-                                                                    <TableHeader>
-                                                                        <TableRow className="border-white/10 hover:bg-white/5">
-                                                                            <TableHead className="text-slate-400 w-16">Rank</TableHead>
-                                                                            <TableHead className="text-slate-400">Prize</TableHead>
-                                                                            <TableHead className="text-slate-400">User</TableHead>
-                                                                            <TableHead className="text-slate-400">Email</TableHead>
-                                                                            <TableHead className="text-right text-slate-400">Time</TableHead>
-                                                                        </TableRow>
-                                                                    </TableHeader>
-                                                                    <TableBody>
-                                                                        {box.winners.map((winner: any, idx: number) => (
-                                                                            <TableRow key={idx} className="border-white/10 hover:bg-white/5">
-                                                                                <TableCell className="font-bold text-white">
-                                                                                    <span className="px-2 py-1 rounded bg-white/10 text-xs">
-                                                                                        {winner.rank}
-                                                                                    </span>
-                                                                                </TableCell>
-                                                                                <TableCell className="text-slate-300">{winner.prizeName}</TableCell>
-                                                                                <TableCell className="font-medium text-indigo-400">{winner.user}</TableCell>
-                                                                                <TableCell className="text-slate-500 text-xs">{winner.email}</TableCell>
-                                                                                <TableCell className="text-right font-mono text-slate-500 text-xs">
-                                                                                    {new Date(winner.at).toLocaleTimeString()}
-                                                                                </TableCell>
-                                                                            </TableRow>
-                                                                        ))}
-                                                                        {box.winners.length === 0 && (
-                                                                            <TableRow>
-                                                                                <TableCell colSpan={5} className="text-center py-4 text-slate-500">
-                                                                                    당첨 내역이 없습니다.
-                                                                                </TableCell>
-                                                                            </TableRow>
-                                                                        )}
-                                                                    </TableBody>
-                                                                </Table>
-                                                            </DialogContent>
-                                                        </Dialog>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+                            {/* Game History Section */}
+                            <Card className="bg-[#18181b] border-white/10">
+                                <CardHeader>
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <History className="w-5 h-5 text-indigo-500" />
+                                        Game History
+                                    </CardTitle>
+                                    <CardDescription>
+                                        종료된 게임 결과
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {isHistoryLoading ? (
+                                        <div className="text-center py-8 text-slate-500 text-sm">Loading...</div>
+                                    ) : history.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-500 text-sm">No history found.</div>
+                                    ) : (
+                                        <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="border-white/10 hover:bg-white/5">
+                                                        <TableHead className="text-slate-400 text-xs">Ended At</TableHead>
+                                                        <TableHead className="text-slate-400 text-xs">ID</TableHead>
+                                                        <TableHead className="text-right text-slate-400 text-xs">View</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {history.map((box) => (
+                                                        <TableRow key={box.id} className="border-white/10 hover:bg-white/5">
+                                                            <TableCell className="font-mono text-slate-300 text-xs">
+                                                                {new Date(box.updatedAt).toLocaleDateString()}
+                                                            </TableCell>
+                                                            <TableCell className="text-slate-300 text-xs">#{box.id}</TableCell>
+                                                            <TableCell className="text-right">
+                                                                <Dialog>
+                                                                    <DialogTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-6 w-6 text-indigo-400 hover:text-indigo-300"
+                                                                            onClick={() => setSelectedBox(box)}
+                                                                        >
+                                                                            <Users className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </DialogTrigger>
+                                                                    <DialogContent className="bg-[#18181b] border-white/10 text-slate-100 max-w-2xl max-h-[80vh] overflow-y-auto">
+                                                                        <DialogHeader>
+                                                                            <DialogTitle>Winner List (Box #{box.id})</DialogTitle>
+                                                                            <DialogDescription>
+                                                                                Total Sold: {box.totalSold}
+                                                                            </DialogDescription>
+                                                                        </DialogHeader>
+                                                                        <Table>
+                                                                            <TableHeader>
+                                                                                <TableRow className="border-white/10 hover:bg-white/5">
+                                                                                    <TableHead className="text-slate-400 w-12 text-xs">Rank</TableHead>
+                                                                                    <TableHead className="text-slate-400 text-xs">Prize</TableHead>
+                                                                                    <TableHead className="text-slate-400 text-xs">User</TableHead>
+                                                                                    <TableHead className="text-right text-slate-400 text-xs">Time</TableHead>
+                                                                                </TableRow>
+                                                                            </TableHeader>
+                                                                            <TableBody>
+                                                                                {box.winners.map((winner: any, idx: number) => (
+                                                                                    <TableRow key={idx} className="border-white/10 hover:bg-white/5">
+                                                                                        <TableCell className="font-bold text-white">
+                                                                                            <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px]">
+                                                                                                {winner.rank}
+                                                                                            </span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-slate-300 text-xs truncate max-w-[150px]">{winner.prizeName}</TableCell>
+                                                                                        <TableCell className="font-medium text-indigo-400 text-xs">{winner.user}</TableCell>
+                                                                                        <TableCell className="text-right font-mono text-slate-500 text-[10px]">
+                                                                                            {new Date(winner.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                ))}
+                                                                                {box.winners.length === 0 && (
+                                                                                    <TableRow>
+                                                                                        <TableCell colSpan={4} className="text-center py-4 text-slate-500 text-xs">
+                                                                                            No winners.
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                )}
+                                                                            </TableBody>
+                                                                        </Table>
+                                                                    </DialogContent>
+                                                                </Dialog>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="users">
+                        <Card className="bg-[#18181b] border-white/10">
+                            <CardHeader>
+                                <CardTitle className="text-white">User Management</CardTitle>
+                                <CardDescription>Manage user accounts and permissions.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="text-slate-500 text-center py-10">
+                                Coming Soon...
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="settings">
+                        <Card className="bg-[#18181b] border-white/10">
+                            <CardHeader>
+                                <CardTitle className="text-white">System Settings</CardTitle>
+                                <CardDescription>Configure global system variables.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="text-slate-500 text-center py-10">
+                                Coming Soon...
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </main>
         </div>
     )

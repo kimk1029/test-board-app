@@ -138,10 +138,10 @@ const HeaderNavigator = () => {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(124,58,237,0.5)] group-hover:shadow-[0_0_25px_rgba(124,58,237,0.8)] transition-all">
-              K
+              D
             </div>
             <span className="text-xl font-bold tracking-tighter text-white group-hover:text-violet-300 transition-colors">
-              PLAYGROUND
+              도파민랜드
             </span>
           </Link>
 
@@ -192,6 +192,13 @@ const HeaderNavigator = () => {
                       <Progress value={progress} className="h-1.5 bg-white/10" indicatorClassName="bg-gradient-to-r from-violet-600 to-indigo-600" />
                     </div>
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="w-full cursor-pointer font-bold flex items-center gap-2 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white">
+                      <UserIcon className="w-4 h-4" />
+                      MY PROFILE
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem
                     onClick={handleLogout}
