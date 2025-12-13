@@ -418,7 +418,7 @@ class MainScene extends Phaser.Scene {
     private createControlPanel() {
         const spinBg = this.add.rectangle(0, 0, 220, 70, 0xe63946, 1).setInteractive({ useHandCursor: true })
         spinBg.setStrokeStyle(4, 0xffffff)
-        this.spinButtonText = this.add.text(0, 0, 'SPIN (0.1)', { fontSize: '28px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5)
+        this.spinButtonText = this.add.text(0, 0, 'SPIN (1)', { fontSize: '28px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5)
         const spinContainer = this.add.container(0, 0, [spinBg, this.spinButtonText])
 
         spinBg.on('pointerdown', () => {
@@ -504,11 +504,11 @@ class MainScene extends Phaser.Scene {
     private updateButtons() {
         if (this.isX5Mode) {
             this.x5ButtonBg.setFillStyle(0xffd700); this.x5ButtonBg.setStrokeStyle(2, 0xffffff)
-            this.spinButtonText.setText('SPIN (0.5)'); const text = this.x5Button.getAt(1) as Phaser.GameObjects.Text; text.setColor('#000')
+            this.spinButtonText.setText('SPIN (5)'); const text = this.x5Button.getAt(1) as Phaser.GameObjects.Text; text.setColor('#000')
             this.updatePaytable(5)
         } else {
             this.x5ButtonBg.setFillStyle(0x333333); this.x5ButtonBg.setStrokeStyle(2, 0x888888)
-            this.spinButtonText.setText('SPIN (0.1)'); const text = this.x5Button.getAt(1) as Phaser.GameObjects.Text; text.setColor('#888')
+            this.spinButtonText.setText('SPIN (1)'); const text = this.x5Button.getAt(1) as Phaser.GameObjects.Text; text.setColor('#888')
             this.updatePaytable(1)
         }
     }
@@ -584,7 +584,7 @@ class MainScene extends Phaser.Scene {
 
     private async handleSpin() {
         if (this.isSpinning) return
-        const betAmount = this.isX5Mode ? 0.5 : 0.1
+        const betAmount = this.isX5Mode ? 5 : 1
         if (this.playerPoints < betAmount) { this.showFloatingText(0, 0, '포인트 부족!', '#ff0000'); return }
 
         this.isSpinning = true
@@ -632,7 +632,7 @@ class MainScene extends Phaser.Scene {
         })
 
         await Promise.all(promises)
-        const currentBet = this.isX5Mode ? 0.5 : 0.1
+        const currentBet = this.isX5Mode ? 5 : 1
         this.checkWin(finalResult, this.isX5Mode ? 5 : 1, currentBet)
         this.isSpinning = false
     }

@@ -18,6 +18,7 @@ model User {
   nickname      String?
   points        Float     @default(0)
   level         Int       @default(1)
+  userType      Int       @default(0) // 0: Normal User, 1: Admin
   lastLoginDate DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -29,6 +30,7 @@ model User {
   achievements  UserAchievement[] // 획득한 업적 관계
   likes         Like[]    // 좋아요 한 기록
   missionRewards Json?    @default("[]") // 수령한 미션 보상 목록 (예: ["post_10", "comment_50"])
+  userType      Int       @default(0)    // 0: 일반 유저, 1: 어드민
   holdemPlayers HoldemPlayer[] // 홀덤 플레이어 관계
 }
 

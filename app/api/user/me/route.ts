@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         nickname: true,
         points: true,
         level: true,
+        userType: true,
         createdAt: true,
       },
     })

@@ -39,22 +39,22 @@ const HeaderNavigator = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  
+
   const loadUserData = async () => {
     const token = localStorage.getItem('token')
     const storedUser = localStorage.getItem('user')
-    
+
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser)
         setUser(parsedUser)
-        
+
         if (token) {
           try {
             const response = await fetch('/api/user/me', {
               headers: { Authorization: `Bearer ${token}` },
             })
-            
+
             if (response.ok) {
               const userData = await response.json()
               setUser(userData)
@@ -69,12 +69,12 @@ const HeaderNavigator = () => {
       }
     }
   }
-  
+
   useEffect(() => {
     updateUserPoints = loadUserData
     return () => { updateUserPoints = null }
   }, [])
-  
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10)
@@ -82,7 +82,7 @@ const HeaderNavigator = () => {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
-  
+
   useEffect(() => {
     loadUserData()
   }, [])
@@ -128,11 +128,10 @@ const HeaderNavigator = () => {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
-          isScrolled
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${isScrolled
             ? 'bg-black/80 backdrop-blur-md border-white/10 h-16'
             : 'bg-transparent border-transparent h-20'
-        }`}
+          }`}
       >
         <div className="container mx-auto h-full flex items-center justify-between px-4 sm:px-6">
           {/* Logo */}
@@ -151,11 +150,10 @@ const HeaderNavigator = () => {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-sm font-bold tracking-wide transition-all flex items-center gap-2 ${
-                  pathname === link.href
+                className={`text-sm font-bold tracking-wide transition-all flex items-center gap-2 ${pathname === link.href
                     ? 'text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]'
                     : 'text-slate-400 hover:text-white hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]'
-                }`}
+                  }`}
               >
                 <link.icon className="w-4 h-4" />
                 {link.label}
@@ -182,27 +180,27 @@ const HeaderNavigator = () => {
                 <DropdownMenuContent align="end" className="w-80 bg-[#0f1115] border-white/10 text-slate-200 backdrop-blur-xl">
                   <DropdownMenuLabel>
                     <div className="flex justify-between items-center mb-2">
-                        <span className="text-white font-bold">My Status</span>
-                        <span className="text-xs text-violet-400 font-mono">LV.{level}</span>
+                      <span className="text-white font-bold">My Status</span>
+                      <span className="text-xs text-violet-400 font-mono">LV.{level}</span>
                     </div>
                     <div className="bg-black/40 rounded-lg p-3 border border-white/5">
-                        <div className="flex justify-between text-xs mb-1">
-                            <span className="text-slate-400">EXP</span>
-                            <span className="text-white">{points.toLocaleString()} / {nextLevelPoints.toLocaleString()}</span>
-                        </div>
-                        <Progress value={progress} className="h-1.5 bg-white/10" indicatorClassName="bg-gradient-to-r from-violet-600 to-indigo-600" />
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-400">EXP</span>
+                        <span className="text-white">{points.toLocaleString()} / {nextLevelPoints.toLocaleString()}</span>
+                      </div>
+                      <Progress value={progress} className="h-1.5 bg-white/10" indicatorClassName="bg-gradient-to-r from-violet-600 to-indigo-600" />
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="w-full cursor-pointer font-bold flex items-center gap-2 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white">
-                        <UserIcon className="w-4 h-4" />
-                        MY PROFILE
+                      <UserIcon className="w-4 h-4" />
+                      MY PROFILE
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem 
-                    onClick={handleLogout} 
+                  <DropdownMenuItem
+                    onClick={handleLogout}
                     className="text-red-400 focus:text-red-300 focus:bg-red-500/10 cursor-pointer font-bold"
                   >
                     LOGOUT
@@ -210,7 +208,7 @@ const HeaderNavigator = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button 
+              <Button
                 onClick={() => setIsVisibleLogin(true)}
                 className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-6 rounded-full shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] transition-all"
               >
@@ -219,44 +217,43 @@ const HeaderNavigator = () => {
             )}
 
             {/* Mobile Menu Button */}
-            <button 
-                className="md:hidden text-white p-2"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            <button
+              className="md:hidden text-white p-2"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-                {mobileMenuOpen ? <X /> : <Menu />}
+              {mobileMenuOpen ? <X /> : <Menu />}
             </button>
           </div>
         </div>
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-            <div className="md:hidden absolute top-full left-0 w-full bg-[#0a0a0c]/95 backdrop-blur-xl border-b border-white/10 p-4 flex flex-col gap-4 shadow-2xl animate-in slide-in-from-top-5">
-                {navLinks.map((link) => (
-                    <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`text-lg font-bold py-2 px-4 rounded-lg flex items-center gap-3 ${
-                            pathname === link.href
-                                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
-                                : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                        }`}
-                    >
-                        <link.icon className="w-5 h-5" />
-                        {link.label}
-                    </Link>
-                ))}
-                {user && (
-                    <Link
-                        href="/profile"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="text-lg font-bold py-2 px-4 rounded-lg flex items-center gap-3 text-slate-400 hover:bg-white/5 hover:text-white"
-                    >
-                        <UserIcon className="w-5 h-5" />
-                        MY PROFILE
-                    </Link>
-                )}
-            </div>
+          <div className="md:hidden absolute top-full left-0 w-full bg-[#0a0a0c]/95 backdrop-blur-xl border-b border-white/10 p-4 flex flex-col gap-4 shadow-2xl animate-in slide-in-from-top-5">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`text-lg font-bold py-2 px-4 rounded-lg flex items-center gap-3 ${pathname === link.href
+                    ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  }`}
+              >
+                <link.icon className="w-5 h-5" />
+                {link.label}
+              </Link>
+            ))}
+            {user && (
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-lg font-bold py-2 px-4 rounded-lg flex items-center gap-3 text-slate-400 hover:bg-white/5 hover:text-white"
+              >
+                <UserIcon className="w-5 h-5" />
+                MY PROFILE
+              </Link>
+            )}
+          </div>
         )}
       </header>
       <LoginModal

@@ -77,6 +77,8 @@ export async function POST(request: NextRequest) {
               multiplier: 0,
             },
           })
+          // [수정] Kuji는 즉시 포인트가 차감된 상태가 DB에 반영되어야 하므로 isPointsChanged를 true로 설정
+          // 위에서 이미 true로 설정되어 있지만 명시적으로 주석으로 남김
         } catch (logError) {
           console.error('Kuji 로그 저장 실패:', logError)
         }
