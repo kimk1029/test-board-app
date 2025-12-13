@@ -230,7 +230,20 @@ export class HoldemScene extends Phaser.Scene {
 
     // 1. Update UI Texts
     this.potText.setText(`${newData.pot.toLocaleString()}`);
-    this.statusText.setText(newData.status === 'waiting' ? 'Waiting for players...' : '');
+    
+    // Status Text Logic
+    if (newData.status === 'waiting') {
+        if (newData.players.length < 2) {
+            this.statusText.setText('Waiting for more players...');
+        } else {
+            // 2명 이상이면 버튼이 보이므로 텍스트는 숨기거나 안내 문구
+            this.statusText.setText('Ready to Start!');
+        }
+    } else if (newData.status === 'finished') {
+        // Winner logic handles text, so maybe skip or append
+    } else {
+        this.statusText.setText('');
+    }
 
     // 2. Start Button Visibility
     // Show if waiting and players >= 2
