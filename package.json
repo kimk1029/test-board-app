@@ -29,6 +29,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/nodemailer": "^7.0.4",
     "bcryptjs": "^2.4.3",
+    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.25",
@@ -48,6 +49,7 @@
     "three": "^0.160.1"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20.10.6",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",

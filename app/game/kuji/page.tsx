@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import HeaderNavigator from '@/components/HeaderNavigator';
+import { Sparkles, Gift } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 // --- Types ---
 type Rank = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'LAST_ONE';
@@ -95,7 +97,7 @@ export default function IchibanKujiGame() {
                 loadBoxState();
             }
         }, 3000); // 3초마다 업데이트
-        
+
         return () => clearInterval(interval);
     }, [gameState]);
 
@@ -293,20 +295,26 @@ export default function IchibanKujiGame() {
         const currentTicket = tickets.find(t => t.id === currentTicketId)!;
         setWonPrizes(prev => [...prev, currentTicket]);
 
+        // 폭죽 효과 (Confetti)
+        const prizeInfo = PRIZE_LIST.find(p => p.rank === currentTicket.rank);
+        const color = prizeInfo?.color || '#ffffff';
+        confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: [color, '#ffd700', '#ffffff'],
+            shapes: ['circle', 'square', 'star']
+        });
+
         // 다음 티켓으로 넘어가거나 결과창으로
         setTimeout(() => {
             if (currentPeelIndex < selectedIds.length - 1) {
                 setCurrentPeelIndex(prev => prev + 1);
             } else {
                 // 모든 티켓 오픈 완료
-                // 라스트원 체크 (방금 뽑은게 마지막이었나?)
-                const remainingAfterThis = totalRemaining - selectedIds.length;
-                if (remainingAfterThis === 0) {
-                    // 라스트원 상 추가 로직은 결과창에서 처리
-                }
                 setGameState('RESULT');
             }
-        }, 1500); // 결과 보여주는 시간
+        }, 2000); // 결과 보여주는 시간
     };
 
     // 리셋
@@ -329,301 +337,337 @@ export default function IchibanKujiGame() {
     };
 
     return (
-        <div>
+        <div className="min-h-screen bg-black text-slate-100 font-sans overflow-x-hidden selection:bg-indigo-500/30">
             <HeaderNavigator />
-            <div className="min-h-screen bg-gradient-to-br from-pink-50 via-yellow-50 to-orange-50 text-gray-900 font-sans px-0 pb-4 pt-20 sm:p-4 sm:pt-24 md:p-8 relative">
-                
+
+            {/* Background Effects */}
+            <div className="fixed inset-0 bg-[#09090b] -z-20" />
+            <div className="fixed inset-0 bg-gradient-to-br from-indigo-900/20 via-purple-900/20 to-black -z-10" />
+            <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-30">
+                <div className="absolute top-10 left-10 w-72 h-72 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob" />
+                <div className="absolute top-10 right-10 w-72 h-72 bg-yellow-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000" />
+                <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000" />
+            </div>
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative">
+
                 {/* 데모 모드 배지 */}
                 {isDemo && (
-                    <div className="absolute top-[90px] left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-                        <div className="bg-yellow-500/90 text-black px-6 py-2 rounded-full font-black shadow-[0_0_20px_rgba(234,179,8,0.6)] animate-pulse border-2 border-yellow-300 text-lg tracking-widest uppercase">
-                        Demo Mode
+                    <div className="absolute top-28 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+                        <div className="bg-yellow-500/90 text-black px-4 py-1 rounded-full font-bold text-sm shadow-[0_0_20px_rgba(234,179,8,0.6)] animate-pulse border border-yellow-300 tracking-wider uppercase">
+                            Demo Mode
                         </div>
                     </div>
                 )}
 
-                <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 mt-10">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
                     {/* --- Header --- */}
-                    <div className="lg:col-span-12 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-pink-300 pb-3 sm:pb-4 mb-3 sm:mb-4 mt-2 sm:mt-4 gap-2 sm:gap-0">
-                        <div>
-                            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-pink-500 via-red-500 to-orange-500 text-transparent bg-clip-text">
-                                一番くじ (Ichiban Kuji)
-                            </h1>
-                            <p className="text-gray-600 text-xs sm:text-sm">HTML5 Lottery Simulator</p>
-                        </div>
-                        <div className="text-left sm:text-right">
-                            <div className="text-xl sm:text-2xl font-bold text-pink-600">{totalRemaining} / 80</div>
-                            <div className="text-xs text-gray-600">남은 수량</div>
-                        </div>
+                    <div className="lg:col-span-12 mb-4">
+                        <motion.div
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex flex-col md:flex-row justify-between items-end border-b border-white/10 pb-6 gap-4"
+                        >
+                            <div>
+                                <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">
+                                    ICHIBAN KUJI
+                                </h1>
+                                <p className="text-slate-400 mt-2 flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-yellow-400" />
+                                    최고의 행운을 시험해보세요!
+                                </p>
+                            </div>
+                            <div className="text-right bg-white/5 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-md">
+                                <div className="text-3xl font-black text-yellow-400 drop-shadow-md">{totalRemaining} <span className="text-xl text-slate-500">/ 80</span></div>
+                                <div className="text-xs text-slate-400 uppercase tracking-widest font-bold">Remaining Tickets</div>
+                            </div>
+                        </motion.div>
                     </div>
 
                     {/* --- Left: Status Board --- */}
-                    <div className="lg:col-span-3 bg-white/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 h-fit shadow-lg border border-pink-200 order-2 lg:order-1">
-                        <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 border-b border-pink-300 pb-2 text-gray-800">📦 경품 현황판</h2>
-                        <div className="space-y-3">
-                            {PRIZE_LIST.map((prize) => {
-                                const remaining = getRemainingCount(prize.rank);
-                                const isSoldOut = remaining === 0;
-                                return (
-                                    <div key={prize.rank} className={`flex items-center justify-between p-2 rounded ${isSoldOut ? 'opacity-40 grayscale' : 'bg-pink-50 border border-pink-200'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <span
-                                                className="flex items-center justify-center w-8 h-8 rounded-full font-bold text-white shadow-sm"
-                                                style={{ backgroundColor: prize.color }}
-                                            >
-                                                {prize.rank}
-                                            </span>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-medium text-gray-800">{prize.name}</span>
-                                                <span className="text-xs text-gray-600">{isSoldOut ? 'SOLD OUT' : 'Available'}</span>
+                    <div className="lg:col-span-3 order-2 lg:order-1">
+                        <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="bg-[#18181b]/80 backdrop-blur-md rounded-3xl p-5 border border-white/10 sticky top-24 shadow-2xl"
+                        >
+                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-white">
+                                <Gift className="w-5 h-5 text-pink-500" />
+                                PRIZE LIST
+                            </h2>
+                            <div className="space-y-3">
+                                {PRIZE_LIST.map((prize) => {
+                                    const remaining = getRemainingCount(prize.rank);
+                                    const isSoldOut = remaining === 0;
+                                    return (
+                                        <div key={prize.rank} className={`group relative overflow-hidden rounded-xl transition-all duration-300 ${isSoldOut ? 'opacity-40 grayscale' : 'bg-white/5 hover:bg-white/10 border border-white/5'}`}>
+                                            {/* Progress Bar Background */}
+                                            <div
+                                                className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent transition-all duration-500"
+                                                style={{ width: `${(remaining / prize.totalQty) * 100}%`, backgroundColor: prize.color }}
+                                            />
+
+                                            <div className="flex items-center justify-between p-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="w-10 h-10 rounded-lg flex items-center justify-center font-black text-lg shadow-lg transform group-hover:scale-110 transition-transform"
+                                                        style={{ backgroundColor: prize.color, color: 'white' }}
+                                                    >
+                                                        {prize.rank}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-200 line-clamp-1">{prize.name}</span>
+                                                        <span className="text-[10px] text-slate-500">{isSoldOut ? 'SOLD OUT' : 'Available'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-lg font-bold text-white leading-none">
+                                                        {remaining}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-500">
+                                                        / {prize.totalQty}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="text-lg font-bold text-gray-800">
-                                            {remaining}<span className="text-xs text-gray-600">/{prize.totalQty}</span>
+                                    );
+                                })}
+
+                                {/* Last One */}
+                                <div className="mt-4 pt-4 border-t border-white/10">
+                                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-yellow-900/40 to-amber-900/40 border border-yellow-500/30 p-3 group hover:border-yellow-500/60 transition-colors">
+                                        <div className="absolute inset-0 bg-yellow-500/5 animate-pulse" />
+                                        <div className="flex items-center justify-between relative z-10">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-2xl group-hover:rotate-12 transition-transform">👑</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-black text-yellow-500 tracking-widest">LAST ONE</span>
+                                                    <span className="text-[10px] text-slate-400">마지막 티켓 구매자 보너스</span>
+                                                </div>
+                                            </div>
+                                            <div className={`text-xs font-bold px-2 py-1 rounded ${totalRemaining > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
+                                                {totalRemaining > 0 ? 'WAITING' : 'TAKEN'}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                            {/* Last One */}
-                            <div className="mt-4 pt-4 border-t border-pink-300">
-                                <div className="flex items-center justify-between p-2 rounded bg-gradient-to-r from-yellow-100 to-orange-100 border border-yellow-400/50">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-2xl">👑</span>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-orange-600">LAST ONE</span>
-                                            <span className="text-xs text-gray-700">마지막 티켓 구매자 증정</span>
-                                        </div>
-                                    </div>
-                                    <div className={`text-sm font-bold ${totalRemaining > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                                        {totalRemaining > 0 ? '대기중' : '지급완료'}
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     </div>
 
                     {/* --- Center: Game Area --- */}
-                    <div className="lg:col-span-9 bg-white/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 lg:p-6 shadow-lg border border-pink-200 min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] relative overflow-hidden order-1 lg:order-2">
+                    <div className="lg:col-span-9 order-1 lg:order-2">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="bg-[#18181b]/90 backdrop-blur-xl rounded-[2.5rem] p-6 sm:p-8 lg:p-10 shadow-2xl border border-white/10 min-h-[600px] relative overflow-hidden flex flex-col"
+                        >
+                            {/* Decorative Elements */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-b from-white/5 to-transparent rounded-bl-full pointer-events-none" />
+                            <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-t from-white/5 to-transparent rounded-tr-full pointer-events-none" />
 
-                        {/* 1. IDLE: 구매 수량 선택 및 구매 */}
-                        {gameState === 'IDLE' && (
-                            <div className="h-full flex flex-col items-center justify-center space-y-8 animate-fade-in">
-                                <div className="text-center">
-                                    <h3 className="text-2xl font-bold mb-2 text-gray-800">몇 장을 구매하시겠습니까?</h3>
-                                    <p className="text-gray-600">1장당 10 포인트, 한 번에 최대 10장까지 가능합니다.</p>
-                                </div>
-
-                                {/* 포인트 표시 */}
-                                <div className="text-center p-4 bg-gradient-to-r from-pink-100 to-orange-100 rounded-lg border border-pink-300">
-                                    <div className="text-sm text-gray-600 mb-1">보유 포인트</div>
-                                    <div className="text-3xl font-bold text-pink-600">
-                                        {userPoints.toLocaleString()} P
+                            {/* 1. IDLE: 구매 수량 선택 및 구매 */}
+                            {gameState === 'IDLE' && (
+                                <div className="h-full flex flex-col items-center justify-center space-y-10 animate-fade-in py-10">
+                                    <div className="text-center space-y-2">
+                                        <h3 className="text-3xl md:text-4xl font-black text-white">TICKET PURCHASE</h3>
+                                        <p className="text-slate-400 text-lg">1장당 100 포인트, 최대 10장까지 구매 가능</p>
                                     </div>
-                                </div>
 
-                                {/* 구매 개수 선택 */}
-                                <div className="flex items-center gap-6 bg-gradient-to-r from-pink-100 to-orange-100 p-4 rounded-full border border-pink-300 shadow-md">
-                                    <button
-                                        onClick={() => setPurchaseCount(Math.max(1, purchaseCount - 1))}
-                                        className="w-12 h-12 rounded-full bg-pink-500 hover:bg-pink-600 text-white flex items-center justify-center text-xl font-bold transition shadow-md"
-                                    >-</button>
-                                    <span className="text-4xl font-mono font-bold w-16 text-center text-pink-600">{purchaseCount}</span>
-                                    <button
-                                        onClick={() => setPurchaseCount(Math.min(10, Math.min(totalRemaining, purchaseCount + 1)))}
-                                        className="w-12 h-12 rounded-full bg-pink-500 hover:bg-pink-600 text-white flex items-center justify-center text-xl font-bold transition shadow-md"
-                                    >+</button>
-                                </div>
-
-                                {/* 총 비용 표시 */}
-                                <div className="text-center p-4 bg-white rounded-lg border border-pink-300">
-                                    <div className="text-sm text-gray-600 mb-1">총 비용</div>
-                                    <div className={`text-2xl font-bold ${userPoints >= purchaseCount * 10 ? 'text-pink-600' : 'text-red-500'}`}>
-                                        {(purchaseCount * 10).toLocaleString()} P
-                                    </div>
-                                    {userPoints < purchaseCount * 10 && (
-                                        <div className="text-sm text-red-500 mt-2">
-                                            포인트가 부족합니다!
+                                    <div className="flex flex-col md:flex-row gap-6 w-full max-w-2xl justify-center items-stretch">
+                                        {/* Points Card */}
+                                        <div className="flex-1 bg-black/40 rounded-2xl p-6 border border-white/10 text-center flex flex-col justify-center">
+                                            <div className="text-sm text-slate-500 uppercase tracking-wider font-bold mb-2">My Points</div>
+                                            <div className="text-3xl font-black text-indigo-400 truncate">
+                                                {userPoints.toLocaleString()} P
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
 
-                                {/* 구매 버튼 */}
-                                <button
-                                    onClick={handlePurchase}
-                                    disabled={purchaseLoading || userPoints < purchaseCount * 10 || purchaseCount < 1 || purchaseCount > totalRemaining}
-                                    className="px-12 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed rounded-xl text-xl font-bold shadow-lg transform hover:scale-105 transition duration-200"
-                                >
-                                    {purchaseLoading ? '처리 중...' : `${purchaseCount}장 구매하기 (${(purchaseCount * 10).toLocaleString()} P)`}
-                                </button>
-                            </div>
-                        )}
+                                        {/* Cost Card */}
+                                        <div className="flex-1 bg-black/40 rounded-2xl p-6 border border-white/10 text-center flex flex-col justify-center relative overflow-hidden">
+                                            <div className="text-sm text-slate-500 uppercase tracking-wider font-bold mb-2">Total Cost</div>
+                                            <div className={`text-3xl font-black ${userPoints >= purchaseCount * 10 ? 'text-white' : 'text-red-500'}`}>
+                                                {(purchaseCount * 10).toLocaleString()} P
+                                            </div>
+                                            {userPoints < purchaseCount * 10 && (
+                                                <div className="text-xs text-red-500 font-bold mt-1 bg-red-950/50 px-2 py-1 rounded inline-block mx-auto">
+                                                    포인트 부족
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
 
-                        {/* 2. SELECTING: 그리드에서 선택 */}
-                        {gameState === 'SELECTING' && (
-                            <div className="h-full flex flex-col">
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4 gap-2 sm:gap-0">
-                                    <h3 className="text-base sm:text-lg lg:text-xl font-bold">
-                                        원하는 위치의 복권을 선택하세요
-                                        <span className="ml-2 text-yellow-400">({selectedIds.length}/{purchaseCount})</span>
-                                    </h3>
-                                    {selectedIds.length === purchaseCount && (
+                                    {/* Counter */}
+                                    <div className="flex items-center gap-8 bg-white/5 p-4 rounded-full border border-white/10 shadow-inner">
                                         <button
-                                            onClick={confirmSelection}
-                                            className="px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm sm:text-base font-bold animate-pulse shadow-green-500/50 shadow-lg"
-                                        >
-                                            결제 및 뜯기 ({purchaseCount}장)
-                                        </button>
-                                    )}
-                                </div>
+                                            onClick={() => setPurchaseCount(Math.max(1, purchaseCount - 1))}
+                                            className="w-14 h-14 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center text-2xl font-bold transition shadow-lg border border-white/10"
+                                        >−</button>
+                                        <span className="text-5xl font-mono font-black w-24 text-center text-white">{purchaseCount}</span>
+                                        <button
+                                            onClick={() => setPurchaseCount(Math.min(10, Math.min(totalRemaining, purchaseCount + 1)))}
+                                            className="w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center text-2xl font-bold transition shadow-lg border border-white/10 shadow-indigo-500/20"
+                                        >+</button>
+                                    </div>
 
-                                <div className="flex-1 overflow-y-auto pr-1 sm:pr-2">
-                                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1 sm:gap-2">
-                                        {tickets.map((ticket) => (
+                                    {/* Buy Button */}
+                                    <button
+                                        onClick={handlePurchase}
+                                        disabled={purchaseLoading || userPoints < purchaseCount * 10 || purchaseCount < 1 || purchaseCount > totalRemaining}
+                                        className="w-full max-w-md py-5 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 disabled:from-slate-700 disabled:to-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl text-xl font-black text-black shadow-xl shadow-orange-500/20 transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                                    >
+                                        {purchaseLoading ? '처리 중...' : `PURCHASE (${(purchaseCount * 10).toLocaleString()} P)`}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* 2. SELECTING: 그리드에서 선택 */}
+                            {gameState === 'SELECTING' && (
+                                <div className="h-full flex flex-col animate-fade-in">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-white">SELECT TICKETS</h3>
+                                            <p className="text-slate-400">원하는 위치의 복권을 선택하세요 <span className="text-yellow-400 font-bold ml-1">({selectedIds.length}/{purchaseCount})</span></p>
+                                        </div>
+                                        {selectedIds.length === purchaseCount && (
                                             <button
-                                                key={ticket.id}
-                                                disabled={ticket.isTaken}
-                                                onClick={() => handleTicketClick(ticket.id)}
-                                                className={`
-                        aspect-[3/4] rounded-md flex flex-col items-center justify-center text-xs font-bold transition-all duration-200 relative
-                        ${ticket.isTaken
-                                                        ? 'bg-gray-900 border border-gray-800 opacity-50 cursor-not-allowed'
-                                                        : selectedIds.includes(ticket.id)
-                                                            ? 'bg-yellow-500 text-black border-2 border-white transform scale-105 shadow-lg shadow-yellow-500/30'
-                                                            : 'bg-white text-gray-800 hover:bg-gray-100 border border-gray-400'
-                                                    }
-                      `}
+                                                onClick={confirmSelection}
+                                                className="px-8 py-3 bg-green-500 hover:bg-green-400 text-black rounded-xl text-lg font-black animate-pulse shadow-lg shadow-green-500/30 transition-colors"
                                             >
-                                                {ticket.isTaken ? (
-                                                    <div className="flex flex-col items-center justify-center w-full h-full">
-                                                        {/* 등급 배지 */}
-                                                        <div 
-                                                            className="w-full h-full flex flex-col items-center justify-center rounded-md border-2"
-                                                            style={{ 
-                                                                backgroundColor: ticket.rank === 'LAST_ONE' 
-                                                                    ? '#000000' 
-                                                                    : PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || '#666666',
-                                                                borderColor: ticket.rank === 'LAST_ONE' 
-                                                                    ? '#ffd700' 
-                                                                    : PRIZE_LIST.find(p => p.rank === ticket.rank)?.color || '#666666',
-                                                                opacity: 0.9
-                                                            }}
-                                                        >
-                                                            {ticket.rank === 'LAST_ONE' ? (
-                                                                <>
-                                                                    <span className="text-2xl sm:text-3xl lg:text-4xl mb-1">👑</span>
-                                                                    <span className="text-[8px] sm:text-[10px] font-bold text-yellow-400">LAST ONE</span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <span className="text-xl sm:text-2xl lg:text-3xl font-black text-white mb-0.5">
-                                                                        {PRIZE_LIST.find(p => p.rank === ticket.rank)?.image || ticket.rank}
-                                                                    </span>
-                                                                    <span className="text-xs sm:text-sm font-bold text-white">
-                                                                        {ticket.rank}상
-                                                                    </span>
-                                                                    <span className="text-[8px] sm:text-[10px] text-white/80 mt-0.5 text-center px-1">
-                                                                        {PRIZE_LIST.find(p => p.rank === ticket.rank)?.name.split(' ')[0] || ''}
-                                                                    </span>
-                                                                </>
-                                                            )}
+                                                OPEN NOW!
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+                                            {tickets.map((ticket) => (
+                                                <button
+                                                    key={ticket.id}
+                                                    disabled={ticket.isTaken}
+                                                    onClick={() => handleTicketClick(ticket.id)}
+                                                    className={`
+                                                        aspect-[3/4] rounded-lg flex flex-col items-center justify-center transition-all duration-300 relative group overflow-hidden
+                                                        ${ticket.isTaken
+                                                            ? 'bg-slate-900/50 border border-slate-800 opacity-40 cursor-not-allowed'
+                                                            : selectedIds.includes(ticket.id)
+                                                                ? 'bg-yellow-500 border-2 border-white transform scale-105 shadow-[0_0_15px_rgba(234,179,8,0.5)] z-10'
+                                                                : 'bg-[#27272a] hover:bg-[#3f3f46] border border-white/10 hover:border-white/30'
+                                                        }
+                                                    `}
+                                                >
+                                                    {ticket.isTaken ? (
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                                                            <span className="text-2xl font-black text-slate-700 rotate-12">SOLD</span>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="absolute top-0 left-0 w-full h-1 bg-white/10" />
+                                                            <span className={`text-[10px] font-mono absolute top-2 left-2 ${selectedIds.includes(ticket.id) ? 'text-black/50' : 'text-slate-600'}`}>NO.</span>
+                                                            <span className={`text-lg font-black ${selectedIds.includes(ticket.id) ? 'text-black' : 'text-white group-hover:text-yellow-400'}`}>{ticket.id + 1}</span>
+                                                            <div className="absolute bottom-0 w-full h-8 bg-stripes-white opacity-5" />
+                                                        </>
+                                                    )}
+
+                                                    {/* 선택 체크마크 */}
+                                                    {selectedIds.includes(ticket.id) && (
+                                                        <div className="absolute top-2 right-2 bg-black text-yellow-500 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow-sm">
+                                                            ✓
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 3. PEELING: 하나씩 뜯는 애니메이션 모달 */}
+                            <AnimatePresence>
+                                {gameState === 'PEELING' && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                        className="absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black/90 backdrop-blur-md rounded-[2.5rem]"
+                                    >
+                                        <div className="text-center mb-10">
+                                            <h2 className="text-3xl font-black text-white mb-2 tracking-tight">OPEN YOUR LUCK</h2>
+                                            <p className="text-indigo-300 font-mono">{currentPeelIndex + 1} / {purchaseCount}</p>
+                                        </div>
+
+                                        <PeelingTicket
+                                            key={selectedIds[currentPeelIndex]} // Key 변경으로 컴포넌트 리셋
+                                            ticketId={selectedIds[currentPeelIndex]}
+                                            realRank={tickets.find(t => t.id === selectedIds[currentPeelIndex])?.rank || 'G'}
+                                            onPeelComplete={handlePeelComplete}
+                                        />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* 4. RESULT: 최종 결과 화면 */}
+                            {gameState === 'RESULT' && (
+                                <div className="h-full flex flex-col items-center justify-center text-center animate-fade-in-up py-10">
+                                    <div className="mb-10">
+                                        <h2 className="text-5xl md:text-6xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-500 to-red-500 filter drop-shadow-lg">
+                                            CONGRATULATIONS!
+                                        </h2>
+                                        <p className="text-slate-400 text-lg">획득하신 상품을 확인하세요.</p>
+                                    </div>
+
+                                    <div className="flex flex-wrap justify-center gap-6 mb-12 w-full overflow-y-auto max-h-[400px] px-4">
+                                        {wonPrizes.map((ticket, idx) => {
+                                            const prizeInfo = PRIZE_LIST.find(p => p.rank === ticket.rank);
+                                            return (
+                                                <motion.div
+                                                    key={idx}
+                                                    initial={{ scale: 0, rotate: -10 }}
+                                                    animate={{ scale: 1, rotate: 0 }}
+                                                    transition={{ delay: idx * 0.1, type: "spring" }}
+                                                    className="w-40 h-56 rounded-2xl shadow-2xl flex flex-col items-center justify-between p-1 relative overflow-hidden bg-[#202023] border border-white/10 group hover:-translate-y-2 transition-transform duration-300"
+                                                >
+                                                    {/* Card Glow */}
+                                                    <div className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500" style={{ backgroundColor: prizeInfo?.color }} />
+
+                                                    <div className="w-full h-full bg-[#18181b] rounded-xl flex flex-col items-center justify-center relative z-10 p-4 border border-white/5">
+                                                        <div className="text-5xl mb-4 transform group-hover:scale-110 transition-transform duration-300">{prizeInfo?.image}</div>
+                                                        <div className="text-center w-full">
+                                                            <div className="text-3xl font-black mb-1" style={{ color: prizeInfo?.color }}>{ticket.rank}</div>
+                                                            <div className="text-xs font-bold text-slate-400 line-clamp-2 leading-tight">{prizeInfo?.name}</div>
                                                         </div>
                                                     </div>
-                                                ) : (
-                                                    <>
-                                                        <span className="text-[8px] sm:text-[10px] text-gray-600 absolute top-0.5 sm:top-1 left-0.5 sm:left-1">No.</span>
-                                                        <span className="text-sm sm:text-base lg:text-lg">{ticket.id + 1}</span>
-                                                        <div className="absolute bottom-0 w-full h-1/4 bg-pink-100 border-t border-dashed border-pink-300"></div>
-                                                    </>
-                                                )}
+                                                </motion.div>
+                                            )
+                                        })}
 
-                                                {/* 선택 뱃지 */}
-                                                {selectedIds.includes(ticket.id) && (
-                                                    <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">
-                                                        ✓
-                                                    </div>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 3. PEELING: 하나씩 뜯는 애니메이션 모달 */}
-                        <AnimatePresence>
-                            {gameState === 'PEELING' && (
-                                <motion.div
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                    className="absolute inset-0 bg-pink-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4"
-                                >
-                                    <div className="text-center mb-8">
-                                        <h2 className="text-2xl font-bold text-white mb-2">복권을 뜯어주세요!</h2>
-                                        <p className="text-pink-100">{currentPeelIndex + 1} / {purchaseCount} 번째 장</p>
-                                    </div>
-
-                                    <PeelingTicket
-                                        key={selectedIds[currentPeelIndex]} // Key 변경으로 컴포넌트 리셋
-                                        ticketId={selectedIds[currentPeelIndex]}
-                                        realRank={tickets.find(t => t.id === selectedIds[currentPeelIndex])?.rank || 'G'}
-                                        onPeelComplete={handlePeelComplete}
-                                    />
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* 4. RESULT: 최종 결과 화면 */}
-                        {gameState === 'RESULT' && (
-                            <div className="h-full flex flex-col items-center justify-center text-center animate-fade-in-up">
-                                <h2 className="text-4xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-red-500">
-                                    🎉 당첨 결과 🎉
-                                </h2>
-
-                                <div className="flex flex-wrap justify-center gap-4 mb-10 max-w-full overflow-y-auto max-h-[400px]">
-                                    {wonPrizes.map((ticket, idx) => {
-                                        const prizeInfo = PRIZE_LIST.find(p => p.rank === ticket.rank);
-                                        return (
+                                        {/* 라스트원 상 표시 */}
+                                        {totalRemaining === 0 && (
                                             <motion.div
-                                                key={idx}
-                                                initial={{ scale: 0, rotate: -10 }}
-                                                animate={{ scale: 1, rotate: 0 }}
-                                                transition={{ delay: idx * 0.1 }}
-                                                className="bg-white text-black w-32 h-44 rounded-lg shadow-xl flex flex-col items-center justify-between p-2 border-4"
-                                                style={{ borderColor: prizeInfo?.color }}
+                                                initial={{ scale: 0 }} animate={{ scale: 1.1 }}
+                                                className="w-40 h-56 rounded-2xl shadow-2xl flex flex-col items-center justify-between p-1 relative overflow-hidden bg-black border-2 border-yellow-500 shadow-yellow-500/20"
                                             >
-                                                <div className="text-4xl mt-4">{prizeInfo?.image}</div>
-                                                <div className="text-center">
-                                                    <div className="text-2xl font-black" style={{ color: prizeInfo?.color }}>{ticket.rank}상</div>
-                                                    <div className="text-xs font-bold text-gray-600 line-clamp-2">{prizeInfo?.name}</div>
+                                                <div className="absolute inset-0 bg-yellow-500/10 animate-pulse" />
+                                                <div className="w-full h-full bg-black rounded-xl flex flex-col items-center justify-center relative z-10 p-4">
+                                                    <div className="text-5xl mb-4 animate-bounce">👑</div>
+                                                    <div className="text-center w-full">
+                                                        <div className="text-sm font-black text-yellow-500 mb-1 tracking-widest">LAST ONE</div>
+                                                        <div className="text-xs font-bold text-white line-clamp-2 leading-tight">{LAST_ONE_PRIZE.name}</div>
+                                                    </div>
                                                 </div>
                                             </motion.div>
-                                        )
-                                    })}
+                                        )}
+                                    </div>
 
-                                    {/* 라스트원 상 표시 */}
-                                    {totalRemaining === 0 && (
-                                        <motion.div
-                                            initial={{ scale: 0 }} animate={{ scale: 1.1 }}
-                                            className="bg-black text-yellow-400 w-32 h-44 rounded-lg shadow-xl flex flex-col items-center justify-between p-2 border-4 border-yellow-400"
-                                        >
-                                            <div className="text-4xl mt-4">👑</div>
-                                            <div className="text-center">
-                                                <div className="text-sm font-black">LAST ONE</div>
-                                                <div className="text-xs font-bold text-white line-clamp-2">{LAST_ONE_PRIZE.name}</div>
-                                            </div>
-                                        </motion.div>
-                                    )}
+                                    <button
+                                        onClick={resetGame}
+                                        className="px-10 py-4 bg-white text-black hover:bg-slate-200 rounded-full text-lg font-black transition shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transform hover:scale-105 active:scale-95"
+                                    >
+                                        PLAY AGAIN
+                                    </button>
                                 </div>
+                            )}
 
-                                <button
-                                    onClick={resetGame}
-                                    className="px-8 py-3 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 text-white rounded-lg font-bold transition shadow-lg"
-                                >
-                                    처음으로 돌아가기
-                                </button>
-                            </div>
-                        )}
-
+                        </motion.div>
                     </div>
                 </div>
             </div>
@@ -646,60 +690,65 @@ function PeelingTicket({ ticketId, realRank, onPeelComplete }: { ticketId: numbe
                 // 결과 보여주고 부모에게 알림
                 setTimeout(() => {
                     onPeelComplete();
-                }, 1000);
+                }, 1500); // 결과 확인 시간 늘림
             }, 300);
         }
     };
 
     return (
-        <div className="relative w-64 h-80 perspective-1000">
+        <div className="relative w-72 h-96 perspective-1000">
 
             {/* 1. Inside (Result) - 뜯겨진 뒤 보이는 내용 */}
-            <div className={`absolute inset-0 bg-white rounded-lg shadow-2xl flex flex-col items-center justify-center p-4 border-4 transition-all duration-500 ${isRevealed ? 'opacity-100' : 'opacity-0'}`}
+            <div className={`absolute inset-0 bg-[#18181b] rounded-2xl shadow-2xl flex flex-col items-center justify-center p-6 border-4 transition-all duration-700 ${isRevealed ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
                 style={{ borderColor: prizeInfo?.color }}
             >
+                <div className="absolute inset-0 opacity-10 bg-[url('/noise.png')] opacity-20 mix-blend-overlay pointer-events-none" />
+
                 <motion.div
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={isRevealed ? { scale: 1.2, opacity: 1 } : {}}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="text-center"
+                    initial={{ scale: 0.5, opacity: 0, y: 20 }}
+                    animate={isRevealed ? { scale: 1, opacity: 1, y: 0 } : {}}
+                    transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                    className="text-center relative z-10"
                 >
-                    <div className="text-8xl mb-4">{prizeInfo?.rank}</div>
-                    <div className="text-2xl font-bold text-gray-800">{prizeInfo?.name}</div>
+                    <div className="text-9xl mb-6 font-black drop-shadow-2xl" style={{ color: prizeInfo?.color }}>{prizeInfo?.rank}</div>
+                    <div className="text-2xl font-bold text-white leading-tight">{prizeInfo?.name}</div>
                 </motion.div>
             </div>
 
             {/* 2. Outside (Cover) - 뜯기 전 커버 */}
             {!isRevealed && (
-                <div className="absolute inset-0 bg-white rounded-lg shadow-xl overflow-hidden flex flex-col">
+                <div className="absolute inset-0 bg-[#27272a] rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-white/10">
                     {/* 상단 (고정부) */}
-                    <div className="h-1/5 bg-pink-100 border-b-2 border-dashed border-pink-300 flex items-center justify-center relative z-10">
-                        <span className="text-gray-700 font-mono text-xs">ICHIBAN KUJI NO.{ticketId + 1}</span>
+                    <div className="h-1/4 bg-[#202023] border-b-2 border-dashed border-white/20 flex items-center justify-center relative z-10">
+                        <div className="text-center">
+                            <div className="text-slate-500 font-mono text-[10px] tracking-[0.2em] mb-1">ICHIBAN KUJI</div>
+                            <div className="text-3xl font-black text-white">NO.{ticketId + 1}</div>
+                        </div>
                         {/* 뜯는 구멍 표현 */}
-                        <div className="absolute -bottom-1.5 left-2 w-3 h-3 bg-pink-400 rounded-full"></div>
-                        <div className="absolute -bottom-1.5 right-2 w-3 h-3 bg-pink-400 rounded-full"></div>
+                        <div className="absolute -bottom-2 left-4 w-4 h-4 bg-[#09090b] rounded-full border-t border-white/20"></div>
+                        <div className="absolute -bottom-2 right-4 w-4 h-4 bg-[#09090b] rounded-full border-t border-white/20"></div>
                     </div>
 
                     {/* 하단 (뜯는 부분) */}
                     <motion.div
                         drag="y"
-                        dragConstraints={{ top: 0, bottom: 200 }}
+                        dragConstraints={{ top: 0, bottom: 250 }}
                         dragElastic={0.1}
                         onDragEnd={handleDragEnd}
-                        animate={isPeeling ? { y: 1000, rotate: 20, opacity: 0 } : { y: 0 }}
-                        className="h-4/5 bg-gradient-to-br from-pink-100 to-orange-100 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing relative"
+                        animate={isPeeling ? { y: 1000, rotate: 10, opacity: 0 } : { y: 0 }}
+                        className="h-3/4 bg-gradient-to-br from-indigo-600 to-purple-700 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing relative group"
                     >
-                        <div className="text-4xl font-black text-pink-200 tracking-widest opacity-40 select-none">KUJI</div>
-                        <div className="text-4xl font-black text-pink-200 tracking-widest opacity-40 select-none mt-2">OPEN</div>
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 mix-blend-overlay" />
 
-                        {/* 화살표 애니메이션 */}
-                        <div className="absolute bottom-10 flex flex-col items-center animate-bounce opacity-50">
-                            <span className="text-xs text-pink-300 mb-1">PULL DOWN</span>
-                            <svg className="w-6 h-6 text-pink-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                        <div className="relative z-10 text-center">
+                            <div className="text-5xl font-black text-white/20 tracking-widest select-none group-hover:text-white/30 transition-colors">PULL</div>
+                            <div className="text-5xl font-black text-white/20 tracking-widest select-none mt-2 group-hover:text-white/30 transition-colors">DOWN</div>
                         </div>
 
-                        {/* 종이 질감 효과 */}
-                        <div className="absolute inset-0 bg-noise opacity-10 pointer-events-none"></div>
+                        {/* 화살표 애니메이션 */}
+                        <div className="absolute bottom-8 flex flex-col items-center animate-bounce opacity-70">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                        </div>
                     </motion.div>
                 </div>
             )}
