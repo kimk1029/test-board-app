@@ -13,7 +13,7 @@ interface BillboardEvent {
 
 export default function Billboard() {
     const [events, setEvents] = useState<BillboardEvent[]>([])
-    
+
     const fetchEvents = async () => {
         try {
             const res = await fetch('/api/billboard')
@@ -30,8 +30,8 @@ export default function Billboard() {
 
     useEffect(() => {
         fetchEvents()
-        const interval = setInterval(fetchEvents, 30000)
-        return () => clearInterval(interval)
+        // 폴링 제거: 서버 부하 감소를 위해 자동 갱신 제거
+        // 필요시 페이지 재진입 시 갱신
     }, [])
 
     if (events.length === 0) return null
@@ -86,21 +86,21 @@ export default function Billboard() {
                         LIVE JACKPOT
                     </span>
                 </div>
-                
+
                 {/* Marquee Content */}
-                <div className="flex-1 h-full flex items-center overflow-hidden relative z-10" 
-                     style={{ maskImage: 'linear-gradient(to right, transparent, black 10px, black 95%, transparent)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 10px, black 95%, transparent)' }}>
-                     <motion.div
+                <div className="flex-1 h-full flex items-center overflow-hidden relative z-10"
+                    style={{ maskImage: 'linear-gradient(to right, transparent, black 10px, black 95%, transparent)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 10px, black 95%, transparent)' }}>
+                    <motion.div
                         className="flex whitespace-nowrap items-center h-full pt-0.5"
                         animate={{ x: ['0%', '-50%'] }}
-                        transition={{ 
-                            repeat: Infinity, 
-                            ease: "linear", 
+                        transition={{
+                            repeat: Infinity,
+                            ease: "linear",
                             duration: Math.max(20, events.length * 8)
                         }}
-                     >
+                    >
                         {marqueeContent}
-                     </motion.div>
+                    </motion.div>
                 </div>
             </div>
         </>

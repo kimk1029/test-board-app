@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 
+// 캐싱 방지: 항상 최신 데이터 조회 및 업데이트
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // 티켓 선택 및 업데이트
 export async function POST(request: NextRequest) {
   try {
@@ -68,6 +72,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 트랜잭션으로 티켓 업데이트 (원자성 보장)
+    // 프로덕션 환경에서 연결 풀링 문제를 방지하기 위해 명시적으로 연결 확인
+    await prisma.$connect().catch(() => {
+      // 이미 연결되어 있으면 무시
+    })
+
     const updateResult = await prisma.$transaction(async (tx) => {
       // 티켓 업데이트 (뽑힌 것으로 표시)
       const result = await tx.kujiTicket.updateMany({
@@ -85,7 +94,8 @@ export async function POST(request: NextRequest) {
 
       console.log(`[Kuji Tickets] Updated ${result.count} tickets in transaction`)
 
-      // 업데이트된 티켓 정보 조회
+      // 업데이트된 티켓 정보 조회 (트랜잭션 내에서 즉시 조회하여 최신 데이터 보장)
+      // 프로덕션 환경에서 최신 데이터를 보장하기 위해 약간의 지연 추가 (필요시)
       const updated = await tx.kujiTicket.findMany({
         where: {
           boxId,
@@ -93,12 +103,28 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      // 트랜잭션 내에서 업데이트 검증
+      const verified = updated.filter(t => t.isTaken && t.takenBy === payload.userId)
+      if (verified.length !== ticketIds.length) {
+        console.error(`[Kuji Tickets] Transaction verification failed: ${verified.length}/${ticketIds.length}`)
+        console.error(`[Kuji Tickets] Updated tickets:`, updated.map(t => ({
+          ticketId: t.ticketId,
+          isTaken: t.isTaken,
+          takenBy: t.takenBy,
+        })))
+        throw new Error(`업데이트 검증 실패: ${verified.length}/${ticketIds.length} tickets verified`)
+      }
+
       return { result, updated }
+    }, {
+      isolationLevel: 'ReadCommitted', // 읽기 커밋된 격리 수준 사용
+      timeout: 10000, // 10초 타임아웃
+      maxWait: 5000, // 최대 대기 시간 5초
     })
 
     console.log(`[Kuji Tickets] Transaction completed: Updated ${updateResult.result.count} tickets for box ${boxId} by user ${payload.userId}`)
 
-    const updatedTickets = updateResult.updated
+    let updatedTickets = updateResult.updated
 
     // 업데이트 확인
     if (updatedTickets.length !== ticketIds.length) {
@@ -118,6 +144,34 @@ export async function POST(request: NextRequest) {
         { error: '일부 티켓이 제대로 업데이트되지 않았습니다.' },
         { status: 500 }
       )
+    }
+
+    // 프로덕션 환경에서 실제 DB 반영 확인을 위해 트랜잭션 외부에서 재조회
+    // (서버리스 환경에서 트랜잭션 커밋 후 즉시 조회 시 반영되지 않을 수 있음)
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        // 약간의 지연 후 재조회하여 실제 DB 반영 확인
+        await new Promise(resolve => setTimeout(resolve, 100))
+        const verifiedTickets = await prisma.kujiTicket.findMany({
+          where: {
+            boxId,
+            ticketId: { in: ticketIds },
+          },
+        })
+        
+        const verified = verifiedTickets.filter(t => t.isTaken && t.takenBy === payload.userId)
+        if (verified.length !== ticketIds.length) {
+          console.warn(`[Kuji Tickets] Production verification: ${verified.length}/${ticketIds.length} tickets verified after transaction`)
+          // 트랜잭션 내부 데이터를 우선 사용하되 경고 로그 남김
+        } else {
+          console.log(`[Kuji Tickets] Production verification: All ${verified.length} tickets confirmed in database`)
+          // 재조회한 데이터 사용 (실제 DB 반영 확인)
+          updatedTickets = verifiedTickets
+        }
+      } catch (verifyError) {
+        console.error(`[Kuji Tickets] Production verification error:`, verifyError)
+        // 검증 실패 시 트랜잭션 내부 데이터 사용
+      }
     }
 
     console.log(`[Kuji Tickets] Successfully updated all ${updatedTickets.length} tickets`)
@@ -157,15 +211,24 @@ export async function POST(request: NextRequest) {
       data: logs
     })
 
-    return NextResponse.json({
+    // 응답 최소화: 성공 여부와 업데이트된 티켓 ID만 반환
+    // rank 정보는 클라이언트에서 필요할 때만 별도로 조회하도록 변경 가능하지만,
+    // 현재는 뜯기 애니메이션을 위해 rank가 필요하므로 최소한만 반환
+    const response = NextResponse.json({
       success: true,
+      // 보안: 최소한의 정보만 반환 (rank는 뽑힌 티켓에만 포함)
       tickets: updatedTickets.map((t) => ({
         id: t.ticketId,
-        rank: t.rank, // 등급 정보 포함
-        isTaken: t.isTaken,
-        takenBy: t.takenBy,
+        rank: t.rank, // 뽑힌 티켓의 등급만 반환
       })),
     })
+
+    // 캐싱 방지 헤더 설정
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+
+    return response
   } catch (error) {
     console.error('Kuji ticket update error:', error)
     return NextResponse.json(

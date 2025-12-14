@@ -95,10 +95,11 @@ export default function IchibanKujiGame() {
         }
     };
 
-    // 서버에서 박스 상태 로드
+    // 서버에서 박스 상태 로드 (항상 최신 DB 정보 가져오기)
     const loadBoxState = async (forceUpdate: boolean = false) => {
         try {
-            const response = await fetch('/api/kuji/box');
+            // 캐싱 방지를 위해 타임스탬프 추가
+            const response = await fetch(`/api/kuji/box?t=${Date.now()}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -137,10 +138,11 @@ export default function IchibanKujiGame() {
                 }
 
                 // 서버에서 받은 티켓 데이터를 클라이언트 형식으로 변환
-                // 중요: 서버에서 받은 rank 정보를 항상 사용 (뽑힌 티켓도 rank 포함)
+                // 중요: 서버에서 받은 rank 정보를 항상 사용 (뽑힌 티켓만 rank 포함, 안뽑힌 티켓은 null)
+                // 보안: 안뽑힌 티켓의 rank는 null이므로 네트워크 탭에서 확인 불가
                 const convertedTickets: Ticket[] = data.tickets.map((t: any) => ({
                     id: t.id,
-                    rank: t.rank as Rank, // 서버에서 받은 rank 정보 사용
+                    rank: (t.rank || 'G') as Rank, // null인 경우 임시값 'G' (실제 rank는 서버에만 존재)
                     isRevealed: t.isTaken,
                     isSelected: false,
                     isTaken: t.isTaken,
@@ -290,18 +292,20 @@ export default function IchibanKujiGame() {
                     const responseData = await response.json();
                     console.log(`[Kuji Client] Update response:`, responseData);
 
-                    // 서버에서 반환된 티켓 정보로 로컬 상태 업데이트
+                    // DB 업데이트 후 즉시 최신 정보 가져오기 (재고, 티켓 상태 등)
+                    await loadBoxState(true); // forceUpdate=true로 최신 DB 상태 강제 반영
+
+                    // 서버에서 반환된 티켓 정보로 로컬 상태 업데이트 (뜯기 애니메이션용)
                     if (responseData.tickets && responseData.tickets.length > 0) {
                         // 서버 응답으로 티켓 상태 업데이트 (rank 정보 포함)
                         setTickets(prev => {
                             const updated = prev.map(t => {
                                 const serverTicket = responseData.tickets.find((st: any) => st.id === t.id);
                                 if (serverTicket) {
-                                    console.log(`[Kuji Client] Updating ticket ${t.id}: isTaken=${serverTicket.isTaken}, rank=${serverTicket.rank}, takenBy=${serverTicket.takenBy}`);
                                     return {
                                         ...t,
-                                        isTaken: serverTicket.isTaken,
-                                        rank: serverTicket.rank as Rank,
+                                        isTaken: true, // 항상 true (뽑힌 티켓만 응답에 포함)
+                                        rank: serverTicket.rank as Rank, // 서버에서 받은 rank 사용
                                     };
                                 }
                                 return t;

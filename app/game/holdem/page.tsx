@@ -28,8 +28,8 @@ export default function HoldemPage() {
 
   useEffect(() => {
     fetchRooms()
-    const interval = setInterval(fetchRooms, 3000) // 3초마다 갱신
-    return () => clearInterval(interval)
+    // 폴링 제거: 서버 부하 감소를 위해 자동 갱신 제거
+    // 필요시 수동으로 새로고침하거나 페이지 재진입 시 갱신
   }, [])
 
   const fetchRooms = async () => {
@@ -91,9 +91,9 @@ export default function HoldemPage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0a0a0c] to-black text-slate-100 overflow-x-hidden">
       <HeaderNavigator />
-      
+
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 pb-20">
-        
+
         <section className="mb-12 text-center">
           <div className="flex flex-col items-center mb-6">
             <div className="flex items-center gap-2 text-emerald-400 mb-2">
@@ -158,11 +158,10 @@ export default function HoldemPage() {
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-white text-xl">{room.name}</CardTitle>
-                        <div className={`px-2 py-1 rounded text-xs font-bold ${
-                          room.status === 'playing' 
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' 
+                        <div className={`px-2 py-1 rounded text-xs font-bold ${room.status === 'playing'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
                             : 'bg-slate-500/20 text-slate-400 border border-slate-500/50'
-                        }`}>
+                          }`}>
                           {room.status === 'playing' ? '게임 중' : '대기 중'}
                         </div>
                       </div>
@@ -193,7 +192,7 @@ export default function HoldemPage() {
                           </div>
                         )}
                         <div className="pt-2 border-t border-white/5">
-                          <Button 
+                          <Button
                             className="w-full bg-red-600 hover:bg-red-500 text-white"
                             onClick={(e) => {
                               e.stopPropagation()

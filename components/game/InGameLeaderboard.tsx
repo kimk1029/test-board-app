@@ -34,9 +34,8 @@ export default function InGameLeaderboard() {
         }
 
         fetchRankings()
-        // Optional: Refresh every 30s?
-        const interval = setInterval(fetchRankings, 30000)
-        return () => clearInterval(interval)
+        // 폴링 제거: 서버 부하 감소를 위해 자동 갱신 제거
+        // 필요시 페이지 재진입 시 갱신
     }, [])
 
     const getRankIcon = (rank: number) => {
@@ -52,7 +51,7 @@ export default function InGameLeaderboard() {
         <div className="absolute bottom-4 left-4 z-[40] w-64 md:w-72">
             <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-lg">
                 {/* Header */}
-                <button 
+                <button
                     onClick={() => setIsOpen(!isOpen)}
                     className="w-full px-4 py-3 bg-black/60 border-b border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
                 >

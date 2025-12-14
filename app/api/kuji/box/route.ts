@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { KujiBox, KujiTicket } from '@prisma/client'
 
+// 캐싱 방지: 항상 최신 데이터 조회
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // 현재 활성 쿠지 박스 상태 가져오기
 export async function GET() {
   try {
+    // 프로덕션 환경에서 연결 풀링 문제를 방지하기 위해 명시적으로 연결 확인
+    await prisma.$connect().catch(() => {
+      // 이미 연결되어 있으면 무시
+    })
+
     // [FIX] 활성 박스가 여러 개인 경우를 처리: 모든 활성 박스를 확인하고 최신 것만 남김
     const activeBoxes = await prisma.kujiBox.findMany({
       where: { isActive: true },
@@ -57,16 +66,25 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
+    // 캐싱 방지 헤더 추가
+    const response = NextResponse.json({
       boxId: activeBox.id,
+      // 보안: 뽑히지 않은 티켓의 rank는 null로 반환 (네트워크 탭에서 확인 불가)
       tickets: activeBox.tickets.map((t: KujiTicket) => ({
         id: t.ticketId,
-        rank: t.rank,
+        rank: t.isTaken ? t.rank : null, // 뽑힌 티켓만 rank 정보 반환
         isTaken: t.isTaken,
-        takenBy: t.takenBy,
+        // takenBy는 보안상 제거 (필요시 클라이언트에서 별도 조회)
       })),
       prizeInfo: activeBox.prizeInfo, // [NEW] 메타데이터 포함
     })
+
+    // 캐싱 방지 헤더 설정
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+
+    return response
   } catch (error) {
     console.error('Kuji box fetch error:', error)
     return NextResponse.json(

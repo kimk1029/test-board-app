@@ -31,8 +31,8 @@ export default function StairsLeaderboard() {
         }
 
         fetchRankings()
-        const interval = setInterval(fetchRankings, 30000)
-        return () => clearInterval(interval)
+        // 폴링 제거: 서버 부하 감소를 위해 자동 갱신 제거
+        // 필요시 페이지 재진입 시 갱신
     }, [])
 
     const getRankIcon = (rank: number) => {
@@ -49,7 +49,7 @@ export default function StairsLeaderboard() {
         <div className="absolute bottom-20 left-4 z-[40] w-64 md:w-72 md:bottom-4"> {/* Mobile: Above controls, PC: Bottom */}
             <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-lg">
                 {/* Header */}
-                <button 
+                <button
                     onClick={() => setIsOpen(!isOpen)}
                     className="w-full px-4 py-3 bg-white/5 border-b border-white/5 flex items-center justify-between hover:bg-white/10 transition-colors"
                 >

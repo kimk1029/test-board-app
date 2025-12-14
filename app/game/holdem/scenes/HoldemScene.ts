@@ -43,7 +43,7 @@ export class HoldemScene extends Phaser.Scene {
   
   // State
   private roomData: RoomData | null = null;
-  private pollingTimer: Phaser.Time.TimerEvent | null = null;
+  // 폴링 제거: pollingTimer 변수 제거
   private isProcessingUpdate = false;
   private displayedCommunityCards: number = 0;
   private layoutMode: LayoutMode = 'pc';
@@ -113,12 +113,8 @@ export class HoldemScene extends Phaser.Scene {
     this.handleResize(); // Initial layout
 
     this.fetchRoomInfo();
-    this.pollingTimer = this.time.addEvent({
-      delay: 1000,
-      callback: this.fetchRoomInfo,
-      callbackScope: this,
-      loop: true
-    });
+    // 폴링 제거: 서버 부하 감소를 위해 자동 갱신 제거
+    // 게임 상태는 사용자 액션(베팅, 체크 등) 시에만 갱신
   }
 
   update() {
