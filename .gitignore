@@ -43,6 +43,7 @@ next-env.d.ts
 
 # yarn
 .yarn/install-state.gz
-install-state.gz
-**/install-state.gz
+.yarn/*/install-state.gz
 **/.yarn/install-state.gz
+**/install-state.gz
+install-state.gz

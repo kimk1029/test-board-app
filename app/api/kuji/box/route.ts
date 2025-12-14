@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { KujiBox, KujiTicket } from '@prisma/client'
 
 // 현재 활성 쿠지 박스 상태 가져오기
 export async function GET() {
@@ -15,7 +16,7 @@ export async function GET() {
       },
     })
 
-    let activeBox: any = null
+    let activeBox: (KujiBox & { tickets: KujiTicket[] }) | null = null
 
     // 활성 박스가 여러 개인 경우, 최신 것만 남기고 나머지는 비활성화
     if (activeBoxes.length > 1) {
@@ -44,7 +45,7 @@ export async function GET() {
     if (!activeBox) {
       activeBox = await createNewBox()
     } else {
-      const remainingCount = activeBox.tickets.filter((t) => !t.isTaken).length
+      const remainingCount = activeBox.tickets.filter((t: { isTaken: boolean }) => !t.isTaken).length
       if (remainingCount === 0) {
         // 이전 박스 비활성화
         await prisma.kujiBox.update({
@@ -58,7 +59,7 @@ export async function GET() {
 
     return NextResponse.json({
       boxId: activeBox.id,
-      tickets: activeBox.tickets.map((t) => ({
+      tickets: activeBox.tickets.map((t: KujiTicket) => ({
         id: t.ticketId,
         rank: t.rank,
         isTaken: t.isTaken,
@@ -76,7 +77,7 @@ export async function GET() {
 }
 
 // 새 쿠지 박스 생성
-async function createNewBox() {
+async function createNewBox(): Promise<KujiBox & { tickets: KujiTicket[] }> {
   const PRIZE_LIST = [
     { rank: 'A', totalQty: 2 },
     { rank: 'B', totalQty: 3 },
