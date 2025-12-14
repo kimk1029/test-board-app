@@ -16,7 +16,8 @@ interface Prize {
     name: string;
     image: string; // 이모지나 URL
     color: string;
-    totalQty: number;
+    totalQty: number; // 초기 총 수량
+    remainingQty?: number; // 서버에서 계산된 실제 남은 수량 (옵셔널)
 }
 
 interface Ticket {
@@ -106,10 +107,11 @@ export default function IchibanKujiGame() {
                 setBoxId(data.boxId);
 
                 // [NEW] 서버에서 상품 정보(prizeInfo)가 오면 PRIZE_LIST 업데이트
+                // 서버에서 계산된 실제 남은 수량(qty)과 초기 총 수량(totalQty) 사용
                 if (data.prizeInfo && Array.isArray(data.prizeInfo)) {
                     const serverPrizes = data.prizeInfo;
 
-                    // 1. 일반 등급 업데이트
+                    // 1. 일반 등급 업데이트 (서버에서 계산된 남은 수량 사용)
                     const newPrizeList = serverPrizes
                         .filter((p: any) => p.rank !== 'LAST_ONE')
                         .map((p: any) => ({
@@ -117,7 +119,8 @@ export default function IchibanKujiGame() {
                             name: p.name,
                             image: INITIAL_PRIZE_LIST.find(def => def.rank === p.rank)?.image || '🎁',
                             color: p.color || '#888',
-                            totalQty: p.qty
+                            totalQty: p.totalQty || p.qty, // 초기 총 수량
+                            remainingQty: p.qty, // 서버에서 계산된 실제 남은 수량
                         }));
 
                     if (newPrizeList.length > 0) {
@@ -132,7 +135,8 @@ export default function IchibanKujiGame() {
                             name: lastOne.name,
                             image: '👑',
                             color: lastOne.color || '#000',
-                            totalQty: 1
+                            totalQty: 1,
+                            remainingQty: lastOne.qty || 0,
                         });
                     }
                 }
@@ -172,8 +176,14 @@ export default function IchibanKujiGame() {
         }
     };
 
-    // 남은 수량 계산 (tickets 상태 기반)
+    // 남은 수량 계산 (서버에서 받은 remainingQty 우선 사용, 없으면 tickets 상태 기반)
     const getRemainingCount = (rank: Rank) => {
+        // 서버에서 계산된 남은 수량이 있으면 우선 사용
+        const prize = prizeList.find(p => p.rank === rank);
+        if (prize && prize.remainingQty !== undefined) {
+            return prize.remainingQty;
+        }
+        // 없으면 tickets 배열에서 계산 (fallback)
         return tickets.filter(t => t.rank === rank && !t.isTaken).length;
     };
 

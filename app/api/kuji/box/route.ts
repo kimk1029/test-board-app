@@ -66,6 +66,22 @@ export async function GET() {
       }
     }
 
+    // 등급별 남은 수량 계산
+    const prizeInfo = activeBox.prizeInfo as any
+    const calculatedPrizeInfo = prizeInfo && Array.isArray(prizeInfo) 
+      ? prizeInfo.map((prize: any) => {
+          // 실제 남은 수량 계산 (isTaken이 false인 티켓 중 해당 rank인 것)
+          const remainingQty = activeBox.tickets.filter(
+            (t: KujiTicket) => !t.isTaken && t.rank === prize.rank
+          ).length
+          return {
+            ...prize,
+            qty: remainingQty, // 실제 남은 수량으로 업데이트
+            totalQty: prize.totalQty || prize.qty, // 초기 총 수량 유지
+          }
+        })
+      : prizeInfo
+
     // 캐싱 방지 헤더 추가
     const response = NextResponse.json({
       boxId: activeBox.id,
@@ -76,7 +92,7 @@ export async function GET() {
         isTaken: t.isTaken,
         // takenBy는 보안상 제거 (필요시 클라이언트에서 별도 조회)
       })),
-      prizeInfo: activeBox.prizeInfo, // [NEW] 메타데이터 포함
+      prizeInfo: calculatedPrizeInfo, // 실제 남은 수량이 계산된 상품 정보
     })
 
     // 캐싱 방지 헤더 설정
