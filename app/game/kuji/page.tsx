@@ -272,6 +272,8 @@ export default function IchibanKujiGame() {
         const token = localStorage.getItem('token');
         if (token && boxId !== null) {
             try {
+                console.log(`[Kuji Client] Sending update request: boxId=${boxId}, ticketIds=${JSON.stringify(selectedIds)}`);
+
                 const response = await fetch('/api/kuji/tickets', {
                     method: 'POST',
                     headers: {
@@ -280,12 +282,13 @@ export default function IchibanKujiGame() {
                     },
                     body: JSON.stringify({
                         boxId,
-                        ticketIds: selectedIds, // 선택한 모든 티켓 ID 전송
+                        ticketIds: selectedIds, // 선택한 모든 티켓 ID 전송 (ticketId 값)
                     }),
                 });
 
                 if (response.ok) {
                     const responseData = await response.json();
+                    console.log(`[Kuji Client] Update response:`, responseData);
 
                     // 서버에서 반환된 티켓 정보로 로컬 상태 업데이트
                     if (responseData.tickets && responseData.tickets.length > 0) {
@@ -294,6 +297,7 @@ export default function IchibanKujiGame() {
                             const updated = prev.map(t => {
                                 const serverTicket = responseData.tickets.find((st: any) => st.id === t.id);
                                 if (serverTicket) {
+                                    console.log(`[Kuji Client] Updating ticket ${t.id}: isTaken=${serverTicket.isTaken}, rank=${serverTicket.rank}, takenBy=${serverTicket.takenBy}`);
                                     return {
                                         ...t,
                                         isTaken: serverTicket.isTaken,
@@ -304,6 +308,8 @@ export default function IchibanKujiGame() {
                             });
                             return updated;
                         });
+                    } else {
+                        console.error('[Kuji Client] No tickets in response:', responseData);
                     }
 
                     // 뜯기 모드로 전환
@@ -312,10 +318,11 @@ export default function IchibanKujiGame() {
                     setWonPrizes([]);
                 } else {
                     const errorData = await response.json();
+                    console.error('[Kuji Client] Update failed:', errorData);
                     alert(errorData.error || '티켓 업데이트에 실패했습니다.');
                 }
             } catch (error) {
-                console.error('Error updating tickets:', error);
+                console.error('[Kuji Client] Error updating tickets:', error);
                 alert('티켓 업데이트 중 오류가 발생했습니다.');
             }
         } else {

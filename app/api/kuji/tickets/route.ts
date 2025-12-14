@@ -26,7 +26,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { boxId, ticketIds } = body
 
+    console.log(`[Kuji Tickets] Received request: boxId=${boxId}, ticketIds=${JSON.stringify(ticketIds)}, userId=${payload.userId}`)
+
     if (!boxId || !Array.isArray(ticketIds) || ticketIds.length === 0) {
+      console.error(`[Kuji Tickets] Invalid request: boxId=${boxId}, ticketIds=${JSON.stringify(ticketIds)}`)
       return NextResponse.json(
         { error: '잘못된 요청입니다.' },
         { status: 400 }
@@ -41,36 +44,61 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    console.log(`[Kuji Tickets] Found ${existingTickets.length} existing tickets out of ${ticketIds.length} requested`)
+
+    // 요청한 티켓이 모두 존재하는지 확인
+    if (existingTickets.length !== ticketIds.length) {
+      const foundIds = existingTickets.map(t => t.ticketId)
+      const missingIds = ticketIds.filter(id => !foundIds.includes(id))
+      console.error(`[Kuji Tickets] Missing tickets: ${JSON.stringify(missingIds)}`)
+      return NextResponse.json(
+        { error: `일부 티켓을 찾을 수 없습니다. (boxId: ${boxId}, missing: ${JSON.stringify(missingIds)})` },
+        { status: 400 }
+      )
+    }
+
     // 이미 뽑힌 티켓이 있는지 확인
     const takenTickets = existingTickets.filter((t) => t.isTaken)
     if (takenTickets.length > 0) {
+      console.error(`[Kuji Tickets] Already taken tickets: ${JSON.stringify(takenTickets.map(t => t.ticketId))}`)
       return NextResponse.json(
         { error: '이미 뽑힌 티켓이 포함되어 있습니다.' },
         { status: 400 }
       )
     }
 
-    // 티켓 업데이트 (뽑힌 것으로 표시)
-    const updateResult = await prisma.kujiTicket.updateMany({
-      where: {
-        boxId,
-        ticketId: { in: ticketIds },
-      },
-      data: {
-        isTaken: true,
-        takenBy: payload.userId,
-      },
+    // 트랜잭션으로 티켓 업데이트 (원자성 보장)
+    const updateResult = await prisma.$transaction(async (tx) => {
+      // 티켓 업데이트 (뽑힌 것으로 표시)
+      const result = await tx.kujiTicket.updateMany({
+        where: {
+          boxId,
+          ticketId: { in: ticketIds },
+          isTaken: false, // 아직 뽑히지 않은 티켓만 업데이트
+        },
+        data: {
+          isTaken: true,
+          takenBy: payload.userId,
+          updatedAt: new Date(), // 명시적으로 업데이트 시간 설정
+        },
+      })
+
+      console.log(`[Kuji Tickets] Updated ${result.count} tickets in transaction`)
+
+      // 업데이트된 티켓 정보 조회
+      const updated = await tx.kujiTicket.findMany({
+        where: {
+          boxId,
+          ticketId: { in: ticketIds },
+        },
+      })
+
+      return { result, updated }
     })
 
-    console.log(`[Kuji Tickets] Updated ${updateResult.count} tickets for box ${boxId} by user ${payload.userId}`)
+    console.log(`[Kuji Tickets] Transaction completed: Updated ${updateResult.result.count} tickets for box ${boxId} by user ${payload.userId}`)
 
-    // 업데이트된 티켓 정보 반환
-    const updatedTickets = await prisma.kujiTicket.findMany({
-      where: {
-        boxId,
-        ticketId: { in: ticketIds },
-      },
-    })
+    const updatedTickets = updateResult.updated
 
     // 업데이트 확인
     if (updatedTickets.length !== ticketIds.length) {
@@ -80,8 +108,19 @@ export async function POST(request: NextRequest) {
     // 모든 티켓이 제대로 업데이트되었는지 확인
     const notUpdated = updatedTickets.filter(t => !t.isTaken || t.takenBy !== payload.userId)
     if (notUpdated.length > 0) {
-      console.error(`[Kuji Tickets] Error: ${notUpdated.length} tickets were not properly updated`, notUpdated)
+      console.error(`[Kuji Tickets] Error: ${notUpdated.length} tickets were not properly updated`, notUpdated.map(t => ({
+        ticketId: t.ticketId,
+        isTaken: t.isTaken,
+        takenBy: t.takenBy,
+        expectedBy: payload.userId
+      })))
+      return NextResponse.json(
+        { error: '일부 티켓이 제대로 업데이트되지 않았습니다.' },
+        { status: 500 }
+      )
     }
+
+    console.log(`[Kuji Tickets] Successfully updated all ${updatedTickets.length} tickets`)
 
     // GameLog 생성 및 전광판 이벤트
     const logs = []
