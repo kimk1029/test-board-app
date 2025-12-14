@@ -4,9 +4,10 @@ function getBaseUrl(request: NextRequest): string {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
   if (baseUrl) return baseUrl
   
-  // Fallback to request URL
-  const protocol = request.headers.get('x-forwarded-proto') || 'https'
+  // Fallback to request URL - 로컬 개발 환경 감지
   const host = request.headers.get('host') || request.nextUrl.host
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1')
+  const protocol = isLocalhost ? 'http' : (request.headers.get('x-forwarded-proto') || 'https')
   return `${protocol}://${host}`
 }
 

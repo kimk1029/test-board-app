@@ -4,17 +4,41 @@ import { prisma } from '@/lib/prisma'
 // 현재 활성 쿠지 박스 상태 가져오기
 export async function GET() {
   try {
-    // 활성 박스 찾기 또는 생성
-    // [FIX] 항상 최신(가장 큰 ID)의 활성 박스를 가져오도록 수정하여 리셋 직후 반영되도록 함
-    let activeBox = await prisma.kujiBox.findFirst({
+    // [FIX] 활성 박스가 여러 개인 경우를 처리: 모든 활성 박스를 확인하고 최신 것만 남김
+    const activeBoxes = await prisma.kujiBox.findMany({
       where: { isActive: true },
-      orderBy: { id: 'desc' }, // [NEW] 최신 박스 우선
+      orderBy: { id: 'desc' },
       include: {
         tickets: {
           orderBy: { ticketId: 'asc' },
         },
       },
     })
+
+    let activeBox: any = null
+
+    // 활성 박스가 여러 개인 경우, 최신 것만 남기고 나머지는 비활성화
+    if (activeBoxes.length > 1) {
+      const latestBox = activeBoxes[0]
+      const olderBoxes = activeBoxes.slice(1)
+      
+      // 오래된 박스들 비활성화
+      if (olderBoxes.length > 0) {
+        await prisma.kujiBox.updateMany({
+          where: {
+            id: { in: olderBoxes.map(b => b.id) },
+          },
+          data: { isActive: false },
+        })
+        console.log(`[Kuji Box] ${olderBoxes.length}개의 중복 활성 박스를 비활성화했습니다. 최신 박스 ID: ${latestBox.id}`)
+      }
+      
+      activeBox = latestBox
+    } else if (activeBoxes.length === 1) {
+      activeBox = activeBoxes[0]
+    } else {
+      activeBox = null
+    }
 
     // 활성 박스가 없거나 모든 티켓이 소진되었으면 새 박스 생성
     if (!activeBox) {

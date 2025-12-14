@@ -56,9 +56,11 @@ export default function Home() {
                         alert(`로그인 보너스로 ${loginBonus} 포인트를 받았습니다!`)
                     }
 
-                    // URL에서 파라미터 제거하고 페이지 새로고침
+                    // URL에서 파라미터 제거 (새로고침 없이)
                     window.history.replaceState({}, document.title, window.location.pathname)
-                    window.location.reload()
+                    // 페이지 새로고침 대신 상태만 업데이트
+                    setCurrentUser({ nickname: user.nickname || user.email.split('@')[0], level: user.level })
+                    setCurrentPoints(user.points)
                     return
                 } catch (e) {
                     console.error('Failed to parse user data:', e)

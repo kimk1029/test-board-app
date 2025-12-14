@@ -15,7 +15,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import LoginModal from './LoginModal'
 import { getLevelProgress, getPointsForNextLevel, getPointsForCurrentLevel } from '@/lib/points'
-import { Menu, X, User as UserIcon, Gamepad2, LayoutDashboard, Crown, Bell, Trophy, Zap } from 'lucide-react'
+import { Menu, X, User as UserIcon, Gamepad2, LayoutDashboard, Crown, Bell, Trophy, Zap, Shield } from 'lucide-react'
 
 interface User {
   id: number
@@ -122,10 +122,6 @@ const HeaderNavigator = () => {
     { href: '/notice', label: 'NOTICE', icon: Bell },
   ]
 
-  if (isAdmin) {
-    navLinks.push({ href: '/admin', label: 'ADMIN', icon: UserIcon })
-  }
-
   return (
     <>
       <header
@@ -199,6 +195,17 @@ const HeaderNavigator = () => {
                       MY PROFILE
                     </Link>
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator className="bg-white/10" />
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin" className="w-full cursor-pointer font-bold flex items-center gap-2 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white text-violet-400">
+                          <Shield className="w-4 h-4" />
+                          ADMIN PAGE
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem
                     onClick={handleLogout}
