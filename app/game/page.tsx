@@ -23,16 +23,16 @@ const GAMES = {
         { id: 'holdem', name: 'Texas Holdem', desc: '심리전의 정수, 텍사스 홀덤', icon: Users, path: '/game/holdem', color: 'from-red-600 to-rose-900', accent: 'text-red-500', multiplayer: true },
         { id: 'blackjack', name: 'Blackjack', desc: '21을 향한 승부', icon: Club, path: '/game/blackjack', color: 'from-slate-700 to-slate-900', accent: 'text-slate-400' },
         { id: 'bustabit', name: 'Graph Game', desc: '타이밍이 생명! 그래프', icon: TrendingUp, path: '/game/bustabit', color: 'from-orange-600 to-red-700', accent: 'text-orange-500' },
-        { id: 'roulette', name: 'Roulette', desc: '운명의 휠을 돌려라', icon: Disc, path: '/game/roulette', color: 'from-purple-600 to-pink-700', accent: 'text-purple-500', beta: true },
+        { id: 'roulette', name: 'Roulette', desc: '운명의 휠을 돌려라', icon: Disc, path: '/game/roulette', color: 'from-purple-600 to-pink-700', accent: 'text-purple-500' },
         { id: 'cloverpit', name: 'Slots', desc: '잭팟을 노려라', icon: Clover, path: '/game/cloverpit', color: 'from-green-600 to-emerald-800', accent: 'text-green-500' },
     ],
     arcade: [
         { id: 'skyroads', name: 'Sky Roads', desc: '우주를 질주하라', icon: Rocket, path: '/game/skyroads', color: 'from-indigo-600 to-purple-700', accent: 'text-indigo-500', pcOnly: true },
         { id: 'windrunner', name: 'Wind Runner', desc: '바람을 가르는 질주', icon: Wind, path: '/game/windrunner', color: 'from-cyan-500 to-blue-600', accent: 'text-cyan-400', pcOnly: true },
-        { id: 'stairs', name: 'Infinite Stairs', desc: '무한 계단 오르기', icon: Layers, path: '/game/stairs', color: 'from-blue-600 to-indigo-700', accent: 'text-blue-500', beta: true },
+        { id: 'stairs', name: 'Infinite Stairs', desc: '무한 계단 오르기', icon: Layers, path: '/game/stairs', color: 'from-blue-600 to-indigo-700', accent: 'text-blue-500' },
     ],
     shop: [ // Kuji moved to shop category for display
-        { id: 'kuji', name: 'Ichiban Kuji', desc: '행운의 뽑기! (100P)', icon: Gift, path: '/game/kuji', color: 'from-yellow-500 to-amber-700', accent: 'text-yellow-500' }
+        { id: 'kuji', name: 'Ichiban Kuji', desc: '행운의 뽑기! (100P)', icon: Gift, path: '/game/kuji', color: 'from-yellow-500 to-amber-700', accent: 'text-yellow-500', inProgress: true }
     ]
 }
 
@@ -113,16 +113,54 @@ export default function GameLobby() {
                 className="h-full w-full"
             >
                 <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 rounded-2xl -z-10`} />
-                <div className="h-full bg-[#18181b] border border-white/5 rounded-2xl p-4 flex flex-col justify-between hover:border-white/20 hover:bg-[#202023] transition-all duration-300 relative overflow-hidden">
+                <div className={`h-full bg-[#18181b] border rounded-2xl p-4 flex flex-col justify-between hover:bg-[#202023] transition-all duration-300 relative overflow-hidden ${game.inProgress
+                        ? 'border-cyan-500/60 animate-neon-pulse'
+                        : 'border-white/5 hover:border-white/20'
+                    }`}>
                     {game.beta && <span className="absolute top-3 right-3 text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-400/20">BETA</span>}
                     {game.pcOnly && <span className="absolute top-3 right-3 text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20">PC</span>}
                     {game.multiplayer && <span className="absolute top-3 right-3 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20 animate-pulse">MULTI</span>}
+                    {game.inProgress && (
+                        <>
+                            {/* 사이버펑크 네온 효과 배경 - 번쩍이는 효과 */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/30 to-cyan-500/0 animate-shimmer pointer-events-none" />
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.15),transparent_70%)] animate-pulse pointer-events-none" />
 
-                    <div className="z-10">
-                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg mb-3`}>
+                            {/* 네온 테두리 효과 */}
+                            <div className="absolute inset-0 rounded-2xl border-2 border-cyan-500/40 animate-neon-pulse pointer-events-none" />
+
+                            {/* 진행중 라벨 - 사이버펑크 스타일 */}
+                            <div className="absolute top-3 right-3 z-10">
+                                <div className="relative">
+                                    {/* 네온 글로우 효과 */}
+                                    <div className="absolute inset-0 bg-cyan-500 blur-lg opacity-60 animate-pulse" />
+                                    {/* 메인 라벨 */}
+                                    <span className="relative text-[10px] font-black text-cyan-300 bg-black/90 px-2.5 py-1 rounded border-2 border-cyan-500/80 tracking-wider uppercase animate-glow">
+                                        IN PROGRESS
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* 절찬리 진행중 텍스트 */}
+                            <div className="absolute bottom-3 left-3 right-3 z-10">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-yellow-500/30 blur-md animate-pulse" />
+                                    <span className="relative text-[9px] font-bold text-yellow-300 bg-black/70 px-2 py-0.5 rounded border border-yellow-500/60 shadow-[0_0_15px_rgba(234,179,8,0.5)] tracking-wider">
+                                        🔥 절찬리 진행중 🔥
+                                    </span>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    <div className={`z-10 ${game.inProgress ? 'mt-2' : ''}`}>
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg mb-3 ${game.inProgress ? 'shadow-cyan-500/30' : ''}`}>
                             <game.icon className="w-4 h-4 text-white" />
                         </div>
-                        <h3 className="text-base font-bold text-white mb-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-gray-400 transition-all">
+                        <h3 className={`text-base font-bold mb-1 transition-all ${game.inProgress
+                                ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]'
+                                : 'text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-gray-400'
+                            }`}>
                             {game.name}
                         </h3>
                         <p className="text-gray-400 text-[11px] line-clamp-1">{game.desc}</p>

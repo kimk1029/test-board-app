@@ -67,10 +67,35 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "shimmer": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        "glow": {
+          "0%, 100%": { 
+            opacity: "1",
+            textShadow: "0 0 10px rgba(6,182,212,0.8), 0 0 20px rgba(6,182,212,0.6), 0 0 30px rgba(6,182,212,0.4)",
+          },
+          "50%": { 
+            opacity: "0.8",
+            textShadow: "0 0 5px rgba(6,182,212,0.6), 0 0 15px rgba(6,182,212,0.4), 0 0 25px rgba(6,182,212,0.2)",
+          },
+        },
+        "neon-pulse": {
+          "0%, 100%": { 
+            boxShadow: "0 0 5px rgba(6,182,212,0.5), 0 0 10px rgba(6,182,212,0.3), 0 0 15px rgba(6,182,212,0.2), inset 0 0 5px rgba(6,182,212,0.1)",
+          },
+          "50%": { 
+            boxShadow: "0 0 10px rgba(6,182,212,0.8), 0 0 20px rgba(6,182,212,0.6), 0 0 30px rgba(6,182,212,0.4), inset 0 0 10px rgba(6,182,212,0.2)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "shimmer": "shimmer 3s ease-in-out infinite",
+        "glow": "glow 1.5s ease-in-out infinite",
+        "neon-pulse": "neon-pulse 2s ease-in-out infinite",
       },
     },
   },

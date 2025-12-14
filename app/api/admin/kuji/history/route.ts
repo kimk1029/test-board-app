@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
 
     // 당첨자 ID 목록 추출
     const userIds = new Set<number>()
-    boxes.forEach(box => {
-      box.tickets.forEach(t => {
+    boxes.forEach((box: any) => {
+      box.tickets.forEach((t: any) => {
         if (t.takenBy) userIds.add(t.takenBy)
       })
     })
@@ -39,14 +39,14 @@ export async function GET(req: NextRequest) {
       select: { id: true, nickname: true, email: true }
     })
 
-    const userMap = new Map(users.map(u => [u.id, u]))
+    const userMap = new Map(users.map((u: any) => [u.id, u]))
 
     // 응답 데이터 구성
-    const history = boxes.map(box => {
+    const history = boxes.map((box: any) => {
       // 해당 박스의 경품 정보 (JSON)
       const prizeMeta = box.prizeInfo as any[] || []
       
-      const winners = box.tickets.map(t => {
+      const winners = box.tickets.map((t: any) => {
         const user = t.takenBy ? userMap.get(t.takenBy) : null
         // 경품 이름 찾기
         const prizeName = prizeMeta.find((p: any) => p.rank === t.rank)?.name || t.rank + '상'
@@ -54,14 +54,14 @@ export async function GET(req: NextRequest) {
         return {
           rank: t.rank,
           prizeName: prizeName,
-          user: user ? (user.nickname || user.email.split('@')[0]) : 'Unknown',
-          email: user?.email,
+          user: user ? ((user as any).nickname || (user as any).email.split('@')[0]) : 'Unknown',
+          email: (user as any)?.email,
           at: t.updatedAt
         }
       })
 
       // 등급순 정렬 (A, B, C...)
-      winners.sort((a, b) => a.rank.localeCompare(b.rank))
+      winners.sort((a: any, b: any) => a.rank.localeCompare(b.rank))
 
       return {
         id: box.id,

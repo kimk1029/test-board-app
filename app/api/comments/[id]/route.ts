@@ -5,9 +5,10 @@ import { verifyToken } from '@/lib/auth'
 // 댓글 수정
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: idParam } = await params
     const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
@@ -26,7 +27,7 @@ export async function PUT(
       )
     }
 
-    const id = parseInt(params.id)
+    const id = parseInt(idParam)
     const body = await request.json()
     const { content } = body
 
@@ -84,9 +85,10 @@ export async function PUT(
 // 댓글 삭제
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: idParam } = await params
     const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
@@ -105,7 +107,7 @@ export async function DELETE(
       )
     }
 
-    const id = parseInt(params.id)
+    const id = parseInt(idParam)
 
     const comment = await prisma.comment.findUnique({
       where: { id },

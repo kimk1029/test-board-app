@@ -21,9 +21,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Check current highest score before saving new score
-    if (gameType === 'stairs') {
+    const gameTypesWithRanking = ['stairs', 'skyroads', 'windrunner']
+    if (gameTypesWithRanking.includes(gameType)) {
         const highestScoreRecord = await prisma.gameScore.findFirst({
-            where: { gameType: 'stairs' },
+            where: { gameType },
             orderBy: { score: 'desc' }
         })
 
@@ -38,11 +39,24 @@ export async function POST(request: NextRequest) {
             
             if (user) {
                 const nickname = user.nickname || user.email.split('@')[0]
+                const gameNames: { [key: string]: string } = {
+                    'stairs': '무한계단',
+                    'skyroads': '스카이로드',
+                    'windrunner': '윈드러너'
+                }
+                const gameName = gameNames[gameType] || gameType
+                const scoreUnit: { [key: string]: string } = {
+                    'stairs': '층',
+                    'skyroads': 'KM',
+                    'windrunner': 'PTS'
+                }
+                const unit = scoreUnit[gameType] || ''
+                
                 await prisma.billboardEvent.create({
                     data: {
                         userId: user.id,
-                        gameType: 'stairs',
-                        message: `[STAIRS] ${nickname}님이 무한계단 신기록(${score}층)을 달성하여 1위에 등극했습니다!`
+                        gameType,
+                        message: `[${gameName.toUpperCase()}] ${nickname}님이 ${gameName} 신기록(${score}${unit})을 달성하여 1위에 등극했습니다!`
                     }
                 })
             }

@@ -4,10 +4,11 @@ import { verifyToken } from '@/lib/auth'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const postId = parseInt(params.id)
+    const { id: idParam } = await params
+    const postId = parseInt(idParam)
     if (isNaN(postId)) {
       return NextResponse.json({ error: 'Invalid post ID' }, { status: 400 })
     }
