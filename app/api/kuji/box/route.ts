@@ -80,7 +80,7 @@ export async function GET() {
             totalQty: prize.totalQty || prize.qty, // 초기 총 수량 유지
           }
         })
-      : prizeInfo
+      : prizeInfo || null // prizeInfo가 없으면 null 반환
 
     // 캐싱 방지 헤더 추가
     const response = NextResponse.json({
