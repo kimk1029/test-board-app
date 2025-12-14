@@ -109,8 +109,9 @@ export async function POST(request: NextRequest) {
       success: true,
       tickets: updatedTickets.map((t) => ({
         id: t.ticketId,
-        rank: t.rank,
+        rank: t.rank, // 등급 정보 포함
         isTaken: t.isTaken,
+        takenBy: t.takenBy,
       })),
     })
   } catch (error) {

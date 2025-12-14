@@ -47,7 +47,7 @@ export default function IchibanKujiGame() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [boxId, setBoxId] = useState<number | null>(null);
     const [purchaseCount, setPurchaseCount] = useState<number>(1);
-    const [gameState, setGameState] = useState<'IDLE' | 'SELECTING' | 'PEELING' | 'RESULT'>('IDLE');
+    const [gameState, setGameState] = useState<'IDLE' | 'LOADING_STATE' | 'SELECTING' | 'PEELING' | 'RESULT'>('IDLE');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [currentPeelIndex, setCurrentPeelIndex] = useState<number>(0);
     const [wonPrizes, setWonPrizes] = useState<Ticket[]>([]);
@@ -65,17 +65,6 @@ export default function IchibanKujiGame() {
         loadBoxState();
         loadUserPoints();
     }, []);
-
-    // 주기적으로 박스 상태 업데이트 (다른 사용자가 뽑은 티켓도 보이도록)
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (gameState === 'IDLE' || gameState === 'SELECTING') {
-                loadBoxState();
-            }
-        }, 3000); // 3초마다 업데이트
-
-        return () => clearInterval(interval);
-    }, [gameState]);
 
     // 사용자 포인트 로드
     const loadUserPoints = async () => {
@@ -156,7 +145,11 @@ export default function IchibanKujiGame() {
                     isTaken: t.isTaken,
                 }));
 
-                setTickets(convertedTickets);
+                // IDLE, LOADING_STATE, SELECTING 상태일 때만 전체 상태 업데이트
+                // PEELING이나 RESULT 상태일 때는 로컬 상태 유지 (뽑기 중 상태 변경 방지)
+                if (gameState === 'IDLE' || gameState === 'LOADING_STATE' || gameState === 'SELECTING') {
+                    setTickets(convertedTickets);
+                }
 
             } else {
                 console.error('Failed to load box state');
@@ -224,11 +217,16 @@ export default function IchibanKujiGame() {
             if (response.ok) {
                 const data = await response.json();
                 setUserPoints(data.points);
-                // 티켓 선택 모드로 전환
-                setGameState('SELECTING');
-                setSelectedIds([]);
                 // 헤더 포인트 갱신
                 refreshUserPoints();
+
+                // 1. 먼저 서버에서 최신 상태를 가져와서 보여줌 (마지막 상태)
+                setGameState('LOADING_STATE');
+                await loadBoxState();
+
+                // 2. 상태 로드 완료 후 티켓 선택 모드로 전환
+                setGameState('SELECTING');
+                setSelectedIds([]);
             } else {
                 const errorData = await response.json();
                 alert(errorData.error || '구매에 실패했습니다.');
@@ -286,13 +284,45 @@ export default function IchibanKujiGame() {
                 });
 
                 if (response.ok) {
-                    // 성공 시 로컬 상태 즉시 업데이트 (UI 반응성 향상)
-                    setTickets(prev => prev.map(t =>
-                        t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
-                    ));
+                    const responseData = await response.json();
 
-                    // 백그라운드에서 최신 상태 다시 불러오기 (검증용)
-                    loadBoxState();
+                    // 서버에서 반환된 티켓 정보로 로컬 상태 즉시 업데이트
+                    if (responseData.tickets && responseData.tickets.length > 0) {
+                        const updatedTicket = responseData.tickets[0];
+                        const revealedRank = updatedTicket.rank as Rank;
+
+                        // 1. 뽑은 티켓 상태 업데이트 (등급 포함)
+                        setTickets(prev => {
+                            const updated = prev.map(t =>
+                                t.id === currentTicketId
+                                    ? { ...t, isTaken: true, isRevealed: true, rank: revealedRank }
+                                    : t
+                            );
+
+                            // 2. 상태 반영 완료 - 업데이트된 티켓으로 wonPrizes에 추가
+                            const currentTicket = updated.find(t => t.id === currentTicketId);
+                            if (currentTicket) {
+                                setWonPrizes(prevPrizes => [...prevPrizes, currentTicket]);
+                            }
+
+                            return updated;
+                        });
+
+                        // 3. 재고 차감은 자동으로 반영됨 (getRemainingCount가 tickets 상태 기반으로 계산)
+                        // 4. 로그는 서버에서 이미 남겨짐 (app/api/kuji/tickets/route.ts)
+                    } else {
+                        // 응답에 티켓 정보가 없으면 로컬 상태만 업데이트
+                        setTickets(prev => {
+                            const updated = prev.map(t =>
+                                t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
+                            );
+                            const currentTicket = updated.find(t => t.id === currentTicketId);
+                            if (currentTicket) {
+                                setWonPrizes(prevPrizes => [...prevPrizes, currentTicket]);
+                            }
+                            return updated;
+                        });
+                    }
                 } else {
                     const errorData = await response.json();
                     alert(errorData.error || '티켓 업데이트에 실패했습니다.');
@@ -310,19 +340,25 @@ export default function IchibanKujiGame() {
             ));
         }
 
-        const currentTicket = tickets.find(t => t.id === currentTicketId)!;
-        setWonPrizes(prev => [...prev, currentTicket]);
-
-        // 폭죽 효과 (Confetti)
-        const prizeInfo = prizeList.find(p => p.rank === currentTicket.rank);
-        const color = prizeInfo?.color || '#ffffff';
-        confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: [color, '#ffd700', '#ffffff'],
-            shapes: ['circle', 'square', 'star']
-        });
+        // 폭죽 효과 (Confetti) - 상태 업데이트 후 최신 티켓 정보 사용
+        // tickets 상태가 비동기로 업데이트되므로, setTimeout으로 약간의 지연 후 확인
+        setTimeout(() => {
+            setTickets(currentTickets => {
+                const currentTicket = currentTickets.find(t => t.id === currentTicketId);
+                if (currentTicket && currentTicket.rank) {
+                    const prizeInfo = prizeList.find(p => p.rank === currentTicket.rank);
+                    const color = prizeInfo?.color || '#ffffff';
+                    confetti({
+                        particleCount: 150,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: [color, '#ffd700', '#ffffff'],
+                        shapes: ['circle', 'square', 'star']
+                    });
+                }
+                return currentTickets;
+            });
+        }, 100);
 
         // 다음 티켓으로 넘어가거나 결과창으로
         setTimeout(() => {
@@ -335,6 +371,20 @@ export default function IchibanKujiGame() {
         }, 3000); // 결과 보여주는 시간
     };
 
+    // 뽑기 완료 후 최종 상태 동기화
+    useEffect(() => {
+        if (gameState === 'RESULT') {
+            // 결과 화면으로 전환된 후 서버에서 최종 상태 동기화
+            const syncFinalState = async () => {
+                await loadBoxState();
+            };
+            // 약간의 지연 후 동기화 (결과 화면을 먼저 보여줌)
+            setTimeout(() => {
+                syncFinalState();
+            }, 1000);
+        }
+    }, [gameState]);
+
     // 리셋
     const resetGame = async () => {
         setGameState('IDLE');
@@ -343,17 +393,9 @@ export default function IchibanKujiGame() {
         setWonPrizes([]);
         setCurrentPeelIndex(0);
 
-        // 모든 티켓이 소진되었는지 확인 (서버에서 최신 상태 가져오기)
-        await loadBoxState();
+        // 사용자 포인트 갱신 및 박스 상태 동기화
         await loadUserPoints();
-
-        // 상태 업데이트 후의 티켓을 참조하기 위해 함수형 업데이트 사용이 어렵다면 loadBoxState 완료 후 tickets 참조
-        // loadBoxState는 비동기이므로 여기서 tickets은 이전 상태일 수 있음.
-        // 하지만 loadBoxState 내부에서 setTickets가 호출되므로, 리렌더링 후 반영됨.
-        // 여기서는 간단히 새로고침 로직을 위해 약간의 딜레이를 주거나 사용자에게 알림.
-
-        // 주의: getRemainingCount나 totalRemaining은 렌더링 시 계산되므로 여기서는 직접 계산 불가할 수 있음
-        // 하지만 React State 업데이트 큐에 의해 다음 렌더링에 반영됨.
+        await loadBoxState(); // IDLE 상태이므로 안전하게 상태 업데이트
     };
 
     return (
@@ -486,6 +528,17 @@ export default function IchibanKujiGame() {
                             {/* Decorative Elements */}
                             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-b from-white/5 to-transparent rounded-bl-full pointer-events-none" />
                             <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-t from-white/5 to-transparent rounded-tr-full pointer-events-none" />
+
+                            {/* 0. LOADING_STATE: 구매 후 최신 상태 로딩 */}
+                            {gameState === 'LOADING_STATE' && (
+                                <div className="h-full flex flex-col items-center justify-center space-y-6 animate-fade-in py-10">
+                                    <div className="text-center space-y-4">
+                                        <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                        <h3 className="text-2xl font-black text-white">최신 상태 불러오는 중...</h3>
+                                        <p className="text-slate-400">뽑힌 티켓 정보를 확인하고 있습니다</p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* 1. IDLE: 구매 수량 선택 및 구매 */}
                             {gameState === 'IDLE' && (

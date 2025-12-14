@@ -232,9 +232,14 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
   }
 
   const handleGoogleLogin = () => {
-    // 구글 로그인 페이지로 리다이렉트
-    const googleAuthUrl = `/api/auth/google`
-    window.location.href = googleAuthUrl
+    try {
+      // 구글 로그인 페이지로 리다이렉트
+      const googleAuthUrl = `/api/auth/google`
+      window.location.href = googleAuthUrl
+    } catch (error) {
+      console.error('Google login error:', error)
+      setError('구글 로그인을 시작하는데 실패했습니다.')
+    }
   }
 
   const formatTime = (seconds: number) => {
