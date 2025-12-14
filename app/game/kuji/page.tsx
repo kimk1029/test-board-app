@@ -62,8 +62,12 @@ export default function IchibanKujiGame() {
 
     // 초기화 - 서버에서 티켓 상태 가져오기
     useEffect(() => {
-        loadBoxState();
-        loadUserPoints();
+        // 페이지 진입 시 항상 서버 상태로 강제 동기화
+        const initialize = async () => {
+            await loadBoxState(true); // forceUpdate=true로 서버 상태 강제 반영
+            loadUserPoints();
+        };
+        initialize();
     }, []);
 
     // 사용자 포인트 로드
@@ -92,12 +96,8 @@ export default function IchibanKujiGame() {
     };
 
     // 서버에서 박스 상태 로드
-    const loadBoxState = async () => {
+    const loadBoxState = async (forceUpdate: boolean = false) => {
         try {
-            // 로딩 인디케이터는 최초 1회만, 혹은 명시적 새로고침 시에만 보여주는 것이 좋음
-            // polling 시마다 깜빡이는 것을 방지하기 위해 setLoading은 조건부로 사용하거나 제거
-            // setLoading(true); 
-
             const response = await fetch('/api/kuji/box');
 
             if (response.ok) {
@@ -137,18 +137,27 @@ export default function IchibanKujiGame() {
                 }
 
                 // 서버에서 받은 티켓 데이터를 클라이언트 형식으로 변환
+                // 중요: 서버에서 받은 rank 정보를 항상 사용 (뽑힌 티켓도 rank 포함)
                 const convertedTickets: Ticket[] = data.tickets.map((t: any) => ({
                     id: t.id,
-                    rank: t.rank as Rank,
+                    rank: t.rank as Rank, // 서버에서 받은 rank 정보 사용
                     isRevealed: t.isTaken,
                     isSelected: false,
                     isTaken: t.isTaken,
                 }));
 
-                // IDLE, LOADING_STATE, SELECTING 상태일 때만 전체 상태 업데이트
+                // forceUpdate가 true이면 항상 서버 상태로 동기화
+                // forceUpdate가 false일 때는 현재 gameState를 확인하여 조건부 업데이트
                 // PEELING이나 RESULT 상태일 때는 로컬 상태 유지 (뽑기 중 상태 변경 방지)
-                if (gameState === 'IDLE' || gameState === 'LOADING_STATE' || gameState === 'SELECTING') {
+                if (forceUpdate) {
+                    // 강제 업데이트: 페이지 재진입, 구매 후, 결과 후 등
                     setTickets(convertedTickets);
+                } else {
+                    // 조건부 업데이트: IDLE, LOADING_STATE, SELECTING 상태일 때만
+                    const currentState = gameState;
+                    if (currentState === 'IDLE' || currentState === 'LOADING_STATE' || currentState === 'SELECTING') {
+                        setTickets(convertedTickets);
+                    }
                 }
 
             } else {
@@ -222,7 +231,7 @@ export default function IchibanKujiGame() {
 
                 // 1. 먼저 서버에서 최신 상태를 가져와서 보여줌 (마지막 상태)
                 setGameState('LOADING_STATE');
-                await loadBoxState();
+                await loadBoxState(true); // forceUpdate=true로 최신 상태 강제 반영
 
                 // 2. 상태 로드 완료 후 티켓 선택 모드로 전환
                 setGameState('SELECTING');
@@ -256,18 +265,10 @@ export default function IchibanKujiGame() {
     };
 
     // 선택 완료 -> 뜯기 모드로
-    const confirmSelection = () => {
+    const confirmSelection = async () => {
         if (selectedIds.length !== purchaseCount) return;
-        setGameState('PEELING');
-        setCurrentPeelIndex(0);
-        setWonPrizes([]);
-    };
 
-    // 뜯기 완료 처리 (하나 뜯을 때마다 호출)
-    const handlePeelComplete = async () => {
-        const currentTicketId = selectedIds[currentPeelIndex];
-
-        // 서버에 티켓 뽑기 업데이트
+        // 선택한 모든 티켓을 서버에 한 번에 업데이트
         const token = localStorage.getItem('token');
         if (token && boxId !== null) {
             try {
@@ -279,66 +280,82 @@ export default function IchibanKujiGame() {
                     },
                     body: JSON.stringify({
                         boxId,
-                        ticketIds: [currentTicketId],
+                        ticketIds: selectedIds, // 선택한 모든 티켓 ID 전송
                     }),
                 });
 
                 if (response.ok) {
                     const responseData = await response.json();
 
-                    // 서버에서 반환된 티켓 정보로 로컬 상태 즉시 업데이트
+                    // 서버에서 반환된 티켓 정보로 로컬 상태 업데이트
                     if (responseData.tickets && responseData.tickets.length > 0) {
-                        const updatedTicket = responseData.tickets[0];
-                        const revealedRank = updatedTicket.rank as Rank;
-
-                        // 1. 뽑은 티켓 상태 업데이트 (등급 포함)
+                        // 서버 응답으로 티켓 상태 업데이트 (rank 정보 포함)
                         setTickets(prev => {
-                            const updated = prev.map(t =>
-                                t.id === currentTicketId
-                                    ? { ...t, isTaken: true, isRevealed: true, rank: revealedRank }
-                                    : t
-                            );
-
-                            // 2. 상태 반영 완료 - 업데이트된 티켓으로 wonPrizes에 추가
-                            const currentTicket = updated.find(t => t.id === currentTicketId);
-                            if (currentTicket) {
-                                setWonPrizes(prevPrizes => [...prevPrizes, currentTicket]);
-                            }
-
-                            return updated;
-                        });
-
-                        // 3. 재고 차감은 자동으로 반영됨 (getRemainingCount가 tickets 상태 기반으로 계산)
-                        // 4. 로그는 서버에서 이미 남겨짐 (app/api/kuji/tickets/route.ts)
-                    } else {
-                        // 응답에 티켓 정보가 없으면 로컬 상태만 업데이트
-                        setTickets(prev => {
-                            const updated = prev.map(t =>
-                                t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
-                            );
-                            const currentTicket = updated.find(t => t.id === currentTicketId);
-                            if (currentTicket) {
-                                setWonPrizes(prevPrizes => [...prevPrizes, currentTicket]);
-                            }
+                            const updated = prev.map(t => {
+                                const serverTicket = responseData.tickets.find((st: any) => st.id === t.id);
+                                if (serverTicket) {
+                                    return {
+                                        ...t,
+                                        isTaken: serverTicket.isTaken,
+                                        rank: serverTicket.rank as Rank,
+                                    };
+                                }
+                                return t;
+                            });
                             return updated;
                         });
                     }
+
+                    // 뜯기 모드로 전환
+                    setGameState('PEELING');
+                    setCurrentPeelIndex(0);
+                    setWonPrizes([]);
                 } else {
                     const errorData = await response.json();
                     alert(errorData.error || '티켓 업데이트에 실패했습니다.');
-                    return;
                 }
             } catch (error) {
-                console.error('Error updating ticket:', error);
+                console.error('Error updating tickets:', error);
                 alert('티켓 업데이트 중 오류가 발생했습니다.');
-                return;
             }
         } else {
-            // 데모 모드일 경우 로컬 업데이트
-            setTickets(prev => prev.map(t =>
-                t.id === currentTicketId ? { ...t, isTaken: true, isRevealed: true } : t
-            ));
+            // 데모 모드일 경우 바로 뜯기 모드로
+            setGameState('PEELING');
+            setCurrentPeelIndex(0);
+            setWonPrizes([]);
         }
+    };
+
+    // 뜯기 완료 처리 (하나 뜯을 때마다 호출)
+    // 주의: confirmSelection에서 이미 모든 티켓이 서버에 업데이트되었으므로,
+    // 여기서는 로컬 상태만 업데이트 (UI 애니메이션용)
+    const handlePeelComplete = async () => {
+        const currentTicketId = selectedIds[currentPeelIndex];
+
+        // 로컬 상태만 업데이트 (서버 업데이트는 confirmSelection에서 이미 완료됨)
+        setTickets(prev => {
+            const updated = prev.map(t => {
+                if (t.id === currentTicketId) {
+                    // 이미 서버에서 업데이트된 rank 정보 사용
+                    return { ...t, isRevealed: true };
+                }
+                return t;
+            });
+
+            // wonPrizes에 추가
+            const currentTicket = updated.find(t => t.id === currentTicketId);
+            if (currentTicket && currentTicket.rank) {
+                setWonPrizes(prevPrizes => {
+                    // 중복 추가 방지
+                    if (!prevPrizes.find(p => p.id === currentTicket.id)) {
+                        return [...prevPrizes, currentTicket];
+                    }
+                    return prevPrizes;
+                });
+            }
+
+            return updated;
+        });
 
         // 폭죽 효과 (Confetti) - 상태 업데이트 후 최신 티켓 정보 사용
         // tickets 상태가 비동기로 업데이트되므로, setTimeout으로 약간의 지연 후 확인
@@ -376,7 +393,7 @@ export default function IchibanKujiGame() {
         if (gameState === 'RESULT') {
             // 결과 화면으로 전환된 후 서버에서 최종 상태 동기화
             const syncFinalState = async () => {
-                await loadBoxState();
+                await loadBoxState(true); // forceUpdate=true로 최종 상태 강제 반영
             };
             // 약간의 지연 후 동기화 (결과 화면을 먼저 보여줌)
             setTimeout(() => {
@@ -395,7 +412,7 @@ export default function IchibanKujiGame() {
 
         // 사용자 포인트 갱신 및 박스 상태 동기화
         await loadUserPoints();
-        await loadBoxState(); // IDLE 상태이므로 안전하게 상태 업데이트
+        await loadBoxState(true); // forceUpdate=true로 서버 상태 강제 반영
     };
 
     return (

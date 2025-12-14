@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 티켓 업데이트 (뽑힌 것으로 표시)
-    await prisma.kujiTicket.updateMany({
+    const updateResult = await prisma.kujiTicket.updateMany({
       where: {
         boxId,
         ticketId: { in: ticketIds },
@@ -62,6 +62,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    console.log(`[Kuji Tickets] Updated ${updateResult.count} tickets for box ${boxId} by user ${payload.userId}`)
+
     // 업데이트된 티켓 정보 반환
     const updatedTickets = await prisma.kujiTicket.findMany({
       where: {
@@ -69,6 +71,17 @@ export async function POST(request: NextRequest) {
         ticketId: { in: ticketIds },
       },
     })
+
+    // 업데이트 확인
+    if (updatedTickets.length !== ticketIds.length) {
+      console.error(`[Kuji Tickets] Warning: Expected ${ticketIds.length} tickets but got ${updatedTickets.length}`)
+    }
+
+    // 모든 티켓이 제대로 업데이트되었는지 확인
+    const notUpdated = updatedTickets.filter(t => !t.isTaken || t.takenBy !== payload.userId)
+    if (notUpdated.length > 0) {
+      console.error(`[Kuji Tickets] Error: ${notUpdated.length} tickets were not properly updated`, notUpdated)
+    }
 
     // GameLog 생성 및 전광판 이벤트
     const logs = []
