@@ -231,7 +231,10 @@ export default function Home() {
                                         <Tooltip
                                             contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
                                             labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
-                                            formatter={(value: number) => [`${value.toLocaleString()} P`, 'Points']}
+                                            formatter={(value: any) => {
+                                                if (value === undefined || value === null || typeof value !== 'number') return ['0 P', 'Points']
+                                                return [`${value.toLocaleString()} P`, 'Points']
+                                            }}
                                             labelFormatter={(label) => new Date(label).toLocaleDateString()}
                                         />
                                         <Line
