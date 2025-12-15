@@ -432,15 +432,19 @@ export function handlePlayerAction(
   // 활성 플레이어가 1명만 남으면 즉시 승리 처리 (pot 획득)
   if (activePlayers.length === 1) {
     const winner = activePlayers[0];
+    // 폴드 승리 케이스에도 showdownEndTime 설정하여 자동 시작 가능하도록
+    const showdownEndTime = new Date(Date.now() + 6000); // 6초 후 자동 시작
     return {
       roomUpdates: {
         status: 'finished',
+        currentRound: 'showdown', // showdown으로 설정하여 handleAutoStartNextGame이 작동하도록
         gameState: {
           ...gameState,
           currentTurnSeat: null,
           winners: [{ seatIndex: winner.seatIndex, hand: { rank: 'High Card', score: 0, winners: [] }, amount: pot }]
         },
-        pot: 0
+        pot: 0,
+        showdownEndTime // 자동 시작을 위한 시간 설정
       },
       playerUpdates: [
         playerUpdate,

@@ -731,8 +731,12 @@ export class HoldemScene extends Phaser.Scene {
                       cardsContainer.removeAll(true);
                   }
                   
-                  // Showdown reveal
-                  if (this.roomData?.currentRound === 'showdown' && p.isActive && p.holeCards) {
+                  // Showdown reveal - 참여한 사람의 모든 카드 공개 (폴드한 사람 제외)
+                  // winners가 있으면 게임이 끝난 것이므로, holeCards가 있는 모든 플레이어의 카드를 공개
+                  const hasWinners = this.roomData?.gameState.winners && this.roomData.gameState.winners.length > 0;
+                  const isShowdown = this.roomData?.currentRound === 'showdown';
+                  
+                  if ((isShowdown || hasWinners) && p.holeCards && p.holeCards.length > 0) {
                       // Only redraw if not already showing faces (check first child texture key)
                       const firstChild = cardsContainer.list[0] as Phaser.GameObjects.Image;
                       if (firstChild && firstChild.texture && firstChild.texture.key === 'card-back') {

@@ -175,38 +175,6 @@ export default function GameLobby() {
                         </h3>
                         <p className="text-gray-400 text-[11px] line-clamp-1">{game.desc}</p>
                     </div>
-                    
-                    {/* 카지노 게임 통계 표시 */}
-                    {stat && ['blackjack', 'bustabit', 'roulette', 'cloverpit', 'holdem'].includes(game.id) && (
-                        <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
-                            <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-500">승률</span>
-                                    <span className="text-emerald-400 font-semibold">{stat.winRate?.toFixed(1) || '0.0'}%</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-500">환급률</span>
-                                    <span className="text-blue-400 font-semibold">{stat.rtp?.toFixed(1) || '0.0'}%</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-500">플레이</span>
-                                    <span className="text-gray-300 font-semibold">{stat.totalGames?.toLocaleString() || 0}</span>
-                                </div>
-                                {stat.avgMultiplier > 0 && (
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-500">평균 배율</span>
-                                        <span className="text-purple-400 font-semibold">{stat.avgMultiplier?.toFixed(2) || '0.00'}x</span>
-                                    </div>
-                                )}
-                                {stat.maxPayout > 0 && (
-                                    <div className="flex justify-between items-center col-span-2">
-                                        <span className="text-gray-500">최대 승리</span>
-                                        <span className="text-yellow-400 font-semibold">{stat.maxPayout?.toLocaleString() || 0} P</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </motion.div>
         </Link>
