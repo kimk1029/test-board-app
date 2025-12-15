@@ -21,10 +21,17 @@ const AdBanner = ({
       // 여기서는 간단하게 푸시만 시도
       if (adRef.current && adRef.current.innerHTML === '') {
           // @ts-ignore
-          ;(window.adsbygoogle = window.adsbygoogle || []).push({})
+          if (window.adsbygoogle) {
+            // @ts-ignore
+            ;(window.adsbygoogle = window.adsbygoogle || []).push({})
+          }
       }
     } catch (err: any) {
-      console.error('AdSense error:', err.message)
+      // 광고 차단기로 인한 오류는 조용히 처리
+      // 콘솔에 에러가 표시되지 않도록 함
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('AdSense error (likely blocked by ad blocker):', err.message)
+      }
     }
   }, [])
 

@@ -54,6 +54,8 @@ export class HoldemScene extends Phaser.Scene {
   private currentTimerSeat: number | null = null;
   private timerCheckInterval: NodeJS.Timeout | null = null; // 서버 타이머 체크용
   private fetchAbortController: AbortController | null = null; // Fetch 요청 취소용
+  private actionAbortController: AbortController | null = null; // 액션 요청 취소용
+  private startAbortController: AbortController | null = null; // 게임 시작 요청 취소용
 
   // UI Objects
   private tableGraphics!: Phaser.GameObjects.Graphics;
@@ -136,10 +138,20 @@ export class HoldemScene extends Phaser.Scene {
       this.turnTimerEvent = null;
     }
     
-    // 진행 중인 fetch 요청 취소
+    // 진행 중인 모든 fetch 요청 취소
     if (this.fetchAbortController) {
       this.fetchAbortController.abort();
       this.fetchAbortController = null;
+    }
+    
+    if (this.actionAbortController) {
+      this.actionAbortController.abort();
+      this.actionAbortController = null;
+    }
+    
+    if (this.startAbortController) {
+      this.startAbortController.abort();
+      this.startAbortController = null;
     }
     
     this.isProcessingUpdate = false;
@@ -211,7 +223,8 @@ export class HoldemScene extends Phaser.Scene {
     this.startButton = this.createButton(0, 0, 'GAME START', 0x2e7d32, () => this.handleStartGame());
     this.startButton.setVisible(false).setDepth(30);
 
-    this.deckSprite = this.add.image(0, 0, 'card-back').setScale(0.6).setDepth(5);
+    // 카드 덱 크기 50% 감소 (0.6 -> 0.3)
+    this.deckSprite = this.add.image(0, 0, 'card-back').setScale(0.3).setDepth(5);
   }
   
   createSeats() {
@@ -240,8 +253,8 @@ export class HoldemScene extends Phaser.Scene {
             fontSize: '18px', color: '#00ffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5);
         
-        // Cards
-        const cardsContainer = this.add.container(0, 0); 
+        // Cards - 제일 위에 앉은 사람(seatIndex 3)의 카드는 더 높은 depth로 설정
+        const cardsContainer = this.add.container(0, 0).setDepth(i === 3 ? 15 : 6); 
         
         container.add([avatarBg, avatarImg, infoBg, nameText, chipsText, actionText, cardsContainer]);
         this.seatContainers.set(i, container);
@@ -554,9 +567,16 @@ export class HoldemScene extends Phaser.Scene {
     if (this.potText) {
       this.potText.setText(`POT: ${newData.pot.toLocaleString()}`);
       
-      // Pot이 증가했을 때 칩 연출
-      if (newData.pot > this.previousPot && this.previousPot >= 0) {
-        this.animatePotChips(newData.pot - this.previousPot);
+      // Pot이 있으면 칩 이미지 표시 (초기 pot도 포함)
+      if (newData.pot > 0) {
+        // Pot이 증가했을 때만 새 칩 추가
+        if (newData.pot > this.previousPot && this.previousPot >= 0) {
+          this.animatePotChips(newData.pot - this.previousPot);
+        }
+        // Pot이 있지만 칩이 없으면 전체 pot에 맞는 칩 표시 (애니메이션 없이)
+        if (this.potChips.length === 0 && newData.pot > 0) {
+          this.animatePotChips(newData.pot, false);
+        }
       }
       // Pot이 0이 되면 모든 칩 제거
       if (newData.pot === 0 && this.previousPot > 0) {
@@ -922,8 +942,8 @@ export class HoldemScene extends Phaser.Scene {
           const deckX = this.deckSprite.x;
           const deckY = this.deckSprite.y;
           
-          // Community Cards smaller (0.25)
-          const cardObj = this.add.image(deckX, deckY, 'card-back').setScale(0.25);
+          // Community Cards 30% 증가 (0.25 -> 0.325)
+          const cardObj = this.add.image(deckX, deckY, 'card-back').setScale(0.325);
           this.communityCardContainers.push(cardObj as any);
           
           this.tweens.add({
@@ -956,7 +976,7 @@ export class HoldemScene extends Phaser.Scene {
                               if (cardObj && cardObj.active) {
                                   this.tweens.add({
                                       targets: cardObj,
-                                      scaleX: 0.25, 
+                                      scaleX: 0.325, 
                                       duration: 150
                                   });
                               }
@@ -994,13 +1014,63 @@ export class HoldemScene extends Phaser.Scene {
           this.currentTimerSeat = null;
           this.timerGraphics.clear();
       }
+      
+      // 사용자 액션 애니메이션 표시
+      const myPlayer = this.roomData?.players.find(p => p.userId === this.myUserId);
+      if (myPlayer) {
+          const myContainer = this.seatContainers.get(myPlayer.seatIndex);
+          if (myContainer) {
+              const actionText = myContainer.getAt(5) as Phaser.GameObjects.Text;
+              if (actionText) {
+                  let actionLabel = action.toUpperCase();
+                  if (action === 'call' && amount > 0) {
+                      actionLabel = `CALL $${amount}`;
+                  } else if (action === 'raise' && amount > 0) {
+                      actionLabel = `RAISE $${amount}`;
+                  } else if (action === 'allin') {
+                      actionLabel = 'ALL IN';
+                  }
+                  
+                  actionText.setText(actionLabel);
+                  actionText.setColor('#00ff00');
+                  actionText.setVisible(true);
+                  
+                  // 페이드 아웃 애니메이션
+                  this.tweens.add({
+                      targets: actionText,
+                      alpha: 0,
+                      duration: 2000,
+                      delay: 1000,
+                      onComplete: () => {
+                          actionText.setVisible(false);
+                          actionText.setAlpha(1);
+                      }
+                  });
+              }
+          }
+      }
+      
+      // 이전 액션 요청 취소
+      if (this.actionAbortController) {
+          this.actionAbortController.abort();
+      }
+      this.actionAbortController = new AbortController();
+      
       try {
           await fetch('/api/holdem/action', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify({ roomId: this.roomId, action, amount })
+              body: JSON.stringify({ roomId: this.roomId, action, amount }),
+              signal: this.actionAbortController.signal
           });
-      } catch (e) { console.error(e); this.actionContainer.setVisible(true); }
+      } catch (e: any) {
+          if (e.name !== 'AbortError') {
+              console.error(e);
+              this.actionContainer.setVisible(true);
+          }
+      } finally {
+          this.actionAbortController = null;
+      }
   }
   
   async handleStartGame() {
@@ -1010,11 +1080,18 @@ export class HoldemScene extends Phaser.Scene {
           return;
       }
       
+      // 이전 시작 요청 취소
+      if (this.startAbortController) {
+          this.startAbortController.abort();
+      }
+      this.startAbortController = new AbortController();
+      
       try {
           const res = await fetch('/api/holdem/start', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify({ roomId: this.roomId })
+              body: JSON.stringify({ roomId: this.roomId }),
+              signal: this.startAbortController.signal
           });
           
           if (res.ok) {
@@ -1024,9 +1101,13 @@ export class HoldemScene extends Phaser.Scene {
               const err = await res.json();
               alert(err.error || '게임 시작에 실패했습니다.');
           }
-      } catch (e) {
-          console.error('게임 시작 오류:', e);
-          alert('게임 시작 중 오류가 발생했습니다.');
+      } catch (e: any) {
+          if (e.name !== 'AbortError') {
+              console.error('게임 시작 오류:', e);
+              alert('게임 시작 중 오류가 발생했습니다.');
+          }
+      } finally {
+          this.startAbortController = null;
       }
   }
 
@@ -1039,6 +1120,55 @@ export class HoldemScene extends Phaser.Scene {
       this.statusText.setColor('#ffff00');
       this.statusText.setStroke('#000000', 6);
       this.statusText.setFontSize(36);
+      
+      // 우승자에게 칩 전달 애니메이션
+      winners.forEach(winner => {
+          const winnerContainer = this.seatContainers.get(winner.seatIndex);
+          if (!winnerContainer) return;
+          
+          const { width, height } = this.scale;
+          const cx = width / 2;
+          const cy = height / 2;
+          const potY = cy + 50;
+          
+          // Pot에서 우승자에게 칩 이동 애니메이션
+          const chipCount = Math.min(Math.floor(winner.amount / 100), 10); // 최대 10개
+          for (let i = 0; i < chipCount; i++) {
+              const chip = this.add.container(cx, potY).setDepth(20);
+              
+              const chipSprite = this.add.circle(0, 0, 8, 0xffd700)
+                  .setStrokeStyle(2, 0xffaa00);
+              const chipInner = this.add.circle(0, 0, 5, 0xffed4e);
+              chip.add([chipSprite, chipInner]);
+              
+              const winnerPos = {
+                  x: winnerContainer.x,
+                  y: winnerContainer.y - 60
+              };
+              
+              const delay = i * 100;
+              
+              this.tweens.add({
+                  targets: chip,
+                  x: winnerPos.x,
+                  y: winnerPos.y,
+                  duration: 800,
+                  delay: delay,
+                  ease: 'Power2',
+                  onComplete: () => {
+                      // 칩이 도착하면 작은 바운스 효과
+                      this.tweens.add({
+                          targets: chip,
+                          scaleX: 1.2,
+                          scaleY: 1.2,
+                          duration: 150,
+                          yoyo: true,
+                          onComplete: () => chip.destroy()
+                      });
+                  }
+              });
+          }
+      });
   }
   
   resetTableForNewGame() {
@@ -1063,14 +1193,14 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   // Pot 칩 연출 애니메이션
-  animatePotChips(amount: number) {
+  animatePotChips(amount: number, animate: boolean = true) {
       const { width, height } = this.scale;
       const cx = width / 2;
       const cy = height / 2;
       const potY = cy + 50;
       
-      // 칩 개수 계산 (100 단위로 칩 하나)
-      const chipCount = Math.min(Math.floor(amount / 100), 20); // 최대 20개
+      // 칩 개수 계산 (100 단위로 칩 하나, 최소 1개)
+      const chipCount = Math.max(1, Math.min(Math.floor(amount / 100), 20)); // 최대 20개
       
       for (let i = 0; i < chipCount; i++) {
           const chip = this.add.container(cx, potY).setDepth(8);
@@ -1087,18 +1217,24 @@ export class HoldemScene extends Phaser.Scene {
           const offsetY = (Math.random() - 0.5) * 30 - 20;
           const finalY = potY + offsetY;
           
-          chip.setPosition(cx + offsetX, potY - 50);
-          chip.setScale(0);
-          
-          this.tweens.add({
-              targets: chip,
-              scaleX: 1,
-              scaleY: 1,
-              y: finalY,
-              duration: 300 + Math.random() * 200,
-              ease: 'Bounce.easeOut',
-              delay: i * 30
-          });
+          if (animate) {
+              chip.setPosition(cx + offsetX, potY - 50);
+              chip.setScale(0);
+              
+              this.tweens.add({
+                  targets: chip,
+                  scaleX: 1,
+                  scaleY: 1,
+                  y: finalY,
+                  duration: 300 + Math.random() * 200,
+                  ease: 'Bounce.easeOut',
+                  delay: i * 30
+              });
+          } else {
+              // 애니메이션 없이 바로 위치 설정
+              chip.setPosition(cx + offsetX, finalY);
+              chip.setScale(1);
+          }
           
           this.potChips.push(chip);
       }

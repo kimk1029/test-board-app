@@ -305,8 +305,8 @@ function handleShowdown(room: RoomWithPlayers): { roomUpdates: any, playerUpdate
 
   const gameState = room.gameState as unknown as GameState;
 
-  // showdown 종료 시간 설정 (3초 후 자동 시작)
-  const showdownEndTime = new Date(Date.now() + 3000);
+  // showdown 종료 시간 설정 (6초 후 자동 시작 - 2배 증가)
+  const showdownEndTime = new Date(Date.now() + 6000);
 
   return {
     roomUpdates: {
