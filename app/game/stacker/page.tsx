@@ -423,16 +423,32 @@ const GameComponent = ({ onScoreUpdate }: GameComponentProps) => {
                 }
             }
 
+            // 모바일 대응: 화면 크기에 따라 게임 크기 조정
+            const getGameSize = () => {
+                if (typeof window === 'undefined') return { width: 400, height: 600 };
+                const isMobile = window.innerWidth < 768;
+                if (isMobile) {
+                    // 모바일: 화면 너비의 90%, 비율 유지 (2:3)
+                    const maxWidth = Math.min(window.innerWidth * 0.9, 400);
+                    return { width: maxWidth, height: maxWidth * 1.5 };
+                }
+                return { width: 400, height: 600 };
+            };
+
+            const gameSize = getGameSize();
+
             const config: Phaser.Types.Core.GameConfig = {
                 type: Phaser.AUTO,
-                width: 400,
-                height: 600,
+                width: gameSize.width,
+                height: gameSize.height,
                 parent: gameRef.current || undefined,
                 backgroundColor: '#0a0a0c',
                 scene: MainScene,
                 scale: {
                     mode: Phaser.Scale.FIT,
-                    autoCenter: Phaser.Scale.CENTER_BOTH
+                    autoCenter: Phaser.Scale.CENTER_BOTH,
+                    width: gameSize.width,
+                    height: gameSize.height
                 }
             };
 
