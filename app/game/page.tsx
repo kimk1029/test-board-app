@@ -346,15 +346,19 @@ export default function GameLobby() {
                                         />
                                         <Tooltip
                                             contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
-                                            formatter={(value: any, name: string) => {
-                                                if (name === 'winRate' || name === 'rtp') {
-                                                    return [`${value.toFixed(1)}%`, name === 'winRate' ? '승률' : '환급률']
-                                                } else if (name === 'totalBet') {
+                                            formatter={(value: any, name: any) => {
+                                                if (value === undefined || value === null || typeof value !== 'number') {
+                                                    return [value ?? 0, name ?? ''];
+                                                }
+                                                const nameStr = String(name || '');
+                                                if (nameStr === 'winRate' || nameStr === 'rtp') {
+                                                    return [`${value.toFixed(1)}%`, nameStr === 'winRate' ? '승률' : '환급률']
+                                                } else if (nameStr === 'totalBet') {
                                                     return [`${value.toLocaleString()} P`, '거래량']
-                                                } else if (name === 'avgMultiplier') {
+                                                } else if (nameStr === 'avgMultiplier') {
                                                     return [`${value.toFixed(2)}x`, '평균 배율']
                                                 }
-                                                return [value, name]
+                                                return [value, nameStr]
                                             }}
                                         />
                                         <Legend 
