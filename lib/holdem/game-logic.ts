@@ -221,13 +221,28 @@ export function nextRound(room: RoomWithPlayers): { roomUpdates: any, playerUpda
   const { drawn, remaining } = drawCards(deck, cardsToDraw);
   const newCommunityCards = [...communityCards, ...drawn];
   
-  // Find starting player for post-flop (SB or next active)
+  // Find starting player for post-flop
+  // 홀덤 룰: Flop/Turn/River에서는 Small Blind 다음 활성 플레이어부터 시작
   const activePlayers = room.players.filter(p => p.isActive).sort((a, b) => a.seatIndex - b.seatIndex);
   
+  if (activePlayers.length === 0) {
+    return null; // 활성 플레이어가 없음
+  }
+  
+  // Small Blind 위치 찾기 (position이 'small_blind'인 플레이어)
+  const sbPlayer = activePlayers.find(p => p.position === 'small_blind');
   const dealerSeat = room.dealerIndex;
-  // Find first active player strictly after dealerSeat
-  let nextPlayer = activePlayers.find(p => p.seatIndex > dealerSeat);
-  if (!nextPlayer) nextPlayer = activePlayers[0]; // Wrap around
+  
+  let nextPlayer: typeof activePlayers[0];
+  
+  if (sbPlayer) {
+    // Small Blind 다음 활성 플레이어 찾기
+    const sbIndex = activePlayers.findIndex(p => p.seatIndex === sbPlayer.seatIndex);
+    nextPlayer = activePlayers[(sbIndex + 1) % activePlayers.length];
+  } else {
+    // Small Blind를 찾을 수 없으면 Dealer 다음 활성 플레이어
+    nextPlayer = activePlayers.find(p => p.seatIndex > dealerSeat) || activePlayers[0];
+  }
 
   // Reset current bets for new round
   const playerUpdates = activePlayers.map(p => ({
@@ -408,13 +423,15 @@ export function handlePlayerAction(
   
   // Check for Round End or Game End
   
-  // 1. Fold Win Condition
-  const remainingPlayers = room.players.filter(p => 
+  // 1. Fold한 플레이어는 더 이상 턴이 돌아오지 않음
+  // 활성 플레이어만 고려하여 다음 턴 찾기
+  const activePlayers = room.players.filter(p => 
     (p.userId === userId ? isActive : p.isActive)
   );
   
-  if (remainingPlayers.length === 1) {
-    const winner = remainingPlayers[0];
+  // 활성 플레이어가 1명만 남으면 즉시 승리 처리 (pot 획득)
+  if (activePlayers.length === 1) {
+    const winner = activePlayers[0];
     return {
       roomUpdates: {
         status: 'finished',
@@ -435,40 +452,66 @@ export function handlePlayerAction(
     };
   }
 
-  // 2. Round Transition Check
-  let nextSeat = gameState.currentTurnSeat!;
-  let foundNext = false;
-  let loopCount = 0;
+  // 다음 턴 플레이어 찾기 (활성 플레이어 중에서만)
+  let nextSeat: number | null = null;
+  const sortedActivePlayers = activePlayers.sort((a, b) => a.seatIndex - b.seatIndex);
+  const currentSeatIndex = sortedActivePlayers.findIndex(p => p.seatIndex === gameState.currentTurnSeat);
   
-  const sortedPlayers = room.players.sort((a,b) => a.seatIndex - b.seatIndex);
-  let idx = sortedPlayers.findIndex(p => p.seatIndex === nextSeat);
-  
-  while (loopCount < sortedPlayers.length) {
-    idx = (idx + 1) % sortedPlayers.length;
-    const p = sortedPlayers[idx];
+  // 현재 플레이어 다음부터 순환하며 찾기
+  for (let i = 1; i <= sortedActivePlayers.length; i++) {
+    const nextIndex = (currentSeatIndex + i) % sortedActivePlayers.length;
+    const nextPlayer = sortedActivePlayers[nextIndex];
     
-    if (p.isActive && !p.isAllIn) {
-       foundNext = true;
-       nextSeat = p.seatIndex;
-       break;
+    // All-in이 아닌 활성 플레이어만 선택
+    if (nextPlayer.userId === userId ? !isAllIn : !nextPlayer.isAllIn) {
+      nextSeat = nextPlayer.seatIndex;
+      break;
     }
-    loopCount++;
+  }
+  
+  // 다음 플레이어를 찾을 수 없으면 (모두 All-in) 라운드 종료
+  if (nextSeat === null) {
+    // 모두 All-in이면 라운드 종료
+    const nextRoundResult = nextRound({ 
+      ...room, 
+      pot,
+      players: room.players.map(p => p.userId === userId ? { ...p, ...playerUpdate.data } : p),
+      gameState: { ...gameState, lastRaise: 0, minBet: 0, actedPlayers: [] } as unknown as any
+    } as RoomWithPlayers);
+    
+    if (nextRoundResult) {
+      const turnStartTime = new Date();
+      return {
+        roomUpdates: {
+          ...nextRoundResult.roomUpdates,
+          pot: pot,
+          turnStartTime
+        },
+        playerUpdates: [playerUpdate, ...nextRoundResult.playerUpdates]
+      };
+    }
   }
 
+  // 3. 라운드 종료 조건 체크
   const newHighestBet = Math.max(highestBet, currentBet);
-  const playersInHand = room.players.filter(p => (p.userId === userId ? isActive : p.isActive));
+  const playersInHand = activePlayers; // 이미 필터링된 활성 플레이어 사용
   const activeNonAllIn = playersInHand.filter(p => (p.userId === userId ? !isAllIn : !p.isAllIn));
   
+  // 모든 플레이어의 베팅이 맞춰졌는지 확인
   const allMatched = playersInHand.every(p => {
     const pBet = p.userId === userId ? currentBet : p.currentBet;
     const pAllIn = p.userId === userId ? isAllIn : p.isAllIn;
     return pBet === newHighestBet || pAllIn;
   });
 
-  const allActed = activeNonAllIn.every(p => newActedPlayers.includes(p.seatIndex));
+  // All-in이 아닌 모든 활성 플레이어가 액션을 했는지 확인
+  const allActed = activeNonAllIn.length === 0 || activeNonAllIn.every(p => newActedPlayers.includes(p.seatIndex));
 
   let roundOver = false;
   
+  // 라운드 종료 조건:
+  // 1. 모든 플레이어의 베팅이 맞춰졌고, 모든 활성 플레이어가 액션을 완료
+  // 2. 또는 모두 All-in이고 베팅이 맞춰짐
   if (allMatched && allActed) {
       roundOver = true;
   }
@@ -487,6 +530,28 @@ export function handlePlayerAction(
       
       if (nextRoundResult) {
           // 다음 라운드 시작 시 턴 시작 시간 설정
+          const turnStartTime = new Date();
+          return {
+              roomUpdates: {
+                  ...nextRoundResult.roomUpdates,
+                  pot: pot,
+                  turnStartTime
+              },
+              playerUpdates: [playerUpdate, ...nextRoundResult.playerUpdates]
+          };
+      }
+  }
+  
+  // 다음 턴이 없으면 (모두 fold 또는 all-in) 라운드 종료
+  if (nextSeat === null) {
+      const nextRoundResult = nextRound({ 
+          ...room, 
+          pot,
+          players: room.players.map(p => p.userId === userId ? { ...p, ...playerUpdate.data } : p),
+          gameState: { ...gameState, lastRaise: 0, minBet: 0, actedPlayers: [] } as unknown as any
+      } as RoomWithPlayers);
+      
+      if (nextRoundResult) {
           const turnStartTime = new Date();
           return {
               roomUpdates: {

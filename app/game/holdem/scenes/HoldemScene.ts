@@ -65,6 +65,8 @@ export class HoldemScene extends Phaser.Scene {
   private actionContainer!: Phaser.GameObjects.Container;
   private startButton!: Phaser.GameObjects.Container;
   private deckSprite!: Phaser.GameObjects.Image;
+  private potChips: Phaser.GameObjects.Container[] = []; // Pot 칩 연출용
+  private previousPot: number = 0; // 이전 pot 값 추적
   
   // Raise UI
   private raiseContainer!: Phaser.GameObjects.Container;
@@ -509,6 +511,26 @@ export class HoldemScene extends Phaser.Scene {
 
     if (this.potText) {
       this.potText.setText(`POT: ${newData.pot.toLocaleString()}`);
+      
+      // Pot이 증가했을 때 칩 연출
+      if (newData.pot > this.previousPot && this.previousPot >= 0) {
+        this.animatePotChips(newData.pot - this.previousPot);
+      }
+      // Pot이 0이 되면 모든 칩 제거
+      if (newData.pot === 0 && this.previousPot > 0) {
+        this.potChips.forEach(chip => {
+          this.tweens.add({
+            targets: chip,
+            scaleX: 0,
+            scaleY: 0,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => chip.destroy()
+          });
+        });
+        this.potChips = [];
+      }
+      this.previousPot = newData.pot;
     }
     
     const amISeated = newData.players.some(p => p.userId === this.myUserId);
@@ -965,13 +987,77 @@ export class HoldemScene extends Phaser.Scene {
       this.displayedCommunityCards = 0;
       this.communityCardContainers.forEach(c => c.destroy());
       this.communityCardContainers = [];
-      this.statusText.setText('');
+      if (this.statusText) this.statusText.setText('');
       this.seatContainers.forEach(c => {
-          (c.getAt(6) as Phaser.GameObjects.Container).removeAll(true);
+          if (c && c.length > 6) {
+              (c.getAt(6) as Phaser.GameObjects.Container)?.removeAll(true);
+          }
       });
       this.currentTimerSeat = null;
       if (this.turnTimerEvent) this.turnTimerEvent.remove();
       this.turnTimerEvent = null;
       this.timerGraphics.clear();
+      
+      // Pot 칩 초기화
+      this.potChips.forEach(chip => chip.destroy());
+      this.potChips = [];
+      this.previousPot = 0;
+  }
+
+  // Pot 칩 연출 애니메이션
+  animatePotChips(amount: number) {
+      const { width, height } = this.scale;
+      const cx = width / 2;
+      const cy = height / 2;
+      const potY = cy + 50;
+      
+      // 칩 개수 계산 (100 단위로 칩 하나)
+      const chipCount = Math.min(Math.floor(amount / 100), 20); // 최대 20개
+      
+      for (let i = 0; i < chipCount; i++) {
+          const chip = this.add.container(cx, potY).setDepth(8);
+          
+          // 칩 스프라이트 (원형)
+          const chipSprite = this.add.circle(0, 0, 8, 0xffd700)
+              .setStrokeStyle(2, 0xffaa00);
+          const chipInner = this.add.circle(0, 0, 5, 0xffed4e);
+          
+          chip.add([chipSprite, chipInner]);
+          
+          // 랜덤 위치로 떨어지는 애니메이션
+          const offsetX = (Math.random() - 0.5) * 60;
+          const offsetY = (Math.random() - 0.5) * 30 - 20;
+          const finalY = potY + offsetY;
+          
+          chip.setPosition(cx + offsetX, potY - 50);
+          chip.setScale(0);
+          
+          this.tweens.add({
+              targets: chip,
+              scaleX: 1,
+              scaleY: 1,
+              y: finalY,
+              duration: 300 + Math.random() * 200,
+              ease: 'Bounce.easeOut',
+              delay: i * 30
+          });
+          
+          this.potChips.push(chip);
+      }
+      
+      // Pot이 0이 되면 모든 칩 제거
+      if (this.roomData && this.roomData.pot === 0) {
+          this.potChips.forEach(chip => {
+              this.tweens.add({
+                  targets: chip,
+                  scaleX: 0,
+                  scaleY: 0,
+                  alpha: 0,
+                  duration: 200,
+                  onComplete: () => chip.destroy()
+              });
+          });
+          this.potChips = [];
+      }
   }
 }
