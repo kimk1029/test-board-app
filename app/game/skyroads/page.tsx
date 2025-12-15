@@ -12,6 +12,7 @@ const PhaserGame = dynamic(() => Promise.resolve(GameComponent), { ssr: false })
 export default function SkyRoadsPage() {
     const [myBestScore, setMyBestScore] = useState(0);
     const [isDemo, setIsDemo] = useState(false);
+    const scoreAbortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -21,6 +22,13 @@ export default function SkyRoadsPage() {
         if (savedScore) {
             setMyBestScore(parseInt(savedScore));
         }
+
+        return () => {
+            // 컴포넌트 언마운트 시 진행 중인 요청 취소
+            if (scoreAbortControllerRef.current) {
+                scoreAbortControllerRef.current.abort();
+            }
+        };
     }, []);
 
     const handleGameOver = async (score: number) => {
@@ -35,6 +43,14 @@ export default function SkyRoadsPage() {
         // 서버에 점수 저장 (로그인한 사용자만)
         const token = localStorage.getItem('token');
         if (token) {
+            // 이전 요청 취소
+            if (scoreAbortControllerRef.current) {
+                scoreAbortControllerRef.current.abort();
+            }
+
+            // 새로운 AbortController 생성
+            scoreAbortControllerRef.current = new AbortController();
+
             try {
                 await fetch('/api/game/score', {
                     method: 'POST',
@@ -45,10 +61,16 @@ export default function SkyRoadsPage() {
                     body: JSON.stringify({
                         gameType: 'skyroads',
                         score: finalScore
-                    })
+                    }),
+                    signal: scoreAbortControllerRef.current.signal
                 })
-            } catch (error) {
-                console.error('Score save failed', error)
+            } catch (error: any) {
+                // AbortError는 무시 (의도적인 취소)
+                if (error.name !== 'AbortError') {
+                    console.error('Score save failed', error)
+                }
+            } finally {
+                scoreAbortControllerRef.current = null;
             }
         }
     };

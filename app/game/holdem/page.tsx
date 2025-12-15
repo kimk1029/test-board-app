@@ -27,31 +27,44 @@ export default function HoldemPage() {
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    fetchRooms()
-    // 폴링 제거: 서버 부하 감소를 위해 자동 갱신 제거
-    // 필요시 수동으로 새로고침하거나 페이지 재진입 시 갱신
-  }, [])
-
-  const fetchRooms = async () => {
-    try {
-      const res = await fetch('/api/holdem/rooms')
-      if (res.ok) {
-        const data = await res.json()
-        setRooms(data.rooms || [])
+    const abortController = new AbortController()
+    
+    const fetchRooms = async () => {
+      try {
+        const res = await fetch('/api/holdem/rooms', {
+          signal: abortController.signal
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setRooms(data.rooms || [])
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error('Failed to fetch rooms', error)
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setLoading(false)
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch rooms', error)
-    } finally {
-      setLoading(false)
     }
-  }
+    
+    fetchRooms()
+    
+    return () => {
+      abortController.abort()
+    }
+  }, [])
 
   const handleCreateRoom = async () => {
     setCreating(true)
+    const abortController = new AbortController()
+    
     try {
       const token = localStorage.getItem('token')
       if (!token) {
         alert('로그인이 필요합니다.')
+        setCreating(false)
         return
       }
 
@@ -66,7 +79,8 @@ export default function HoldemPage() {
           smallBlind: 10,
           bigBlind: 20,
           maxPlayers: 6
-        })
+        }),
+        signal: abortController.signal
       })
 
       if (res.ok) {
@@ -76,9 +90,11 @@ export default function HoldemPage() {
         const error = await res.json()
         alert(error.error || '방 생성 실패')
       }
-    } catch (error) {
-      console.error('Failed to create room', error)
-      alert('방 생성 중 오류가 발생했습니다.')
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Failed to create room', error)
+        alert('방 생성 중 오류가 발생했습니다.')
+      }
     } finally {
       setCreating(false)
     }

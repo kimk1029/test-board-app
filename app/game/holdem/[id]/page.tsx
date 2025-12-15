@@ -12,6 +12,8 @@ export default function HoldemRoomPage() {
   const roomId = params.id as string
 
   const handleLeave = async () => {
+    const abortController = new AbortController()
+    
     try {
       const token = localStorage.getItem('token')
       if (token) {
@@ -21,13 +23,17 @@ export default function HoldemRoomPage() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ roomId })
+          body: JSON.stringify({ roomId }),
+          signal: abortController.signal
         })
       }
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error(e)
+      }
+    } finally {
+      router.push('/game')
     }
-    router.push('/game')
   }
 
   return (
