@@ -31,6 +31,7 @@ model User {
   likes         Like[]    // 좋아요 한 기록
   missionRewards Json?    @default("[]") // 수령한 미션 보상 목록 (예: ["post_10", "comment_50"])
   holdemPlayers HoldemPlayer[] // 홀덤 플레이어 관계
+  passwordResetTokens PasswordResetToken[] // 비밀번호 재설정 토큰
 }
 
 model Post {
@@ -107,6 +108,21 @@ model EmailVerification {
 
   @@index([email, code])
   @@index([email])
+}
+
+// 비밀번호 재설정 토큰
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique // 재설정 토큰
+  expiresAt DateTime // 만료 시간 (1시간)
+  used      Boolean  @default(false) // 사용 여부
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // 게임 기록 저장용 모델 (베팅/자산 변동용)

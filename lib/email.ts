@@ -54,3 +54,51 @@ export async function sendVerificationEmail(
   }
 }
 
+// 비밀번호 재설정 이메일 발송
+export async function sendPasswordResetEmail(
+  email: string,
+  resetToken: string
+): Promise<void> {
+  // SMTP 설정이 없으면 개발 모드로 간주하고 이메일 발송 건너뛰기
+  if (!transporter || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    // console.log(`[개발 모드] 비밀번호 재설정 토큰: ${resetToken} (${email})`)
+    return // 개발 모드에서는 에러를 던지지 않고 그냥 반환
+  }
+
+  // 재설정 링크 생성 (프론트엔드 URL)
+  const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+
+  const mailOptions = {
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: '[게시판 애플리케이션] 비밀번호 재설정',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">비밀번호 재설정</h2>
+        <p>안녕하세요,</p>
+        <p>비밀번호 재설정을 요청하셨습니다. 아래 링크를 클릭하여 비밀번호를 재설정하세요.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="background-color: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+            비밀번호 재설정하기
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px;">또는 아래 링크를 복사하여 브라우저에 붙여넣으세요:</p>
+        <p style="color: #007bff; font-size: 12px; word-break: break-all;">${resetUrl}</p>
+        <p style="color: #999; font-size: 12px; margin-top: 20px;">
+          이 링크는 1시간간 유효합니다.<br>
+          만약 본인이 요청하지 않았다면 이 이메일을 무시하세요.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">이 이메일은 자동으로 발송되었습니다.</p>
+      </div>
+    `,
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+  } catch (error) {
+    console.error('이메일 발송 오류:', error)
+    throw new Error('이메일 발송에 실패했습니다.')
+  }
+}
+

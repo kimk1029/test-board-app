@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import ForgotPasswordModal from '@/components/ForgotPasswordModal'
 
 interface LoginModalProps {
   open: boolean
@@ -31,6 +32,7 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
   const [loading, setLoading] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
 
   const handleLogin = async () => {
     try {
@@ -294,6 +296,15 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
                     if (e.key === 'Enter') handleLogin()
                   }}
                 />
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPasswordOpen(true)}
+                    className="text-xs text-violet-400 hover:text-violet-300 underline"
+                  >
+                    비밀번호를 잊으셨나요?
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -481,6 +492,10 @@ const LoginModal = ({ open, onClose, onLoginSuccess }: LoginModalProps) => {
           </div>
         </div>
       </DialogContent>
+      <ForgotPasswordModal
+        open={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
     </Dialog>
   )
 }

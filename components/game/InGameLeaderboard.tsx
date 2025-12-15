@@ -48,7 +48,7 @@ export default function InGameLeaderboard() {
     if (loading && rankings.length === 0) return null
 
     return (
-        <div className="absolute bottom-4 left-4 z-[40] w-64 md:w-72">
+        <div className="hidden md:block absolute bottom-4 left-4 z-[40] w-72"> {/* 모바일에서 숨김, PC에서만 표시 */}
             <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-lg">
                 {/* Header */}
                 <button
