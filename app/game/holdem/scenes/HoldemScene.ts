@@ -53,6 +53,7 @@ export class HoldemScene extends Phaser.Scene {
   private turnTotalTime = 20000;
   private currentTimerSeat: number | null = null;
   private timerCheckInterval: NodeJS.Timeout | null = null; // 서버 타이머 체크용
+  private fetchAbortController: AbortController | null = null; // Fetch 요청 취소용
 
   // UI Objects
   private tableGraphics!: Phaser.GameObjects.Graphics;
@@ -129,10 +130,20 @@ export class HoldemScene extends Phaser.Scene {
       clearInterval(this.timerCheckInterval);
       this.timerCheckInterval = null;
     }
+    
     if (this.turnTimerEvent) {
       this.turnTimerEvent.remove();
       this.turnTimerEvent = null;
     }
+    
+    // 진행 중인 fetch 요청 취소
+    if (this.fetchAbortController) {
+      this.fetchAbortController.abort();
+      this.fetchAbortController = null;
+    }
+    
+    this.isProcessingUpdate = false;
+    this.scale.off('resize', this.handleResize, this);
   }
 
   update() {
@@ -466,20 +477,44 @@ export class HoldemScene extends Phaser.Scene {
   
   async fetchRoomInfo() {
     if (this.isProcessingUpdate) return;
+    
+    // 이전 요청 취소
+    if (this.fetchAbortController) {
+        this.fetchAbortController.abort();
+    }
+    
+    this.fetchAbortController = new AbortController();
+    this.isProcessingUpdate = true;
+    
     try {
         // 타이머 체크 API 호출 (자동 fold 및 자동 시작 처리)
         try {
             await fetch('/api/holdem/timer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ roomId: this.roomId })
+                body: JSON.stringify({ roomId: this.roomId }),
+                signal: this.fetchAbortController.signal
             });
-        } catch (e) {
+        } catch (e: any) {
+            // AbortError는 무시 (의도적인 취소)
+            if (e.name === 'AbortError') {
+                this.isProcessingUpdate = false;
+                this.fetchAbortController = null;
+                return;
+            }
             // 타이머 체크 실패는 무시 (게임 정보는 계속 가져옴)
         }
 
-        const res = await fetch(`/api/holdem/room?roomId=${this.roomId}&t=${Date.now()}`);
-        if (!res.ok) return;
+        const res = await fetch(`/api/holdem/room?roomId=${this.roomId}&t=${Date.now()}`, {
+            signal: this.fetchAbortController.signal
+        });
+        
+        if (!res.ok) {
+            this.isProcessingUpdate = false;
+            this.fetchAbortController = null;
+            return;
+        }
+        
         const data = await res.json();
         
         const parsedData: RoomData = {
@@ -494,8 +529,14 @@ export class HoldemScene extends Phaser.Scene {
         };
         
         this.updateGameState(parsedData);
-    } catch (e) {
-        console.error(e);
+    } catch (e: any) {
+        // AbortError는 무시 (의도적인 취소)
+        if (e.name !== 'AbortError') {
+            console.error('fetchRoomInfo error:', e);
+        }
+    } finally {
+        this.isProcessingUpdate = false;
+        this.fetchAbortController = null;
     }
   }
 
@@ -505,7 +546,8 @@ export class HoldemScene extends Phaser.Scene {
       return;
     }
 
-    this.isProcessingUpdate = true;
+    // updateGameState는 fetchRoomInfo의 finally에서 isProcessingUpdate를 false로 설정하므로
+    // 여기서는 설정하지 않음
     const oldData = this.roomData;
     this.roomData = newData;
 
@@ -606,8 +648,11 @@ export class HoldemScene extends Phaser.Scene {
         this.handleWinners(newData.gameState.winners);
     }
     
+    // 게임 시작 시 셔플 및 핸드 배분 애니메이션
     if (oldData && oldData.status !== 'playing' && newData.status === 'playing') {
         this.resetTableForNewGame();
+        // 셔플 애니메이션 후 핸드 배분
+        this.animateShuffleAndDeal(newData);
     }
 
     this.isProcessingUpdate = false;
@@ -659,18 +704,10 @@ export class HoldemScene extends Phaser.Scene {
                   else actionTxt.setText('');
               }
 
-              // Dealing Logic
+              // Dealing Logic은 animateShuffleAndDeal에서 처리
+              // 여기서는 기존 카드만 업데이트
               if (cardsContainer) {
-                  if (this.roomData?.status === 'playing' && p.isActive) {
-                      // If container empty, deal
-                      if (cardsContainer.list.length === 0) {
-                          if (p.userId === this.myUserId && p.holeCards) {
-                              this.animateDealHoleCards(cardsContainer, p.holeCards, true, container);
-                          } else {
-                              this.animateDealHoleCards(cardsContainer, [], false, container);
-                          }
-                      }
-                  } else if (this.roomData?.status === 'waiting') {
+                  if (this.roomData?.status === 'waiting') {
                       cardsContainer.removeAll(true);
                   }
                   
@@ -802,6 +839,9 @@ export class HoldemScene extends Phaser.Scene {
               ease: 'Power2',
               delay: i * 100, // Stagger deal
               onComplete: () => {
+                  // 객체가 유효한지 확인
+                  if (!cardObj || !cardObj.active) return;
+                  
                   if (isMe && cards[i]) {
                       // Flip animation for my cards
                       this.tweens.add({
@@ -809,19 +849,28 @@ export class HoldemScene extends Phaser.Scene {
                           scaleX: 0,
                           duration: 150,
                           onComplete: () => {
+                              // 객체가 여전히 유효한지 확인
+                              if (!cardObj || !cardObj.active || !cardObj.scene) return;
+                              
                               const cardKey = `card-${cards[i].suit}-${cards[i].rank}`;
-                              // 이미지가 존재하는지 확인
-                              if (this.textures.exists(cardKey)) {
-                                  cardObj.setTexture(cardKey);
-                              } else {
-                                  // 기본 카드 백 이미지 사용
-                                  cardObj.setTexture('card-back');
+                              // 이미지가 존재하는지 확인하고 안전하게 설정
+                              try {
+                                  if (this.textures.exists(cardKey) && cardObj.setTexture) {
+                                      cardObj.setTexture(cardKey);
+                                  } else if (this.textures.exists('card-back') && cardObj.setTexture) {
+                                      cardObj.setTexture('card-back');
+                                  }
+                              } catch (e) {
+                                  console.error('카드 텍스처 설정 오류:', e);
                               }
-                              this.tweens.add({
-                                  targets: cardObj,
-                                  scaleX: scale,
-                                  duration: 150
-                              });
+                              
+                              if (cardObj && cardObj.active) {
+                                  this.tweens.add({
+                                      targets: cardObj,
+                                      scaleX: scale,
+                                      duration: 150
+                                  });
+                              }
                           }
                       });
                   }
@@ -888,21 +937,30 @@ export class HoldemScene extends Phaser.Scene {
                       targets: cardObj,
                       scaleX: 0,
                       duration: 150,
-                      onComplete: () => {
-                          const cardKey = `card-${card.suit}-${card.rank}`;
-                          // 이미지가 존재하는지 확인
-                          if (this.textures.exists(cardKey)) {
-                              cardObj.setTexture(cardKey);
-                          } else {
-                              // 기본 카드 백 이미지 사용
-                              cardObj.setTexture('card-back');
+                          onComplete: () => {
+                              // 객체가 유효한지 확인
+                              if (!cardObj || !cardObj.active || !cardObj.scene) return;
+                              
+                              const cardKey = `card-${card.suit}-${card.rank}`;
+                              // 이미지가 존재하는지 확인하고 안전하게 설정
+                              try {
+                                  if (this.textures.exists(cardKey) && cardObj.setTexture) {
+                                      cardObj.setTexture(cardKey);
+                                  } else if (this.textures.exists('card-back') && cardObj.setTexture) {
+                                      cardObj.setTexture('card-back');
+                                  }
+                              } catch (e) {
+                                  console.error('커뮤니티 카드 텍스처 설정 오류:', e);
+                              }
+                              
+                              if (cardObj && cardObj.active) {
+                                  this.tweens.add({
+                                      targets: cardObj,
+                                      scaleX: 0.25, 
+                                      duration: 150
+                                  });
+                              }
                           }
-                          this.tweens.add({
-                              targets: cardObj,
-                              scaleX: 0.25, 
-                              duration: 150
-                          });
-                      }
                   });
               }
           });
@@ -1058,6 +1116,107 @@ export class HoldemScene extends Phaser.Scene {
               });
           });
           this.potChips = [];
+      }
+  }
+
+  // 셔플 및 핸드 배분 애니메이션
+  async animateShuffleAndDeal(roomData: RoomData) {
+      const { width, height } = this.scale;
+      const cx = width / 2;
+      const cy = height / 2;
+      
+      // 1. 셔플 애니메이션 (덱을 섞는 효과)
+      if (this.deckSprite) {
+          // 덱을 여러 번 흔드는 애니메이션
+          for (let i = 0; i < 3; i++) {
+              this.tweens.add({
+                  targets: this.deckSprite,
+                  x: cx + (Math.random() - 0.5) * 20,
+                  y: cy - 80 + (Math.random() - 0.5) * 20,
+                  duration: 100,
+                  delay: i * 100,
+                  yoyo: true,
+                  repeat: 1
+              });
+          }
+      }
+      
+      // 셔플 완료 후 약간의 지연
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 2. 각 플레이어에게 핸드 배분 (순차적으로)
+      const activePlayers = roomData.players.filter(p => p.isActive).sort((a, b) => a.seatIndex - b.seatIndex);
+      
+      // 각 플레이어에게 카드 2장씩 배분 (라운드 로빈 방식)
+      for (let cardIndex = 0; cardIndex < 2; cardIndex++) {
+          for (const player of activePlayers) {
+              const container = this.seatContainers.get(player.seatIndex);
+              if (!container) continue;
+              
+              const cardsContainer = container.getAt(6) as Phaser.GameObjects.Container;
+              if (!cardsContainer) continue;
+              
+              const isMe = player.userId === this.myUserId;
+              const holeCards = player.holeCards as Card[] || [];
+              
+              // 카드 배분 애니메이션
+              const startX = this.deckSprite.x - container.x;
+              const startY = this.deckSprite.y - container.y;
+              
+              const scale = isMe ? 0.5 : 0.3;
+              const spacing = isMe ? 40 : 20;
+              const offset = isMe ? -20 : -10;
+              const yPos = isMe ? -50 : -40;
+              const targetX = cardIndex * spacing + offset;
+              
+              // 카드 뒷면으로 배분
+              const cardObj = this.add.image(startX, startY, 'card-back').setScale(scale);
+              cardsContainer.add(cardObj);
+              
+              this.tweens.add({
+                  targets: cardObj,
+                  x: targetX,
+                  y: yPos,
+                  duration: 400,
+                  ease: 'Power2',
+                  delay: (cardIndex * activePlayers.length + activePlayers.indexOf(player)) * 80,
+                  onComplete: () => {
+                      // 자신의 카드만 앞면으로 뒤집기
+                      if (isMe && holeCards[cardIndex]) {
+                          this.tweens.add({
+                              targets: cardObj,
+                              scaleX: 0,
+                              duration: 150,
+                              onComplete: () => {
+                                  if (!cardObj || !cardObj.active || !cardObj.scene) return;
+                                  
+                                  const card = holeCards[cardIndex];
+                                  const cardKey = `card-${card.suit}-${card.rank}`;
+                                  
+                                  try {
+                                      if (this.textures.exists(cardKey) && cardObj.setTexture) {
+                                          cardObj.setTexture(cardKey);
+                                      } else if (this.textures.exists('card-back') && cardObj.setTexture) {
+                                          cardObj.setTexture('card-back');
+                                      }
+                                  } catch (e) {
+                                      console.error('카드 텍스처 설정 오류:', e);
+                                  }
+                                  
+                                  if (cardObj && cardObj.active) {
+                                      this.tweens.add({
+                                          targets: cardObj,
+                                          scaleX: scale,
+                                          duration: 150
+                                      });
+                                  }
+                              }
+                          });
+                      }
+                      // 다른 플레이어는 카드 뒷면 유지
+                  }
+              });
+          }
       }
   }
 }
