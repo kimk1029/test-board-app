@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 import { calculateLevel } from '@/lib/points'
+import {
+  checkRateLimit,
+  validateBlackjackResult,
+  validateBustabitResult,
+  validateRouletteResult,
+  validateSlotResult,
+} from '@/lib/game-validation'
 
 // 게임 베팅 처리
 export async function POST(request: NextRequest) {
@@ -26,9 +33,36 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     // game 파라미터를 gameType으로 매핑
-    const { action, amount, betAmount, result, multiplier, game, gameType, comboCount } = body
+    const {
+      action,
+      amount,
+      betAmount,
+      result,
+      multiplier,
+      game,
+      gameType,
+      comboCount,
+      sessionId, // 게임 세션 ID
+      // 게임별 검증 데이터
+      playerCards,
+      dealerCards,
+      crashPoint,
+      hasCashedOut,
+      winningNumber,
+      bets,
+      claimedPayout,
+    } = body
     const betAmountValue = amount || betAmount
     const finalGameType = gameType || game || 'blackjack'
+
+    // Rate limiting 체크
+    const rateLimitCheck = checkRateLimit(payload.userId)
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        { error: rateLimitCheck.error || '너무 빠른 요청입니다.' },
+        { status: 429 }
+      )
+    }
 
     // action: 'bet' (베팅), 'settle' (정산)
     // amount: 베팅 금액
@@ -52,6 +86,14 @@ export async function POST(request: NextRequest) {
     let isPointsChanged = false; // 포인트 변경 여부 플래그
 
     if (action === 'bet') {
+      // 베팅 금액 검증
+      if (!betAmountValue || betAmountValue < 1 || betAmountValue > 1000000) {
+        return NextResponse.json(
+          { error: '베팅 금액이 유효하지 않습니다. (1 ~ 1,000,000)' },
+          { status: 400 }
+        )
+      }
+
       // 베팅: 포인트 차감
       if (user.points < betAmountValue) {
         return NextResponse.json(
@@ -85,10 +127,106 @@ export async function POST(request: NextRequest) {
       }
 
     } else if (action === 'settle') {
-      // 게임 결과에 따른 포인트 지급/차감
-      if (result === 'win') {
+      // 서버 측 게임 결과 검증
+      let validatedPayout = 0
+      let validatedResult = result
+      let validationError: string | undefined
+
+      // 게임 타입별 검증
+      if (finalGameType === 'blackjack') {
+        if (playerCards && dealerCards) {
+          const validation = validateBlackjackResult(
+            playerCards,
+            dealerCards,
+            result || 'lose',
+            betAmountValue
+          )
+          if (!validation.valid) {
+            return NextResponse.json(
+              { error: validation.error || '게임 결과 검증 실패' },
+              { status: 400 }
+            )
+          }
+          validatedPayout = validation.payout
+          validatedResult = validation.result
+        } else {
+          // 카드 정보가 없으면 기본 검증만 수행 (하위 호환성)
+          console.warn('블랙잭: 카드 정보가 없어 검증을 건너뜁니다.')
+        }
+      } else if (finalGameType === 'bustabit') {
+        if (crashPoint !== undefined) {
+          const validation = validateBustabitResult(
+            crashPoint,
+            multiplier || 0,
+            betAmountValue,
+            hasCashedOut || false
+          )
+          if (!validation.valid) {
+            return NextResponse.json(
+              { error: validation.error || '게임 결과 검증 실패' },
+              { status: 400 }
+            )
+          }
+          validatedPayout = validation.payout
+        } else {
+          console.warn('그래프 게임: 크래시 포인트가 없어 검증을 건너뜁니다.')
+        }
+      } else if (finalGameType === 'roulette') {
+        if (winningNumber !== undefined && bets) {
+          const validation = validateRouletteResult(
+            winningNumber,
+            bets,
+            claimedPayout || 0,
+            betAmountValue
+          )
+          if (!validation.valid) {
+            return NextResponse.json(
+              { error: validation.error || '게임 결과 검증 실패' },
+              { status: 400 }
+            )
+          }
+          validatedPayout = validation.payout
+        } else {
+          console.warn('룰렛: 당첨 번호나 베팅 정보가 없어 검증을 건너뜁니다.')
+        }
+      } else if (finalGameType === 'cloverpit') {
+        const validation = validateSlotResult(
+          claimedPayout || 0,
+          betAmountValue,
+          comboCount || 0
+        )
+        if (!validation.valid) {
+          return NextResponse.json(
+            { error: validation.error || '게임 결과 검증 실패' },
+            { status: 400 }
+          )
+        }
+        // 슬롯머신은 완전한 검증을 위해 서버에서 심볼을 생성해야 하지만,
+        // 현재는 최대값 검증만 수행
+        validatedPayout = Math.min(claimedPayout || 0, validation.maxPayout)
+      }
+
+      // 검증된 결과가 있으면 사용, 없으면 기존 로직 사용
+      const useValidatedResult = validatedPayout > 0 || (validatedResult && validatedResult !== result)
+
+      if (useValidatedResult && validatedPayout > 0) {
+        // 검증된 지급액 사용
+        updatedPoints = parseFloat((user.points + validatedPayout).toFixed(2))
+        pointsChange = validatedPayout
+        payout = validatedPayout
+        isPointsChanged = true
+        validatedResult = 'win'
+      } else if (result === 'win') {
+        // 기존 로직 (하위 호환성 - 검증 데이터가 없는 경우)
         // Bustabit: 배율 기반 정산
         if (multiplier && multiplier > 0) {
+          // 배율 검증 (최대 1000배)
+          if (multiplier > 1000) {
+            return NextResponse.json(
+              { error: '배율이 최대값을 초과합니다.' },
+              { status: 400 }
+            )
+          }
           // 배율이 있으면 배율 기반으로 정산 (소수점 2자리 처리)
           const totalWinnings = parseFloat((betAmountValue * multiplier).toFixed(2))
           updatedPoints = parseFloat((user.points + totalWinnings).toFixed(2))
@@ -103,10 +241,17 @@ export async function POST(request: NextRequest) {
         isPointsChanged = true;
       } else if (result === 'blackjack') {
         // 블랙잭 승리: 3:2 배당 (베팅 금액 반환 + 1.5배 승리 금액 = 총 2.5배)
-        const totalWinnings = parseFloat((betAmountValue + betAmountValue * 1.5).toFixed(2))
-        updatedPoints = parseFloat((user.points + totalWinnings).toFixed(2))
-        pointsChange = totalWinnings
-        payout = totalWinnings
+        // 검증된 결과가 있으면 사용
+        if (useValidatedResult && validatedPayout > 0) {
+          updatedPoints = parseFloat((user.points + validatedPayout).toFixed(2))
+          pointsChange = validatedPayout
+          payout = validatedPayout
+        } else {
+          const totalWinnings = parseFloat((betAmountValue + betAmountValue * 1.5).toFixed(2))
+          updatedPoints = parseFloat((user.points + totalWinnings).toFixed(2))
+          pointsChange = totalWinnings
+          payout = totalWinnings
+        }
         isPointsChanged = true;
       } else if (result === 'draw') {
         // 무승부(Push): 베팅 금액 반환
@@ -116,10 +261,17 @@ export async function POST(request: NextRequest) {
         isPointsChanged = true;
       } else if (result === 'lose') {
         // 패배: 이미 베팅 시 차감되었으므로 추가 차감 없음
-        pointsChange = 0
-        payout = 0
+        // 검증된 결과가 패배인지 확인
+        if (useValidatedResult && validatedResult === 'lose') {
+          // 검증된 결과 사용
+          pointsChange = 0
+          payout = 0
+        } else {
+          pointsChange = 0
+          payout = 0
+        }
         // updatedPoints 변경 없음
-        isPointsChanged = false; 
+        isPointsChanged = false;
       }
 
       // 게임 로그 저장 (settle일 때만)

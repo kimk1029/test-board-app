@@ -32,6 +32,7 @@ model User {
   missionRewards Json?    @default("[]") // 수령한 미션 보상 목록 (예: ["post_10", "comment_50"])
   holdemPlayers HoldemPlayer[] // 홀덤 플레이어 관계
   passwordResetTokens PasswordResetToken[] // 비밀번호 재설정 토큰
+  gameSessions GameSession[] // 게임 베팅 세션
 }
 
 model Post {
@@ -125,11 +126,32 @@ model PasswordResetToken {
   @@index([expiresAt])
 }
 
+// 게임 베팅 세션 (보안 강화용)
+model GameSession {
+  id        String   @id @default(uuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameType  String   // 'blackjack', 'bustabit', 'roulette', 'cloverpit'
+  betAmount Float    // 베팅 금액
+  status    String   @default("pending") // 'pending', 'settled', 'cancelled'
+  gameData  Json?    // 게임별 데이터 (카드, 랜덤 시드 등)
+  result    String?  // 서버에서 계산한 결과
+  payout    Float?   // 서버에서 계산한 지급액
+  createdAt DateTime @default(now())
+  settledAt DateTime?
+
+  @@index([userId])
+  @@index([gameType])
+  @@index([status])
+  @@index([createdAt])
+}
+
 // 게임 기록 저장용 모델 (베팅/자산 변동용)
 model GameLog {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
+  sessionId String?  // GameSession ID (선택사항)
   gameType  String   // 'blackjack', 'bustabit', 'kuji', 'cloverpit'
   betAmount Float      // 베팅 금액
   payout    Float      // 획득 금액 (0이면 패배)
@@ -142,6 +164,7 @@ model GameLog {
   @@index([userId])
   @@index([gameType])
   @@index([createdAt])
+  @@index([sessionId])
 }
 
 // 게임 점수 저장용 모델 (랭킹용 - 계단오르기 등)
