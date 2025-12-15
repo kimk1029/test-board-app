@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import StackerLeaderboard from '@/components/game/StackerLeaderboard';
 
 const PhaserGame = dynamic(() => Promise.resolve(GameComponent), { ssr: false });
 
@@ -36,20 +37,24 @@ export default function StackerPage() {
                 </Link>
             </div>
 
-            <h1 className="text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-600 drop-shadow-[0_2px_10px_rgba(139,92,246,0.5)] z-10 italic tracking-tighter">
-                STACKER <span className="text-2xl not-italic font-light text-white/80">BLOCKS</span>
+            <h1 className="text-2xl md:text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-600 drop-shadow-[0_2px_10px_rgba(139,92,246,0.5)] z-10 italic tracking-tighter px-4 text-center">
+                STACKER <span className="text-xl md:text-2xl not-italic font-light text-white/80">BLOCKS</span>
             </h1>
 
-            <div className="flex flex-col lg:flex-row gap-8 items-start z-10 mt-4">
-                {/* Game Container */}
-                <div className="relative rounded-2xl overflow-hidden border-4 border-cyan-500/20 shadow-[0_0_50px_rgba(34,211,238,0.1)] w-[400px] h-[600px] bg-[#0a0a0c] order-1 lg:order-2">
+            <div className="flex flex-col lg:flex-row gap-4 md:gap-8 items-center lg:items-start z-10 mt-2 md:mt-4 relative w-full max-w-7xl px-4">
+                {/* Game Container - 모바일 반응형 */}
+                <div className="relative rounded-xl md:rounded-2xl overflow-hidden border-2 md:border-4 border-cyan-500/20 shadow-[0_0_50px_rgba(34,211,238,0.1)] w-full max-w-[400px] aspect-[2/3] md:w-[400px] md:h-[600px] bg-[#0a0a0c] order-1 lg:order-2">
                     <PhaserGame onScoreUpdate={setMyBestScore} />
                 </div>
+                
+                {/* Game Specific Leaderboard - PC에서만 표시 */}
+                <StackerLeaderboard />
             </div>
 
-            <div className="mt-6 text-slate-400 z-10 flex items-center gap-4 text-sm tracking-widest uppercase pointer-events-none">
-                <span className="flex items-center gap-1"><kbd className="bg-white/10 px-2 py-1 rounded border border-white/10">SPACE</kbd> PLACE</span>
-                <span className="flex items-center gap-1"><kbd className="bg-white/10 px-2 py-1 rounded border border-white/10">CLICK</kbd> PLACE</span>
+            {/* 모바일 컨트롤 안내 */}
+            <div className="mt-4 md:mt-6 text-slate-400 z-10 flex flex-col md:flex-row items-center gap-2 md:gap-4 text-xs md:text-sm tracking-widest uppercase pointer-events-none px-4">
+                <span className="flex items-center gap-1"><kbd className="bg-white/10 px-2 py-1 rounded border border-white/10 text-[10px] md:text-xs">TAP</kbd> <span className="hidden md:inline">CLICK</span> PLACE</span>
+                <span className="hidden md:flex items-center gap-1"><kbd className="bg-white/10 px-2 py-1 rounded border border-white/10">SPACE</kbd> PLACE</span>
             </div>
         </div>
     );
@@ -183,7 +188,7 @@ const GameComponent = ({ onScoreUpdate }: GameComponentProps) => {
                     this.baseWidth = 200;
                     this.currentWidth = this.baseWidth;
                     this.level = 0;
-                    this.moveSpeed = 300; 
+                    this.moveSpeed = 375; // 20% 느리게 (300 * 1.25)
                     this.isRunning = true;
                     this.stack = []; 
                     
@@ -257,7 +262,8 @@ const GameComponent = ({ onScoreUpdate }: GameComponentProps) => {
 
                     this.movingBlock = newBlock;
 
-                    const speed = Math.max(80, this.moveSpeed - (this.level * 8));
+                    // 속도: 레벨이 오를수록 빨라짐 (최소 100ms, 20% 느리게)
+                    const speed = Math.max(100, this.moveSpeed - (this.level * 10));
 
                     this.moveTween = this.tweens.add({
                         targets: this.movingBlock,
