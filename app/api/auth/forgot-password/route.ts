@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
           {
             message: '비밀번호 재설정 토큰이 생성되었습니다. (개발 모드 - 이메일 설정이 없습니다)',
             token: token, // 개발 모드에서만 토큰 반환
-            resetUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${token}`,
+            resetUrl: `${process.env.NEXT_PUBLIC_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://dopamine.land' : 'http://localhost:3000')}/reset-password?token=${token}`,
           },
           { status: 200 }
         )
