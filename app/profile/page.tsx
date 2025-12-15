@@ -210,7 +210,10 @@ export default function ProfilePage() {
                             <RechartsTooltip 
                                 contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '8px' }}
                                 itemStyle={{ color: '#fff' }}
-                                formatter={(value: number) => [`${value > 0 ? '+' : ''}${value.toLocaleString()} P`, 'Profit']}
+                                formatter={(value: any) => {
+                                    if (value === undefined || value === null || typeof value !== 'number') return ['0 P', 'Profit']
+                                    return [`${value > 0 ? '+' : ''}${value.toLocaleString()} P`, 'Profit']
+                                }}
                             />
                             <Line type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={2} dot={{r:4, fill:'#131316', stroke:'#10b981'}} activeDot={{r:6}} />
                         </LineChart>
