@@ -12,7 +12,88 @@ interface GameState {
   actedPlayers: number[];
 }
 
-export type RoomWithPlayers = HoldemRoom & { players: HoldemPlayer[] };
+export type RoomWithPlayers = HoldemRoom & { 
+  players: HoldemPlayer[];
+  turnStartTime?: Date | null;
+  showdownEndTime?: Date | null;
+};
+
+// 자동 fold 처리 (타이머 초과)
+export function handleAutoFold(room: RoomWithPlayers): { roomUpdates: any, playerUpdates: any[] } | null {
+  const gameState = room.gameState as unknown as GameState;
+  
+  if (!gameState.currentTurnSeat || !room.turnStartTime) {
+    return null;
+  }
+
+  const TURN_TIMEOUT_MS = 20000; // 20초
+  const elapsed = Date.now() - new Date(room.turnStartTime).getTime();
+  
+  if (elapsed < TURN_TIMEOUT_MS) {
+    return null; // 아직 시간이 남음
+  }
+
+  // 현재 턴 플레이어 찾기
+  const currentPlayer = room.players.find(p => p.seatIndex === gameState.currentTurnSeat);
+  
+  if (!currentPlayer || !currentPlayer.isActive || currentPlayer.isAllIn) {
+    return null; // 이미 폴드했거나 올인 상태
+  }
+
+  // 자동 fold 처리
+  return handlePlayerAction(room, currentPlayer.userId, 'fold', 0);
+}
+
+// showdown 후 자동으로 다음 게임 시작
+export function handleAutoStartNextGame(room: RoomWithPlayers): { roomUpdates: any, playerUpdates: any[] } | null {
+  if (room.status !== 'finished' || room.currentRound !== 'showdown' || !room.showdownEndTime) {
+    return null;
+  }
+
+  const elapsed = Date.now() - new Date(room.showdownEndTime).getTime();
+  
+  if (elapsed < 0) {
+    return null; // 아직 시간이 안 됨
+  }
+
+  // 최소 2명의 플레이어가 칩을 가지고 있는지 확인
+  const activePlayers = room.players.filter(p => p.chips > 0);
+  
+  if (activePlayers.length < 2) {
+    // 플레이어가 부족하면 대기 상태로
+    return {
+      roomUpdates: {
+        status: 'waiting',
+        currentRound: null,
+        pot: 0,
+        communityCards: null,
+        showdownEndTime: null,
+        turnStartTime: null,
+        gameState: {
+          deck: [],
+          currentTurnSeat: null,
+          lastRaise: 0,
+          minBet: 0,
+          winners: null,
+          actedPlayers: []
+        }
+      },
+      playerUpdates: room.players.map(p => ({
+        userId: p.userId,
+        data: {
+          currentBet: 0,
+          isActive: true,
+          isAllIn: false,
+          holeCards: null,
+          position: null
+        }
+      }))
+    };
+  }
+
+  // 다음 게임 시작
+  return startGame(room);
+}
 
 export function startGame(room: RoomWithPlayers): { roomUpdates: any, playerUpdates: any[] } {
   // 1. Reset Game State
@@ -93,6 +174,9 @@ export function startGame(room: RoomWithPlayers): { roomUpdates: any, playerUpda
     actedPlayers: []
   };
 
+  // 첫 턴 시작 시간 설정
+  const turnStartTime = new Date();
+
   return {
     roomUpdates: {
       status: 'playing',
@@ -100,6 +184,8 @@ export function startGame(room: RoomWithPlayers): { roomUpdates: any, playerUpda
       pot: sbAmount + bbAmount,
       dealerIndex: dealerPlayer.seatIndex,
       communityCards: [],
+      turnStartTime,
+      showdownEndTime: null, // 이전 showdown 시간 초기화
       gameState: gameState as any
     },
     playerUpdates
@@ -149,10 +235,14 @@ export function nextRound(room: RoomWithPlayers): { roomUpdates: any, playerUpda
     data: { currentBet: 0 }
   }));
 
+  // 다음 라운드 시작 시 턴 시작 시간 설정
+  const turnStartTime = new Date();
+
   return {
     roomUpdates: {
       currentRound: nextRoundName,
       communityCards: newCommunityCards,
+      turnStartTime,
       gameState: {
         ...gameState,
         deck: remaining,
@@ -200,11 +290,15 @@ function handleShowdown(room: RoomWithPlayers): { roomUpdates: any, playerUpdate
 
   const gameState = room.gameState as unknown as GameState;
 
+  // showdown 종료 시간 설정 (3초 후 자동 시작)
+  const showdownEndTime = new Date(Date.now() + 3000);
+
   return {
     roomUpdates: {
-      status: 'finished', // Round finished
+      status: 'finished', // Round finished (자동 시작 대기)
       currentRound: 'showdown',
       pot: 0,
+      showdownEndTime,
       gameState: {
         ...gameState,
         winners: winners.map(w => ({ seatIndex: w.seatIndex, hand: w.hand, amount: winAmount })),
@@ -392,19 +486,26 @@ export function handlePlayerAction(
       } as RoomWithPlayers);
       
       if (nextRoundResult) {
+          // 다음 라운드 시작 시 턴 시작 시간 설정
+          const turnStartTime = new Date();
           return {
               roomUpdates: {
                   ...nextRoundResult.roomUpdates,
-                  pot: pot 
+                  pot: pot,
+                  turnStartTime
               },
               playerUpdates: [playerUpdate, ...nextRoundResult.playerUpdates]
           };
       }
   }
   
+  // 턴 시작 시간 업데이트
+  const turnStartTime = new Date();
+
   return {
     roomUpdates: {
       pot,
+      turnStartTime,
       gameState: {
         ...gameState,
         currentTurnSeat: nextSeat,

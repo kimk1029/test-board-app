@@ -52,6 +52,7 @@ export class HoldemScene extends Phaser.Scene {
   private turnTimerEvent: Phaser.Time.TimerEvent | null = null;
   private turnTotalTime = 20000;
   private currentTimerSeat: number | null = null;
+  private timerCheckInterval: NodeJS.Timeout | null = null; // 서버 타이머 체크용
 
   // UI Objects
   private tableGraphics!: Phaser.GameObjects.Graphics;
@@ -113,8 +114,23 @@ export class HoldemScene extends Phaser.Scene {
     this.handleResize(); // Initial layout
 
     this.fetchRoomInfo();
-    // 폴링 제거: 서버 부하 감소를 위해 자동 갱신 제거
-    // 게임 상태는 사용자 액션(베팅, 체크 등) 시에만 갱신
+    
+    // 주기적으로 타이머 체크 및 게임 상태 갱신 (2초마다)
+    this.timerCheckInterval = setInterval(() => {
+      this.fetchRoomInfo();
+    }, 2000);
+  }
+
+  shutdown() {
+    // 정리 작업
+    if (this.timerCheckInterval) {
+      clearInterval(this.timerCheckInterval);
+      this.timerCheckInterval = null;
+    }
+    if (this.turnTimerEvent) {
+      this.turnTimerEvent.remove();
+      this.turnTimerEvent = null;
+    }
   }
 
   update() {
@@ -449,6 +465,17 @@ export class HoldemScene extends Phaser.Scene {
   async fetchRoomInfo() {
     if (this.isProcessingUpdate) return;
     try {
+        // 타이머 체크 API 호출 (자동 fold 및 자동 시작 처리)
+        try {
+            await fetch('/api/holdem/timer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roomId: this.roomId })
+            });
+        } catch (e) {
+            // 타이머 체크 실패는 무시 (게임 정보는 계속 가져옴)
+        }
+
         const res = await fetch(`/api/holdem/room?roomId=${this.roomId}&t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
@@ -642,12 +669,16 @@ export class HoldemScene extends Phaser.Scene {
               body: JSON.stringify({ roomId: this.roomId, seatIndex, buyIn: 1000 })
           });
           if (res.ok) {
-              this.disableSeatInteraction();
+              // 앉기 성공 후 즉시 방 정보 갱신하여 UI 업데이트
+              await this.fetchRoomInfo();
           } else {
               const err = await res.json();
               alert(err.error || 'Failed to join');
           }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+          console.error(e);
+          alert('앉기에 실패했습니다.');
+      }
   }
   
   // ... Raise UI Logic ...
@@ -848,12 +879,29 @@ export class HoldemScene extends Phaser.Scene {
   
   async handleStartGame() {
       const token = localStorage.getItem('token');
-      if (!token) return;
-      await fetch('/api/holdem/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ roomId: this.roomId })
-      });
+      if (!token) {
+          alert('로그인이 필요합니다.');
+          return;
+      }
+      
+      try {
+          const res = await fetch('/api/holdem/start', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ roomId: this.roomId })
+          });
+          
+          if (res.ok) {
+              // 게임 시작 성공 후 즉시 방 정보 갱신하여 UI 업데이트
+              await this.fetchRoomInfo();
+          } else {
+              const err = await res.json();
+              alert(err.error || '게임 시작에 실패했습니다.');
+          }
+      } catch (e) {
+          console.error('게임 시작 오류:', e);
+          alert('게임 시작 중 오류가 발생했습니다.');
+      }
   }
 
   handleWinners(winners: any[]) {

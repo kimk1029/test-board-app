@@ -60,10 +60,16 @@ export default function GameLobby() {
                         ['blackjack', 'bustabit', 'cloverpit', 'roulette', 'holdem'].includes(g.gameType)
                     );
                 }
+                // 디버깅: 순위 데이터 확인
+                if (data.rankings) {
+                    console.log('Rankings data:', data.rankings)
+                }
                 setStats(data)
+            } else {
+                console.error('Stats API error:', res.status, await res.text())
             }
         } catch (e) {
-            console.error(e)
+            console.error('Stats fetch error:', e)
         } finally {
             setLoading(false)
         }
@@ -104,7 +110,11 @@ export default function GameLobby() {
 
     // --- Components ---
 
-    const GameCard = ({ game }: { game: any }) => (
+    const GameCard = ({ game, gameStats }: { game: any; gameStats?: any }) => {
+        // 해당 게임의 통계 찾기
+        const stat = gameStats?.find((s: any) => s.gameType === game.id)
+        
+        return (
         <Link href={game.path} onClick={(e) => handleGameClick(e, game)} className="group relative block h-40">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -165,10 +175,43 @@ export default function GameLobby() {
                         </h3>
                         <p className="text-gray-400 text-[11px] line-clamp-1">{game.desc}</p>
                     </div>
+                    
+                    {/* 카지노 게임 통계 표시 */}
+                    {stat && ['blackjack', 'bustabit', 'roulette', 'cloverpit', 'holdem'].includes(game.id) && (
+                        <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">승률</span>
+                                    <span className="text-emerald-400 font-semibold">{stat.winRate?.toFixed(1) || '0.0'}%</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">환급률</span>
+                                    <span className="text-blue-400 font-semibold">{stat.rtp?.toFixed(1) || '0.0'}%</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">플레이</span>
+                                    <span className="text-gray-300 font-semibold">{stat.totalGames?.toLocaleString() || 0}</span>
+                                </div>
+                                {stat.avgMultiplier > 0 && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500">평균 배율</span>
+                                        <span className="text-purple-400 font-semibold">{stat.avgMultiplier?.toFixed(2) || '0.00'}x</span>
+                                    </div>
+                                )}
+                                {stat.maxPayout > 0 && (
+                                    <div className="flex justify-between items-center col-span-2">
+                                        <span className="text-gray-500">최대 승리</span>
+                                        <span className="text-yellow-400 font-semibold">{stat.maxPayout?.toLocaleString() || 0} P</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </motion.div>
         </Link>
-    )
+        )
+    }
 
     return (
         <div className="min-h-screen bg-[#09090b] text-slate-100 overflow-x-hidden selection:bg-indigo-500/30">
@@ -210,7 +253,7 @@ export default function GameLobby() {
                         <h2 className="text-xl font-bold text-white">Casino Games</h2>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {GAMES.casino.map(g => <GameCard key={g.id} game={g} />)}
+                        {GAMES.casino.map(g => <GameCard key={g.id} game={g} gameStats={stats?.byGame} />)}
                     </div>
                 </section>
 
@@ -245,29 +288,196 @@ export default function GameLobby() {
                         Game Statistics
                     </h2>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Casino Stats Chart */}
+                    <Tabs defaultValue="winrate" className="w-full">
+                        <TabsList className="bg-[#27272a] mb-6 w-full justify-start">
+                            <TabsTrigger value="winrate">승률</TabsTrigger>
+                            <TabsTrigger value="rtp">환급률</TabsTrigger>
+                            <TabsTrigger value="volume">거래량</TabsTrigger>
+                            <TabsTrigger value="multiplier">배율</TabsTrigger>
+                        </TabsList>
+
+                        {/* 승률 차트 */}
+                        <TabsContent value="winrate">
+                            <Card className="bg-[#18181b] border-white/10">
+                                <CardHeader>
+                                    <CardTitle className="text-lg text-white">Casino Win Rates</CardTitle>
+                                    <CardDescription>카지노 게임별 승률 현황</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[300px]">
+                                    {stats?.byGame && stats.byGame.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={stats.byGame} layout="vertical">
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
+                                                <XAxis type="number" stroke="#666" fontSize={12} unit="%" domain={[0, 100]} />
+                                                <YAxis dataKey="gameType" type="category" stroke="#999" fontSize={12} tickFormatter={(v) => v.toUpperCase()} width={80} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#111', borderColor: '#333' }}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                                    formatter={(value: any) => [`${value.toFixed(1)}%`, '승률']}
+                                                />
+                                                <Bar dataKey="winRate" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} name="Win Rate" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center text-zinc-600">
+                                            {loading ? "로딩 중..." : "데이터가 없습니다."}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        {/* 환급률 차트 */}
+                        <TabsContent value="rtp">
+                            <Card className="bg-[#18181b] border-white/10">
+                                <CardHeader>
+                                    <CardTitle className="text-lg text-white">Return to Player (RTP)</CardTitle>
+                                    <CardDescription>카지노 게임별 환급률 현황</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[300px]">
+                                    {stats?.byGame && stats.byGame.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={stats.byGame} layout="vertical">
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
+                                                <XAxis type="number" stroke="#666" fontSize={12} unit="%" domain={[0, 120]} />
+                                                <YAxis dataKey="gameType" type="category" stroke="#999" fontSize={12} tickFormatter={(v) => v.toUpperCase()} width={80} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#111', borderColor: '#333' }}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                                    formatter={(value: any) => [`${value.toFixed(1)}%`, '환급률']}
+                                                />
+                                                <Bar dataKey="rtp" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} name="RTP" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center text-zinc-600">
+                                            {loading ? "로딩 중..." : "데이터가 없습니다."}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        {/* 거래량 차트 */}
+                        <TabsContent value="volume">
+                            <Card className="bg-[#18181b] border-white/10">
+                                <CardHeader>
+                                    <CardTitle className="text-lg text-white">Trading Volume</CardTitle>
+                                    <CardDescription>카지노 게임별 총 베팅 금액</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[300px]">
+                                    {stats?.byGame && stats.byGame.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={stats.byGame} layout="vertical">
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
+                                                <XAxis type="number" stroke="#666" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
+                                                <YAxis dataKey="gameType" type="category" stroke="#999" fontSize={12} tickFormatter={(v) => v.toUpperCase()} width={80} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#111', borderColor: '#333' }}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                                    formatter={(value: any) => [`${value.toLocaleString()} P`, '총 베팅']}
+                                                />
+                                                <Bar dataKey="totalBet" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} name="Total Bet" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center text-zinc-600">
+                                            {loading ? "로딩 중..." : "데이터가 없습니다."}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        {/* 평균 배율 차트 */}
+                        <TabsContent value="multiplier">
+                            <Card className="bg-[#18181b] border-white/10">
+                                <CardHeader>
+                                    <CardTitle className="text-lg text-white">Average Multiplier</CardTitle>
+                                    <CardDescription>카지노 게임별 평균 배당률 (배율 기반 게임)</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[300px]">
+                                    {stats?.byGame && stats.byGame.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={stats.byGame.filter((g: any) => g.avgMultiplier > 0)} layout="vertical">
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
+                                                <XAxis type="number" stroke="#666" fontSize={12} tickFormatter={(v) => `${v.toFixed(1)}x`} />
+                                                <YAxis dataKey="gameType" type="category" stroke="#999" fontSize={12} tickFormatter={(v) => v.toUpperCase()} width={80} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#111', borderColor: '#333' }}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                                    formatter={(value: any) => [`${value.toFixed(2)}x`, '평균 배율']}
+                                                />
+                                                <Bar dataKey="avgMultiplier" fill="#a855f7" radius={[0, 4, 4, 0]} barSize={20} name="Avg Multiplier" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center text-zinc-600">
+                                            {loading ? "로딩 중..." : "데이터가 없습니다."}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                        {/* 상세 통계 카드 */}
                         <Card className="bg-[#18181b] border-white/10">
                             <CardHeader>
-                                <CardTitle className="text-lg text-white">Casino Win Rates</CardTitle>
-                                <CardDescription>카지노 게임별 승률 현황</CardDescription>
+                                <CardTitle className="text-lg text-white">Game Details</CardTitle>
+                                <CardDescription>카지노 게임별 상세 통계</CardDescription>
                             </CardHeader>
-                            <CardContent className="h-[300px]">
+                            <CardContent>
                                 {stats?.byGame && stats.byGame.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={stats.byGame} layout="vertical">
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
-                                            <XAxis type="number" stroke="#666" fontSize={12} unit="%" domain={[0, 100]} />
-                                            <YAxis dataKey="gameType" type="category" stroke="#999" fontSize={12} tickFormatter={(v) => v.toUpperCase()} width={80} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#111', borderColor: '#333' }}
-                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                            />
-                                            <Bar dataKey="winRate" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} name="Win Rate" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                    <div className="space-y-4">
+                                        {stats.byGame.map((game: any) => (
+                                            <div key={game.gameType} className="bg-black/20 p-4 rounded-lg border border-white/5">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h4 className="font-bold text-white uppercase">{game.gameType}</h4>
+                                                    <span className="text-xs text-gray-500">{game.totalGames.toLocaleString()}회 플레이</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                                    <div>
+                                                        <span className="text-gray-500">승리</span>
+                                                        <div className="text-emerald-400 font-semibold">{game.wins?.toLocaleString() || 0}회</div>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-500">패배</span>
+                                                        <div className="text-red-400 font-semibold">{game.losses?.toLocaleString() || 0}회</div>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-500">총 베팅</span>
+                                                        <div className="text-blue-400 font-semibold">{game.totalBet?.toLocaleString() || 0} P</div>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-500">총 지급</span>
+                                                        <div className="text-purple-400 font-semibold">{game.totalPayout?.toLocaleString() || 0} P</div>
+                                                    </div>
+                                                    {game.maxPayout > 0 && (
+                                                        <div className="col-span-2">
+                                                            <span className="text-gray-500">최대 승리</span>
+                                                            <div className="text-yellow-400 font-semibold">{game.maxPayout?.toLocaleString() || 0} P</div>
+                                                        </div>
+                                                    )}
+                                                    {game.avgMultiplier > 0 && (
+                                                        <div>
+                                                            <span className="text-gray-500">평균 배율</span>
+                                                            <div className="text-pink-400 font-semibold">{game.avgMultiplier?.toFixed(2) || '0.00'}x</div>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <span className="text-gray-500">순수익</span>
+                                                        <div className={`font-semibold ${game.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                            {game.profit >= 0 ? '+' : ''}{game.profit?.toLocaleString() || 0} P
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 ) : (
-                                    <div className="h-full flex items-center justify-center text-zinc-600">
+                                    <div className="text-center py-10 text-zinc-600">
                                         {loading ? "로딩 중..." : "데이터가 없습니다."}
                                     </div>
                                 )}
@@ -291,7 +501,9 @@ export default function GameLobby() {
                                     {['skyroads', 'windrunner', 'stairs'].map((gameKey) => (
                                         <TabsContent key={gameKey} value={gameKey}>
                                             <div className="space-y-3">
-                                                {stats?.rankings?.[gameKey]?.length > 0 ? (
+                                                {loading ? (
+                                                    <div className="text-center py-10 text-zinc-600">로딩 중...</div>
+                                                ) : stats?.rankings?.[gameKey]?.length > 0 ? (
                                                     stats.rankings[gameKey].map((rank: any, idx: number) => (
                                                         <div key={idx} className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/5">
                                                             <div className="flex items-center gap-3">
@@ -301,13 +513,16 @@ export default function GameLobby() {
                                                                     }`}>
                                                                     {idx + 1}
                                                                 </div>
-                                                                <span className="text-white font-medium">{rank.nickname}</span>
+                                                                <span className="text-white font-medium">{rank.nickname || 'Unknown'}</span>
                                                             </div>
-                                                            <span className="font-mono text-indigo-400">{rank.score.toLocaleString()}</span>
+                                                            <span className="font-mono text-indigo-400">{rank.score?.toLocaleString() || 0}</span>
                                                         </div>
                                                     ))
                                                 ) : (
-                                                    <div className="text-center py-10 text-zinc-600">아직 기록이 없습니다. 도전을 시작하세요!</div>
+                                                    <div className="text-center py-10 text-zinc-600">
+                                                        아직 기록이 없습니다. 도전을 시작하세요!
+                                                        {stats && !stats.rankings && <div className="text-xs mt-2 text-zinc-700">(데이터 로드 중...)</div>}
+                                                    </div>
                                                 )}
                                             </div>
                                         </TabsContent>

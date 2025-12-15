@@ -229,6 +229,8 @@ model HoldemRoom {
   dealerIndex   Int      @default(0)
   communityCards Json?   // 공통 카드 5장
   gameState     Json?    // 게임 상태 전체 (덱, 현재 플레이어 등)
+  turnStartTime DateTime? // 현재 턴 시작 시간 (타이머용)
+  showdownEndTime DateTime? // showdown 종료 시간 (자동 시작용)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   players       HoldemPlayer[]

@@ -46,16 +46,48 @@ export async function GET() {
           result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] }
         }
       })
+
+      // 최대 승리 금액 조회
+      const maxPayoutRecord = await prisma.gameLog.findFirst({
+        where: {
+          gameType: g.gameType,
+          payout: { gt: 0 }
+        },
+        orderBy: {
+          payout: 'desc'
+        },
+        select: {
+          payout: true
+        }
+      })
+
+      // 평균 베팅 금액 계산
+      const avgBetAmount = g._count._all > 0 ? (g._sum.betAmount || 0) / g._count._all : 0
+
+      // 최근 24시간 통계
+      const recent24h = await prisma.gameLog.count({
+        where: {
+          gameType: g.gameType,
+          createdAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          }
+        }
+      })
+
       return {
         gameType: g.gameType,
         totalGames: g._count._all,
         wins,
-        winRate: (wins / g._count._all) * 100,
+        losses: g._count._all - wins,
+        winRate: g._count._all > 0 ? (wins / g._count._all) * 100 : 0,
         totalBet: g._sum.betAmount || 0,
         totalPayout: g._sum.payout || 0,
         rtp: (g._sum.betAmount || 0) > 0 ? ((g._sum.payout || 0) / (g._sum.betAmount || 0)) * 100 : 0,
         avgMultiplier: g._avg.multiplier || 0,
-        profit: g._sum.profit || 0
+        profit: g._sum.profit || 0,
+        maxPayout: maxPayoutRecord?.payout || 0,
+        avgBetAmount,
+        recent24h
       }
     }))
 
@@ -82,15 +114,16 @@ export async function GET() {
       profit: Number(stat.profit)
     }))
 
-    // 4. 아케이드 게임 랭킹 (각 게임별 Top 3)
+    // 4. 아케이드 게임 랭킹 (각 게임별 Top 3) - 중복 사용자 제거 (각 사용자의 최고 점수만)
     const arcadeGames = ['stairs', 'skyroads', 'windrunner'];
     const rankings: Record<string, any[]> = {};
 
     for (const type of arcadeGames) {
-      const topScores = await prisma.gameScore.findMany({
+      // 각 사용자의 최고 점수만 가져오기
+      const topScoresRaw = await prisma.gameScore.findMany({
         where: { gameType: type },
         orderBy: { score: 'desc' },
-        take: 3,
+        take: 50, // 충분히 많이 가져와서 중복 제거
         include: {
           user: {
             select: {
@@ -100,6 +133,19 @@ export async function GET() {
           }
         }
       });
+
+      // 사용자별 최고 점수만 유지 (중복 제거)
+      const uniqueScores = new Map<number, any>();
+      for (const score of topScoresRaw) {
+        if (!uniqueScores.has(score.userId)) {
+          uniqueScores.set(score.userId, score);
+        }
+      }
+
+      // Top 3만 선택
+      const topScores = Array.from(uniqueScores.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
       
       rankings[type] = topScores.map(s => ({
         nickname: s.user.nickname || s.user.email.split('@')[0],
