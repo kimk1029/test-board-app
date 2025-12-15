@@ -498,11 +498,18 @@ export class HoldemScene extends Phaser.Scene {
   }
 
   updateGameState(newData: RoomData) {
+    // UI 객체가 아직 초기화되지 않았으면 무시
+    if (!this.potText || !this.statusText) {
+      return;
+    }
+
     this.isProcessingUpdate = true;
     const oldData = this.roomData;
     this.roomData = newData;
 
-    this.potText.setText(`POT: ${newData.pot.toLocaleString()}`);
+    if (this.potText) {
+      this.potText.setText(`POT: ${newData.pot.toLocaleString()}`);
+    }
     
     const amISeated = newData.players.some(p => p.userId === this.myUserId);
     const playerCount = newData.players.length;
@@ -528,22 +535,26 @@ export class HoldemScene extends Phaser.Scene {
         this.currentTimerSeat = null;
     }
 
-    if (newData.status === 'waiting') {
-        if (playerCount < 2) {
-            this.statusText.setText(amISeated 
-                ? `Waiting for more players... (${playerCount}/2)` 
-                : 'Click a "SIT" button to join');
-        } else {
-            this.statusText.setText('Ready to Start!');
-        }
-    } else {
-        this.statusText.setText('');
+    if (this.statusText) {
+      if (newData.status === 'waiting') {
+          if (playerCount < 2) {
+              this.statusText.setText(amISeated 
+                  ? `Waiting for more players... (${playerCount}/2)` 
+                  : 'Click a "SIT" button to join');
+          } else {
+              this.statusText.setText('Ready to Start!');
+          }
+      } else {
+          this.statusText.setText('');
+      }
     }
 
-    if (newData.status === 'waiting' && playerCount >= 2 && amISeated) {
-        this.startButton.setVisible(true);
-    } else {
-        this.startButton.setVisible(false);
+    if (this.startButton) {
+      if (newData.status === 'waiting' && playerCount >= 2 && amISeated) {
+          this.startButton.setVisible(true);
+      } else {
+          this.startButton.setVisible(false);
+      }
     }
 
     this.updateSeats(newData.players, newData.gameState.currentTurnSeat);
@@ -582,58 +593,77 @@ export class HoldemScene extends Phaser.Scene {
   
   updateSeats(players: Player[], currentTurnSeat: number | null) {
       this.seatContainers.forEach(c => {
-          (c.getAt(3) as Phaser.GameObjects.Text).setText('Empty');
-          (c.getAt(4) as Phaser.GameObjects.Text).setText('');
-          (c.getAt(5) as Phaser.GameObjects.Text).setText('');
-          // Don't remove cards immediately if round active, handled below
-          (c.getAt(0) as Phaser.GameObjects.Shape).setStrokeStyle(3, 0xaaaaaa);
+          if (!c || c.length < 6) return;
+          try {
+              const nameTxt = c.getAt(3) as Phaser.GameObjects.Text;
+              const chipsTxt = c.getAt(4) as Phaser.GameObjects.Text;
+              const actionTxt = c.getAt(5) as Phaser.GameObjects.Text;
+              const avatarBg = c.getAt(0) as Phaser.GameObjects.Shape;
+              
+              if (nameTxt) nameTxt.setText('Empty');
+              if (chipsTxt) chipsTxt.setText('');
+              if (actionTxt) actionTxt.setText('');
+              if (avatarBg) avatarBg.setStrokeStyle(3, 0xaaaaaa);
+          } catch (e) {
+              console.error('Seat update error:', e);
+          }
       });
 
       players.forEach(p => {
           const container = this.seatContainers.get(p.seatIndex);
-          if (!container) return;
+          if (!container || container.length < 7) return;
 
-          const avatarBg = container.getAt(0) as Phaser.GameObjects.Shape;
-          const nameTxt = container.getAt(3) as Phaser.GameObjects.Text;
-          const chipsTxt = container.getAt(4) as Phaser.GameObjects.Text;
-          const actionTxt = container.getAt(5) as Phaser.GameObjects.Text;
-          const cardsContainer = container.getAt(6) as Phaser.GameObjects.Container;
-          
-          nameTxt.setText(p.nickname);
-          chipsTxt.setText(`$${p.chips}\nBet: ${p.currentBet}`);
-          
-          if (currentTurnSeat === p.seatIndex) {
-              avatarBg.setStrokeStyle(4, 0x00ff00);
-          } else {
-              avatarBg.setStrokeStyle(3, 0xaaaaaa);
-          }
-          
-          if (!p.isActive) actionTxt.setText('FOLD').setColor('#aaaaaa');
-          else if (p.isAllIn) actionTxt.setText('ALL IN').setColor('#ff0000');
-          else actionTxt.setText('');
-
-          // Dealing Logic
-          if (this.roomData?.status === 'playing' && p.isActive) {
-              // If container empty, deal
-              if (cardsContainer.list.length === 0) {
-                  if (p.userId === this.myUserId && p.holeCards) {
-                      this.animateDealHoleCards(cardsContainer, p.holeCards, true, container);
+          try {
+              const avatarBg = container.getAt(0) as Phaser.GameObjects.Shape;
+              const nameTxt = container.getAt(3) as Phaser.GameObjects.Text;
+              const chipsTxt = container.getAt(4) as Phaser.GameObjects.Text;
+              const actionTxt = container.getAt(5) as Phaser.GameObjects.Text;
+              const cardsContainer = container.getAt(6) as Phaser.GameObjects.Container;
+              
+              if (nameTxt) nameTxt.setText(p.nickname);
+              if (chipsTxt) chipsTxt.setText(`$${p.chips}\nBet: ${p.currentBet}`);
+              
+              if (avatarBg) {
+                  if (currentTurnSeat === p.seatIndex) {
+                      avatarBg.setStrokeStyle(4, 0x00ff00);
                   } else {
-                      this.animateDealHoleCards(cardsContainer, [], false, container);
+                      avatarBg.setStrokeStyle(3, 0xaaaaaa);
                   }
               }
-          } else if (this.roomData?.status === 'waiting') {
-               cardsContainer.removeAll(true);
-          }
-          
-          // Showdown reveal
-          if (this.roomData?.currentRound === 'showdown' && p.isActive && p.holeCards) {
-              // Only redraw if not already showing faces (check first child texture key)
-              const firstChild = cardsContainer.list[0] as Phaser.GameObjects.Image;
-              if (firstChild && firstChild.texture.key === 'card-back') {
-                  cardsContainer.removeAll(true);
-                  this.drawHoleCards(cardsContainer, p.holeCards, false); // No animation needed for reveal, or simple flip
+              
+              if (actionTxt) {
+                  if (!p.isActive) actionTxt.setText('FOLD').setColor('#aaaaaa');
+                  else if (p.isAllIn) actionTxt.setText('ALL IN').setColor('#ff0000');
+                  else actionTxt.setText('');
               }
+
+              // Dealing Logic
+              if (cardsContainer) {
+                  if (this.roomData?.status === 'playing' && p.isActive) {
+                      // If container empty, deal
+                      if (cardsContainer.list.length === 0) {
+                          if (p.userId === this.myUserId && p.holeCards) {
+                              this.animateDealHoleCards(cardsContainer, p.holeCards, true, container);
+                          } else {
+                              this.animateDealHoleCards(cardsContainer, [], false, container);
+                          }
+                      }
+                  } else if (this.roomData?.status === 'waiting') {
+                      cardsContainer.removeAll(true);
+                  }
+                  
+                  // Showdown reveal
+                  if (this.roomData?.currentRound === 'showdown' && p.isActive && p.holeCards) {
+                      // Only redraw if not already showing faces (check first child texture key)
+                      const firstChild = cardsContainer.list[0] as Phaser.GameObjects.Image;
+                      if (firstChild && firstChild.texture && firstChild.texture.key === 'card-back') {
+                          cardsContainer.removeAll(true);
+                          this.drawHoleCards(cardsContainer, p.holeCards, false); // No animation needed for reveal, or simple flip
+                      }
+                  }
+              }
+          } catch (e) {
+              console.error('Player seat update error:', e);
           }
       });
   }
@@ -757,7 +787,14 @@ export class HoldemScene extends Phaser.Scene {
                           scaleX: 0,
                           duration: 150,
                           onComplete: () => {
-                              cardObj.setTexture(`card-${cards[i].suit}-${cards[i].rank}`);
+                              const cardKey = `card-${cards[i].suit}-${cards[i].rank}`;
+                              // 이미지가 존재하는지 확인
+                              if (this.textures.exists(cardKey)) {
+                                  cardObj.setTexture(cardKey);
+                              } else {
+                                  // 기본 카드 백 이미지 사용
+                                  cardObj.setTexture('card-back');
+                              }
                               this.tweens.add({
                                   targets: cardObj,
                                   scaleX: scale,
@@ -779,7 +816,9 @@ export class HoldemScene extends Phaser.Scene {
       
       cards.forEach((card, idx) => {
           const key = `card-${card.suit}-${card.rank}`;
-          const img = this.scene.scene.add.image(idx * spacing + offset, yPos, key).setScale(scale); 
+          // 이미지가 존재하는지 확인, 없으면 기본 카드 백 사용
+          const textureKey = this.textures.exists(key) ? key : 'card-back';
+          const img = this.add.image(idx * spacing + offset, yPos, textureKey).setScale(scale); 
           container.add(img);
       });
   }
@@ -828,7 +867,14 @@ export class HoldemScene extends Phaser.Scene {
                       scaleX: 0,
                       duration: 150,
                       onComplete: () => {
-                          cardObj.setTexture(`card-${card.suit}-${card.rank}`);
+                          const cardKey = `card-${card.suit}-${card.rank}`;
+                          // 이미지가 존재하는지 확인
+                          if (this.textures.exists(cardKey)) {
+                              cardObj.setTexture(cardKey);
+                          } else {
+                              // 기본 카드 백 이미지 사용
+                              cardObj.setTexture('card-back');
+                          }
                           this.tweens.add({
                               targets: cardObj,
                               scaleX: 0.25, 

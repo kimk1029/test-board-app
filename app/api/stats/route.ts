@@ -40,79 +40,117 @@ export async function GET() {
     })
 
     const gameStats = await Promise.all(games.map(async (g) => {
-      const wins = await prisma.gameLog.count({
-        where: {
-          gameType: g.gameType,
-          result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] }
-        }
-      })
-
-      // 최대 승리 금액 조회
-      const maxPayoutRecord = await prisma.gameLog.findFirst({
-        where: {
-          gameType: g.gameType,
-          payout: { gt: 0 }
-        },
-        orderBy: {
-          payout: 'desc'
-        },
-        select: {
-          payout: true
-        }
-      })
-
-      // 평균 베팅 금액 계산
-      const avgBetAmount = g._count._all > 0 ? (g._sum.betAmount || 0) / g._count._all : 0
-
-      // 최근 24시간 통계
-      const recent24h = await prisma.gameLog.count({
-        where: {
-          gameType: g.gameType,
-          createdAt: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+      try {
+        const wins = await prisma.gameLog.count({
+          where: {
+            gameType: g.gameType,
+            result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] }
           }
-        }
-      })
+        })
 
-      return {
-        gameType: g.gameType,
-        totalGames: g._count._all,
-        wins,
-        losses: g._count._all - wins,
-        winRate: g._count._all > 0 ? (wins / g._count._all) * 100 : 0,
-        totalBet: g._sum.betAmount || 0,
-        totalPayout: g._sum.payout || 0,
-        rtp: (g._sum.betAmount || 0) > 0 ? ((g._sum.payout || 0) / (g._sum.betAmount || 0)) * 100 : 0,
-        avgMultiplier: g._avg.multiplier || 0,
-        profit: g._sum.profit || 0,
-        maxPayout: maxPayoutRecord?.payout || 0,
-        avgBetAmount,
-        recent24h
+        // 최대 승리 금액 조회
+        let maxPayout = 0;
+        try {
+          const maxPayoutRecord = await prisma.gameLog.findFirst({
+            where: {
+              gameType: g.gameType,
+              payout: { gt: 0 }
+            },
+            orderBy: {
+              payout: 'desc'
+            },
+            select: {
+              payout: true
+            }
+          })
+          maxPayout = maxPayoutRecord?.payout || 0;
+        } catch (e) {
+          console.error(`Max payout query error for ${g.gameType}:`, e);
+        }
+
+        // 평균 베팅 금액 계산
+        const avgBetAmount = g._count._all > 0 ? (g._sum.betAmount || 0) / g._count._all : 0
+
+        // 최근 24시간 통계
+        let recent24h = 0;
+        try {
+          recent24h = await prisma.gameLog.count({
+            where: {
+              gameType: g.gameType,
+              createdAt: {
+                gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+              }
+            }
+          })
+        } catch (e) {
+          console.error(`Recent 24h query error for ${g.gameType}:`, e);
+        }
+
+        return {
+          gameType: g.gameType,
+          totalGames: g._count._all,
+          wins,
+          losses: g._count._all - wins,
+          winRate: g._count._all > 0 ? (wins / g._count._all) * 100 : 0,
+          totalBet: g._sum.betAmount || 0,
+          totalPayout: g._sum.payout || 0,
+          rtp: (g._sum.betAmount || 0) > 0 ? ((g._sum.payout || 0) / (g._sum.betAmount || 0)) * 100 : 0,
+          avgMultiplier: g._avg.multiplier || 0,
+          profit: g._sum.profit || 0,
+          maxPayout,
+          avgBetAmount,
+          recent24h
+        }
+      } catch (e) {
+        console.error(`Game stats error for ${g.gameType}:`, e);
+        // 오류 발생 시 기본값 반환
+        return {
+          gameType: g.gameType,
+          totalGames: g._count._all || 0,
+          wins: 0,
+          losses: g._count._all || 0,
+          winRate: 0,
+          totalBet: g._sum.betAmount || 0,
+          totalPayout: g._sum.payout || 0,
+          rtp: 0,
+          avgMultiplier: 0,
+          profit: g._sum.profit || 0,
+          maxPayout: 0,
+          avgBetAmount: 0,
+          recent24h: 0
+        }
       }
     }))
 
     // 3. 날짜별 추이 (최근 7일) - PostgreSQL
     // 주의: Prisma 모델명이 GameLog라면 테이블명도 "GameLog" (대소문자 구분) 일 수 있음
-    const dailyStats: any[] = await prisma.$queryRaw`
-      SELECT 
-        TO_CHAR("createdAt", 'MM-DD') as date,
-        COUNT(*)::int as count,
-        SUM(CASE WHEN "result" IN ('WIN', 'BLACKJACK', 'JACKPOT') THEN 1 ELSE 0 END)::int as wins,
-        SUM("profit")::int as profit
-      FROM "GameLog"
-      WHERE "createdAt" >= NOW() - INTERVAL '7 days'
-      GROUP BY TO_CHAR("createdAt", 'MM-DD')
-      ORDER BY date ASC
-    `
+    let serializedDailyStats: any[] = [];
+    try {
+      const dailyStats: any[] = await prisma.$queryRaw`
+        SELECT 
+          TO_CHAR("createdAt", 'MM-DD') as date,
+          COUNT(*)::int as count,
+          SUM(CASE WHEN "result" IN ('WIN', 'BLACKJACK', 'JACKPOT') THEN 1 ELSE 0 END)::int as wins,
+          SUM("profit")::int as profit
+        FROM "GameLog"
+        WHERE "createdAt" >= NOW() - INTERVAL '7 days'
+        GROUP BY TO_CHAR("createdAt", 'MM-DD')
+        ORDER BY date ASC
+      `
 
-    // BigInt 처리 (Prisma raw query 결과의 숫자형은 BigInt일 수 있음)
-    const serializedDailyStats = dailyStats.map(stat => ({
-      date: stat.date,
-      count: Number(stat.count),
-      wins: Number(stat.wins),
-      winRate: Number(stat.count) > 0 ? (Number(stat.wins) / Number(stat.count)) * 100 : 0,
-      profit: Number(stat.profit)
-    }))
+      // BigInt 처리 (Prisma raw query 결과의 숫자형은 BigInt일 수 있음)
+      serializedDailyStats = dailyStats.map(stat => ({
+        date: stat.date,
+        count: Number(stat.count || 0),
+        wins: Number(stat.wins || 0),
+        winRate: Number(stat.count || 0) > 0 ? (Number(stat.wins || 0) / Number(stat.count || 0)) * 100 : 0,
+        profit: Number(stat.profit || 0)
+      }))
+    } catch (dailyError) {
+      console.error('날짜별 통계 조회 오류:', dailyError)
+      // 날짜별 통계 오류는 무시하고 빈 배열 반환
+      serializedDailyStats = []
+    }
 
     // 4. 아케이드 게임 랭킹 (각 게임별 Top 3) - 중복 사용자 제거 (각 사용자의 최고 점수만)
     const arcadeGames = ['stairs', 'skyroads', 'windrunner'];
@@ -169,7 +207,14 @@ export async function GET() {
 
   } catch (error) {
     console.error('통계 조회 오류:', error)
-    return NextResponse.json({ error: '통계 로드 실패' }, { status: 500 })
+    // 상세 오류 정보 포함
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('Error details:', { errorMessage, errorStack })
+    return NextResponse.json({ 
+      error: '통계 로드 실패',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    }, { status: 500 })
   }
 }
 
