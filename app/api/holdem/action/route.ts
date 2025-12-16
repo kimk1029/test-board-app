@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 import { handlePlayerAction, RoomWithPlayers } from '@/lib/holdem/game-logic'
+import { 
+  checkHoldemActionRateLimit, 
+  validateHoldemAction 
+} from '@/lib/holdem-validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +21,15 @@ export async function POST(request: NextRequest) {
 
     if (!payload) {
       return NextResponse.json({ error: '유효하지 않은 토큰입니다.' }, { status: 401 })
+    }
+
+    // Rate limiting 체크
+    const rateLimitCheck = checkHoldemActionRateLimit(payload.userId)
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        { error: rateLimitCheck.error || '너무 빠른 요청입니다.' },
+        { status: 429 }
+      )
     }
 
     const body = await request.json()
@@ -36,6 +49,18 @@ export async function POST(request: NextRequest) {
 
       if (!room) {
         throw new Error('Room not found');
+      }
+
+      // 액션 검증
+      const validation = validateHoldemAction(
+        room as RoomWithPlayers,
+        payload.userId,
+        action,
+        amount || 0
+      )
+
+      if (!validation.valid) {
+        throw new Error(validation.error || '액션이 유효하지 않습니다.');
       }
 
       // 게임 로직 실행

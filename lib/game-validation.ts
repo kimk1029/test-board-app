@@ -282,3 +282,27 @@ export function checkRateLimit(userId: number): { allowed: boolean; error?: stri
   return { allowed: true }
 }
 
+/**
+ * 베팅 기록 정리 (메모리 관리)
+ */
+export function cleanupBetHistory() {
+  const now = Date.now()
+  const userIds = Array.from(betHistory.keys())
+  for (const userId of userIds) {
+    const bets = betHistory.get(userId)
+    if (!bets) continue
+    
+    const recentBets = bets.filter(timestamp => now - timestamp < 1000)
+    if (recentBets.length === 0) {
+      betHistory.delete(userId)
+    } else {
+      betHistory.set(userId, recentBets)
+    }
+  }
+}
+
+// 주기적으로 기록 정리 (1분마다)
+if (typeof setInterval !== 'undefined') {
+  setInterval(cleanupBetHistory, 60 * 1000)
+}
+

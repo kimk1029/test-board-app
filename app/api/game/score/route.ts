@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { 
+  validateScore, 
+  validateScoreReasonableness, 
+  checkScoreRateLimit 
+} from '@/lib/score-validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,10 +19,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '유효하지 않은 토큰입니다.' }, { status: 401 })
     }
 
-    const { gameType, score } = await request.json()
+    // Rate limiting 체크
+    const rateLimitCheck = checkScoreRateLimit(payload.userId)
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        { error: rateLimitCheck.error || '너무 빠른 요청입니다.' },
+        { status: 429 }
+      )
+    }
+
+    const { gameType, score, gameDuration } = await request.json()
 
     if (!gameType || typeof score !== 'number') {
       return NextResponse.json({ error: '잘못된 요청 데이터입니다.' }, { status: 400 })
+    }
+
+    // 이전 최고 점수 조회 (증가율 검증용)
+    const previousBestScore = await prisma.gameScore.findFirst({
+      where: {
+        userId: payload.userId,
+        gameType
+      },
+      orderBy: { score: 'desc' }
+    })
+
+    // 점수 검증
+    const scoreValidation = validateScore(
+      gameType,
+      score,
+      payload.userId,
+      previousBestScore?.score
+    )
+
+    if (!scoreValidation.valid) {
+      return NextResponse.json(
+        { error: scoreValidation.error || '점수가 유효하지 않습니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 점수 합리성 검증 (게임 시간이 제공된 경우)
+    if (gameDuration && typeof gameDuration === 'number') {
+      const reasonablenessCheck = validateScoreReasonableness(
+        gameType,
+        score,
+        gameDuration
+      )
+
+      if (!reasonablenessCheck.valid) {
+        return NextResponse.json(
+          { error: reasonablenessCheck.error || '점수가 비정상적입니다.' },
+          { status: 400 }
+        )
+      }
     }
 
     // 1. Check current highest score before saving new score
