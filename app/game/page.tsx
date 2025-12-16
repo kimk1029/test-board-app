@@ -6,7 +6,7 @@ import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Gift, TrendingUp, Clover, Club, Disc, Layers, Rocket, Wind, Users,
-    BarChart2, Trophy, Coins, Zap, LayoutGrid, Dices, Award, Box
+    BarChart2, Trophy, Coins, Zap, LayoutGrid, Dices, Award, Box, Shield
 } from 'lucide-react'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -31,6 +31,7 @@ const GAMES = {
         { id: 'windrunner', name: 'Wind Runner', desc: '바람을 가르는 질주', icon: Wind, path: '/game/windrunner', color: 'from-cyan-500 to-blue-600', accent: 'text-cyan-400', pcOnly: true },
         { id: 'stairs', name: 'Infinite Stairs', desc: '무한 계단 오르기', icon: Layers, path: '/game/stairs', color: 'from-blue-600 to-indigo-700', accent: 'text-blue-500' },
         { id: 'stacker', name: 'Stacker', desc: '블록을 쌓아 올려라', icon: Box, path: '/game/stacker', color: 'from-cyan-600 to-purple-700', accent: 'text-cyan-400' },
+        { id: 'orbital-defense', name: 'Orbital Defense', desc: '궤도를 지켜라', icon: Shield, path: '/game/orbital-defense', color: 'from-green-600 to-yellow-600', accent: 'text-green-400' },
     ],
     shop: [ // Kuji moved to shop category for display
         { id: 'kuji', name: 'Ichiban Kuji', desc: '행운의 뽑기! (100P)', icon: Gift, path: '/game/kuji', color: 'from-yellow-500 to-amber-700', accent: 'text-yellow-500', inProgress: true }

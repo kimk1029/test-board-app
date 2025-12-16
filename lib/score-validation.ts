@@ -9,6 +9,7 @@ const MAX_SCORES: Record<string, number> = {
   skyroads: 1000000,   // 스카이로드: 최대 100만 KM
   windrunner: 10000000, // 윈드러너: 최대 1000만 PTS
   stacker: 100000,     // 스태커: 최대 10만 블록
+  'orbital-defense': 1000000, // 오비탈 디펜스: 최대 100만 점수
 }
 
 // 게임별 최소 점수 (0 이상)
