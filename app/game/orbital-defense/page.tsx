@@ -299,12 +299,12 @@ export default function OrbitalDefensePage() {
                     if (time % 200 < delta) {
                         this.enemies.getChildren().forEach((e: any) => {
                             if (!e || !e.active) return;
-                            
+
                             // 적이 생성된 시간 확인 (3초 = 3000ms)
                             const spawnTime = e.spawnTime || time;
                             const elapsedSinceSpawn = time - spawnTime;
                             const followDuration = 3000; // 3초
-                            
+
                             // 3초 동안은 플레이어를 따라다님
                             if (elapsedSinceSpawn < followDuration) {
                                 this.physics.moveToObject(e, this.player, e.speed);
@@ -318,20 +318,20 @@ export default function OrbitalDefensePage() {
                                     e.straightDirection = angle;
                                     e.straightSpeed = e.speed;
                                 }
-                                
+
                                 // 직선으로 이동
                                 const velX = Math.cos(e.straightDirection) * e.straightSpeed;
                                 const velY = Math.sin(e.straightDirection) * e.straightSpeed;
                                 (e.body as Phaser.Physics.Arcade.Body).setVelocity(velX, velY);
-                                
+
                                 // 월드 경계 밖으로 나가면 사라짐
-                                if (e.x < -halfWorld - 50 || e.x > halfWorld + 50 || 
+                                if (e.x < -halfWorld - 50 || e.x > halfWorld + 50 ||
                                     e.y < -halfWorld - 50 || e.y > halfWorld + 50) {
                                     e.destroy();
                                     return;
                                 }
                             }
-                            
+
                             // 화면 밖으로 너무 멀리 나간 적 제거
                             const dist = Phaser.Math.Distance.Between(playerX, playerY, e.x, e.y);
                             if (dist > maxDistance) {
@@ -345,7 +345,7 @@ export default function OrbitalDefensePage() {
                 handleWeapons(time: number): void {
                     const enemies = this.enemies.getChildren() as any[];
                     const activeEnemies = enemies.filter((e: any) => e && e.active);
-                    
+
                     // activeEnemies가 비어있으면 무기 발사하지 않음
                     if (activeEnemies.length === 0) return;
 
@@ -607,12 +607,12 @@ export default function OrbitalDefensePage() {
                         enemy.hp = 10 + this.timeElapsed;
                         enemy.speed = 80 + this.timeElapsed;
                     }
-                    
+
                     // 몬스터 생성 시간 기록 (3초 동안 플레이어를 따라다니기 위해)
                     enemy.spawnTime = this.game.getTime();
                     enemy.straightDirection = null; // 직선 이동 방향 (3초 후 설정)
                     enemy.straightSpeed = enemy.speed; // 직선 이동 속도
-                    
+
                     this.physics.add.existing(enemy);
                     this.enemies.add(enemy);
                 }
