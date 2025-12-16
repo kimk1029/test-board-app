@@ -5,39 +5,66 @@ export const dynamic = 'force-dynamic' // 캐싱 방지
 
 export async function GET() {
   try {
-    // 1. 전체 요약
-    const totalGames = await prisma.gameLog.count()
-    
-    const winGames = await prisma.gameLog.count({
-      where: {
-        result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] }
-      }
-    })
+    // 1. 전체 요약 (개별 try-catch로 처리)
+    let totalGames = 0
+    let winGames = 0
+    let totalBet = 0
+    let totalPayout = 0
+    let totalProfit = 0
+    let avgMultiplier = 0
 
-    const aggregations = await prisma.gameLog.aggregate({
-      _sum: {
-        betAmount: true,
-        payout: true,
-        profit: true
-      },
-      _avg: {
-        multiplier: true
-      }
-    })
+    try {
+      totalGames = await prisma.gameLog.count()
+    } catch (e) {
+      console.error('Total games count error:', e)
+    }
 
-    const totalBet = aggregations._sum.betAmount || 0
-    const totalPayout = aggregations._sum.payout || 0
-    const totalProfit = aggregations._sum.profit || 0
+    try {
+      winGames = await prisma.gameLog.count({
+        where: {
+          result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] }
+        }
+      })
+    } catch (e) {
+      console.error('Win games count error:', e)
+    }
+
+    try {
+      const aggregations = await prisma.gameLog.aggregate({
+        _sum: {
+          betAmount: true,
+          payout: true,
+          profit: true
+        },
+        _avg: {
+          multiplier: true
+        }
+      })
+
+      totalBet = aggregations._sum.betAmount || 0
+      totalPayout = aggregations._sum.payout || 0
+      totalProfit = aggregations._sum.profit || 0
+      avgMultiplier = aggregations._avg.multiplier || 0
+    } catch (e) {
+      console.error('Aggregations error:', e)
+    }
+
     const winRate = totalGames > 0 ? (winGames / totalGames) * 100 : 0
     const rtp = totalBet > 0 ? (totalPayout / totalBet) * 100 : 0 // 환급률 (Return to Player)
 
     // 2. 게임별 통계
-    const games = await prisma.gameLog.groupBy({
-      by: ['gameType'],
-      _count: { _all: true },
-      _sum: { betAmount: true, payout: true, profit: true },
-      _avg: { multiplier: true }
-    })
+    let games: any[] = []
+    try {
+      games = await prisma.gameLog.groupBy({
+        by: ['gameType'] as const,
+        _count: { _all: true },
+        _sum: { betAmount: true, payout: true, profit: true },
+        _avg: { multiplier: true }
+      } as any)
+    } catch (e) {
+      console.error('Game stats groupBy error:', e)
+      games = []
+    }
 
     const gameStats = await Promise.all(games.map(async (g) => {
       try {
@@ -157,39 +184,44 @@ export async function GET() {
     const rankings: Record<string, any[]> = {};
 
     for (const type of arcadeGames) {
-      // 각 사용자의 최고 점수만 가져오기
-      const topScoresRaw = await prisma.gameScore.findMany({
-        where: { gameType: type },
-        orderBy: { score: 'desc' },
-        take: 50, // 충분히 많이 가져와서 중복 제거
-        include: {
-          user: {
-            select: {
-              nickname: true,
-              email: true
+      try {
+        // 각 사용자의 최고 점수만 가져오기
+        const topScoresRaw = await prisma.gameScore.findMany({
+          where: { gameType: type },
+          orderBy: { score: 'desc' },
+          take: 50, // 충분히 많이 가져와서 중복 제거
+          include: {
+            user: {
+              select: {
+                nickname: true,
+                email: true
+              }
             }
           }
-        }
-      });
+        });
 
-      // 사용자별 최고 점수만 유지 (중복 제거)
-      const uniqueScores = new Map<number, any>();
-      for (const score of topScoresRaw) {
-        if (!uniqueScores.has(score.userId)) {
-          uniqueScores.set(score.userId, score);
+        // 사용자별 최고 점수만 유지 (중복 제거)
+        const uniqueScores = new Map<number, any>();
+        for (const score of topScoresRaw) {
+          if (!uniqueScores.has(score.userId)) {
+            uniqueScores.set(score.userId, score);
+          }
         }
+
+        // Top 3만 선택
+        const topScores = Array.from(uniqueScores.values())
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3);
+        
+        rankings[type] = topScores.map(s => ({
+          nickname: s.user.nickname || s.user.email.split('@')[0],
+          score: s.score,
+          date: s.createdAt
+        }));
+      } catch (e) {
+        console.error(`Rankings error for ${type}:`, e)
+        rankings[type] = []
       }
-
-      // Top 3만 선택
-      const topScores = Array.from(uniqueScores.values())
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
-      
-      rankings[type] = topScores.map(s => ({
-        nickname: s.user.nickname || s.user.email.split('@')[0],
-        score: s.score,
-        date: s.createdAt
-      }));
     }
 
     return NextResponse.json({
@@ -198,7 +230,7 @@ export async function GET() {
         winRate,
         rtp,
         totalProfit,
-        avgMultiplier: aggregations._avg.multiplier || 0
+        avgMultiplier
       },
       byGame: gameStats,
       daily: serializedDailyStats,

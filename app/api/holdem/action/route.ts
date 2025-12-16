@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { authenticateAndValidateRequest } from '@/lib/request-auth'
 import { handlePlayerAction, RoomWithPlayers } from '@/lib/holdem/game-logic'
 import { 
   checkHoldemActionRateLimit, 
@@ -11,17 +11,17 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
+    // 통합 인증 및 요청 검증 (IP/User-Agent 바인딩)
+    const authResult = await authenticateAndValidateRequest(request, false);
+    
+    if (!authResult.valid || !authResult.payload) {
+      return NextResponse.json(
+        { error: authResult.error || '인증 실패' }, 
+        { status: authResult.status || 401 }
+      );
     }
 
-    const token = authHeader.substring(7)
-    const payload = verifyToken(token)
-
-    if (!payload) {
-      return NextResponse.json({ error: '유효하지 않은 토큰입니다.' }, { status: 401 })
-    }
+    const payload = authResult.payload;
 
     // Rate limiting 체크
     const rateLimitCheck = checkHoldemActionRateLimit(payload.userId)

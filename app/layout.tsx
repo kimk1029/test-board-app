@@ -42,7 +42,7 @@ export default function RootLayout({
       <head>
         <GoogleAdsense pId={process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_ID || ''} />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <OnlineUsers />
       </body>

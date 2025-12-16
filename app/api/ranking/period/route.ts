@@ -36,20 +36,26 @@ export async function GET(request: NextRequest) {
     // 현재는 전체 포인트 기준으로 랭킹을 제공
     // 추후 포인트 히스토리 테이블을 추가하면 정확한 기간별 랭킹 가능
 
-    const rankings = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        nickname: true,
-        points: true,
-        level: true,
-        createdAt: true,
-      },
-      orderBy: {
-        points: 'desc',
-      },
-      take: limit,
-    })
+    let rankings: any[] = []
+    try {
+      rankings = await prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          nickname: true,
+          points: true,
+          level: true,
+          createdAt: true,
+        },
+        orderBy: {
+          points: 'desc',
+        },
+        take: limit,
+      })
+    } catch (e) {
+      console.error('Rankings query error:', e)
+      rankings = []
+    }
 
     // 랭킹 순위 추가
     const rankingsWithPosition = rankings.map((user, index) => ({

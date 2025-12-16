@@ -87,7 +87,21 @@ export default function OnlineUsers({ className }: OnlineUsersProps) {
     }
   }, [])
 
-  if (!mounted) return null
+  // 서버 렌더링 시 빈 div 반환 (hydration mismatch 방지)
+  if (!mounted) {
+    return (
+      <div className={`fixed bottom-6 right-6 z-50 ${className}`} suppressHydrationWarning>
+        <div className="flex items-center gap-3 bg-black/60 backdrop-blur-xl border border-white/5 rounded-full px-4 py-2">
+          <div className="relative flex h-2.5 w-2.5">
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-500"></span>
+          </div>
+          <span className="text-xs font-bold text-slate-400 tracking-wide">
+            CONNECTING...
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   // 연결되지 않았거나 설정이 없는 경우: 단순히 '접속 중' 표시
   if (!supabase || !isConnected) {

@@ -89,13 +89,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 보안 검증
+    const { detectSQLInjection, detectXSS, sanitizeInput } = await import('@/lib/security')
+    
+    if (detectSQLInjection(content)) {
+      return NextResponse.json(
+        { error: '잘못된 입력입니다.' },
+        { status: 400 }
+      )
+    }
+
+    if (detectXSS(content)) {
+      return NextResponse.json(
+        { error: '잘못된 입력입니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 입력 길이 제한
+    if (content.length > 5000) {
+      return NextResponse.json(
+        { error: '입력 길이가 너무 깁니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 입력 정제
+    const sanitizedContent = sanitizeInput(content.trim())
+
     const REWARD_POINTS = 5
 
     // Transaction: Create Comment, Give Points, Log Points
     const [comment] = await prisma.$transaction([
       prisma.comment.create({
         data: {
-          content: content.trim(),
+          content: sanitizedContent,
           postId: parseInt(postId),
           authorId: payload.userId,
           parentId: parentId ? parseInt(parentId) : null,

@@ -70,6 +70,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 보안 검증
+    const { detectSQLInjection, detectXSS, sanitizeInput } = await import('@/lib/security')
+    
+    if (detectSQLInjection(title) || detectSQLInjection(contents)) {
+      return NextResponse.json(
+        { error: '잘못된 입력입니다.' },
+        { status: 400 }
+      )
+    }
+
+    if (detectXSS(title) || detectXSS(contents)) {
+      return NextResponse.json(
+        { error: '잘못된 입력입니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 입력 길이 제한
+    if (title.length > 200 || contents.length > 10000) {
+      return NextResponse.json(
+        { error: '입력 길이가 너무 깁니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 입력 정제
+    const sanitizedTitle = sanitizeInput(title)
+    const sanitizedContents = sanitizeInput(contents)
+
     // 사용자 정보 가져오기
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -85,8 +114,8 @@ export async function POST(request: NextRequest) {
     // 게시글 작성
     const post = await prisma.post.create({
       data: {
-        title,
-        content: contents,
+        title: sanitizedTitle,
+        content: sanitizedContents,
         authorId: payload.userId,
       },
       include: {
