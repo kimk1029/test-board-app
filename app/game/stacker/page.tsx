@@ -41,9 +41,9 @@ export default function StackerPage() {
                 STACKER <span className="text-xl md:text-2xl not-italic font-light text-white/80">BLOCKS</span>
             </h1>
 
-            <div className="flex flex-col lg:flex-row gap-4 md:gap-8 items-center lg:items-start z-10 mt-2 md:mt-4 relative w-full max-w-7xl px-4">
-                {/* Game Container - 모바일 반응형 */}
-                <div className="relative rounded-xl md:rounded-2xl overflow-hidden border-2 md:border-4 border-cyan-500/20 shadow-[0_0_50px_rgba(34,211,238,0.1)] w-full max-w-[400px] aspect-[2/3] md:w-[400px] md:h-[600px] bg-[#0a0a0c] order-1 lg:order-2">
+            <div className="flex flex-col lg:flex-row gap-4 md:gap-8 items-center justify-center z-10 mt-2 md:mt-4 relative w-full px-4">
+                {/* Game Container - 정중앙 배치 */}
+                <div className="relative rounded-xl md:rounded-2xl overflow-hidden border-2 md:border-4 border-cyan-500/20 shadow-[0_0_50px_rgba(34,211,238,0.1)] w-full max-w-[400px] aspect-[2/3] md:w-[400px] md:h-[600px] bg-[#0a0a0c] mx-auto">
                     <PhaserGame onScoreUpdate={setMyBestScore} />
                 </div>
                 
@@ -188,7 +188,7 @@ const GameComponent = ({ onScoreUpdate }: GameComponentProps) => {
                     this.baseWidth = 200;
                     this.currentWidth = this.baseWidth;
                     this.level = 0;
-                    this.moveSpeed = 375; // 20% 느리게 (300 * 1.25)
+                    this.moveSpeed = 487.5; // 30% 더 느리게 (375 * 1.3)
                     this.isRunning = true;
                     this.stack = []; 
                     
@@ -252,8 +252,13 @@ const GameComponent = ({ onScoreUpdate }: GameComponentProps) => {
                     const hue = (this.level * 0.05) % 1;
                     const color = Phaser.Display.Color.HSVToRGB(hue, 0.7, 0.9).color;
 
+                    // 왼쪽 또는 오른쪽에서 랜덤 생성
+                    const startFromLeft = Phaser.Math.Between(0, 1) === 0;
+                    const startX = startFromLeft ? 0 : this.gameWidth;
+                    const targetX = startFromLeft ? this.gameWidth : 0;
+
                     const newBlock = this.add.rectangle(
-                        0, 
+                        startX, 
                         nextY, 
                         this.currentWidth, 
                         this.blockHeight, 
@@ -262,12 +267,12 @@ const GameComponent = ({ onScoreUpdate }: GameComponentProps) => {
 
                     this.movingBlock = newBlock;
 
-                    // 속도: 레벨이 오를수록 빨라짐 (최소 100ms, 20% 느리게)
-                    const speed = Math.max(100, this.moveSpeed - (this.level * 10));
+                    // 속도: 레벨이 오를수록 빨라짐 (최소 130ms, 30% 느리게)
+                    const speed = Math.max(130, this.moveSpeed - (this.level * 13));
 
                     this.moveTween = this.tweens.add({
                         targets: this.movingBlock,
-                        x: this.gameWidth,
+                        x: targetX,
                         duration: speed,
                         yoyo: true,
                         repeat: -1,
