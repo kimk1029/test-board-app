@@ -9100,7 +9100,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:^19.0.1":
+"react-dom@npm:^19.2.3":
   version: 19.2.3
   resolution: "react-dom@npm:19.2.3"
   dependencies:
@@ -9227,7 +9227,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:^19.0.1":
+"react@npm:^19.2.3":
   version: 19.2.3
   resolution: "react@npm:19.2.3"
   checksum: 10c0/094220b3ba3a76c1b668f972ace1dd15509b157aead1b40391d1c8e657e720c201d9719537375eff08f5e0514748c0319063392a6f000e31303aafc4471f1436
@@ -10269,8 +10269,8 @@ __metadata:
     phaser: "npm:^3.90.0"
     postcss: "npm:^8.5.6"
     prisma: "npm:^6.1.0"
-    react: "npm:^19.0.1"
-    react-dom: "npm:^19.0.1"
+    react: "npm:^19.2.3"
+    react-dom: "npm:^19.2.3"
     react-is: "npm:^19.2.3"
     recharts: "npm:^3.5.1"
     sonner: "npm:^2.0.7"
