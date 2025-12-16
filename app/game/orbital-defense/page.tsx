@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function OrbitalDefensePage() {
     const [myBestScore, setMyBestScore] = useState(0);
+    const [gameKey, setGameKey] = useState(0); // 게임 재시작을 위한 키
     const gameRef = useRef<HTMLDivElement>(null);
     const scoreAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -19,8 +20,13 @@ export default function OrbitalDefensePage() {
 
     useEffect(() => {
         let game: Phaser.Game | null = null;
+        let handleResize: (() => void) | null = null;
+        let handleRestart: (() => void) | null = null;
+        let isMounted = true;
 
         const initPhaser = async () => {
+            // 이미 언마운트되었으면 게임 초기화하지 않음
+            if (!isMounted) return;
             const Phaser = (await import('phaser')).default;
 
             // 점수 저장 함수 (기존과 동일)
@@ -575,6 +581,7 @@ export default function OrbitalDefensePage() {
                     this.add.rectangle(cx - this.gameWidth / 2, cy - this.gameHeight / 2, this.gameWidth, this.gameHeight, 0x000000, 0.7).setOrigin(0).setScrollFactor(0).setDepth(300);
                     this.add.text(cx, cy - 30, 'MISSION FAILED', { fontSize: '48px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
                     this.add.text(cx, cy + 30, `Score: ${score}`, { fontSize: '32px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
+                    this.add.text(cx, cy + 80, 'Click to Restart', { fontSize: '24px', color: '#00ffff' }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
 
                     const savedScore = parseInt(localStorage.getItem('orbital_defense_best') || '0');
                     if (score > savedScore) {
@@ -582,7 +589,27 @@ export default function OrbitalDefensePage() {
                         setMyBestScore(score);
                         await saveScore(score);
                     }
-                    this.input.once('pointerdown', () => this.scene.restart());
+
+                    // 게임 완전 리셋을 위해 React 컴포넌트 레벨에서 재시작
+                    this.input.once('pointerdown', () => {
+                        // 게임 완전 파괴 및 재시작을 위한 플래그 설정
+                        if (this.game) {
+                            try {
+                                // 모든 씬 정지
+                                if (this.game.scene) {
+                                    this.game.scene.getScenes().forEach(scene => {
+                                        if (scene.scene.isActive()) {
+                                            scene.scene.stop();
+                                        }
+                                    });
+                                }
+                                // React 컴포넌트가 게임을 다시 초기화하도록 함
+                                window.dispatchEvent(new Event('restartGame'));
+                            } catch (e) {
+                                console.error('Error restarting game:', e);
+                            }
+                        }
+                    });
                 }
 
                 spawnEnemy(): void {
@@ -711,21 +738,31 @@ export default function OrbitalDefensePage() {
             };
             const gameSize = getGameSize();
             const config: Phaser.Types.Core.GameConfig = {
-                type: Phaser.AUTO, width: gameSize.width, height: gameSize.height,
-                parent: gameRef.current, backgroundColor: '#000000',
+                type: Phaser.AUTO,
+                width: gameSize.width,
+                height: gameSize.height,
+                parent: gameRef.current,
+                backgroundColor: '#000000',
                 physics: { default: 'arcade', arcade: { debug: false, gravity: { x: 0, y: 0 }, fps: 60 } },
                 scale: {
                     mode: Phaser.Scale.RESIZE,
                     autoCenter: Phaser.Scale.CENTER_BOTH
                 },
-                scene: MainScene, fps: { target: 60, forceSetTimeOut: true }
+                scene: MainScene,
+                fps: { target: 60, forceSetTimeOut: true },
+                render: {
+                    antialias: false,
+                    pixelArt: false,
+                    powerPreference: 'high-performance',
+                    preserveDrawingBuffer: false
+                }
             };
 
             game = new Phaser.Game(config);
 
             // 브라우저 크기 변경 시 게임 화면 크기 조정
-            const handleResize = () => {
-                if (game && gameRef.current?.parentElement) {
+            handleResize = () => {
+                if (game && gameRef.current?.parentElement && isMounted) {
                     const container = gameRef.current.parentElement;
                     const rect = container.getBoundingClientRect();
                     game.scale.resize(rect.width, rect.height);
@@ -734,13 +771,102 @@ export default function OrbitalDefensePage() {
 
             window.addEventListener('resize', handleResize);
 
+            // 게임 재시작 이벤트 리스너
+            handleRestart = () => {
+                if (!isMounted) return;
+                if (game) {
+                    try {
+                        // 모든 씬 정지
+                        if (game.scene) {
+                            game.scene.getScenes().forEach(scene => {
+                                if (scene.scene.isActive()) {
+                                    scene.scene.stop();
+                                }
+                            });
+                        }
+                        // WebGL 컨텍스트 정리
+                        const canvas = game.canvas;
+                        if (canvas) {
+                            const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
+                            if (gl) {
+                                const loseContext = (gl as any).getExtension('WEBGL_lose_context');
+                                if (loseContext) {
+                                    loseContext.loseContext();
+                                }
+                            }
+                        }
+                        game.destroy(true);
+                        game = null;
+                    } catch (e) {
+                        console.error('Error destroying game:', e);
+                    }
+                    // 짧은 지연 후 게임 재초기화 (리소스 정리 시간 확보)
+                    if (isMounted) {
+                        setTimeout(() => {
+                            if (isMounted) {
+                                initPhaser();
+                            }
+                        }, 200);
+                    }
+                }
+            };
+
+            window.addEventListener('restartGame', handleRestart);
+
             // 초기 크기 조정을 위한 짧은 지연
             setTimeout(handleResize, 100);
         };
 
         initPhaser();
-        return () => { if (game) game.destroy(true); if (scoreAbortControllerRef.current) scoreAbortControllerRef.current.abort(); };
-    }, []);
+
+        return () => {
+            // 컴포넌트 언마운트 플래그 설정
+            isMounted = false;
+
+            // 이벤트 리스너 제거
+            if (handleResize) {
+                window.removeEventListener('resize', handleResize);
+            }
+            if (handleRestart) {
+                window.removeEventListener('restartGame', handleRestart);
+            }
+
+            // 게임 완전 파괴
+            if (game) {
+                try {
+                    // 모든 씬 정지
+                    if (game.scene) {
+                        game.scene.getScenes().forEach(scene => {
+                            if (scene.scene.isActive()) {
+                                scene.scene.stop();
+                            }
+                        });
+                    }
+                    // WebGL 컨텍스트 정리
+                    const canvas = game.canvas;
+                    if (canvas) {
+                        const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
+                        if (gl) {
+                            const loseContext = (gl as any).getExtension('WEBGL_lose_context');
+                            if (loseContext) {
+                                loseContext.loseContext();
+                            }
+                        }
+                    }
+                    game.destroy(true);
+                    game = null;
+                } catch (e) {
+                    console.error('Error destroying game on unmount:', e);
+                }
+            }
+
+            // 점수 저장 요청 취소
+            if (scoreAbortControllerRef.current) {
+                scoreAbortControllerRef.current.abort();
+                scoreAbortControllerRef.current = null;
+            }
+        };
+    }, [gameKey]); // gameKey가 변경되면 게임 재시작
 
     return (
         <div className="flex flex-col items-center justify-center h-screen bg-[#09090b] text-white p-4 relative overflow-hidden">
