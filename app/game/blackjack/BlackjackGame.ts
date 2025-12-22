@@ -681,12 +681,30 @@ export class BlackjackGame {
         // 서버에서 받은 카드로 게임 상태 업데이트
         this.playerHand.cards = data.playerCards.map((c: any) => ({
           ...c,
-          faceUp: c.faceUp !== false
+          faceUp: c.faceUp !== false // 서버에서 faceUp이 true로 설정되어 있음
         }))
         this.dealerHand.cards = data.dealerCards.map((c: any) => ({
           ...c,
-          faceUp: c.faceUp !== false
+          faceUp: c.faceUp !== false // 첫 번째는 true, 두 번째는 false
         }))
+        
+        // cardSprites의 faceUp 상태도 업데이트
+        this.playerHand.cards.forEach(card => {
+          const sprite = Array.from(this.cardSprites.entries()).find(
+            ([c]) => this.getCardKey(c) === this.getCardKey(card)
+          )?.[1]
+          if (sprite) {
+            sprite.faceUp = card.faceUp
+          }
+        })
+        this.dealerHand.cards.forEach(card => {
+          const sprite = Array.from(this.cardSprites.entries()).find(
+            ([c]) => this.getCardKey(c) === this.getCardKey(card)
+          )?.[1]
+          if (sprite) {
+            sprite.faceUp = card.faceUp
+          }
+        })
         
         // 카드 애니메이션
         await this.animateServerCards()
@@ -781,6 +799,9 @@ export class BlackjackGame {
         rotation: Math.random() * Math.PI
       }
       this.cardSprites.set(card, sprite)
+    } else {
+      // 기존 스프라이트의 faceUp 상태 업데이트
+      sprite.faceUp = faceUp
     }
 
     this.animations.push({
@@ -1028,20 +1049,40 @@ export class BlackjackGame {
         if (response.ok) {
           const data = await response.json()
           
-          // 딜러 카드 공개 및 업데이트
+          // 딜러 카드 공개 및 업데이트 (서버에서 이미 faceUp이 true로 설정됨)
           this.dealerHand.cards = data.dealerCards.map((c: any) => ({
             ...c,
-            faceUp: true
+            faceUp: c.faceUp !== false // 서버에서 이미 공개된 상태
           }))
           
-          // 딜러 카드 애니메이션 (서버에서 받은 카드는 이미 hand에 있으므로 애니메이션만)
-          for (let i = 0; i < this.dealerHand.cards.length; i++) {
-            if (i >= this.dealerHand.cards.length - (data.dealerCards.length - 2)) {
-              // 새로 받은 카드만 애니메이션
-              const dealerCard = this.dealerHand.cards[i]
-              if (dealerCard) {
-                await this.animateCardToPosition('dealer', dealerCard, true, i)
-              }
+          // cardSprites의 faceUp 상태도 업데이트 (특히 두 번째 카드)
+          this.dealerHand.cards.forEach((card, index) => {
+            const sprite = Array.from(this.cardSprites.entries()).find(
+              ([c]) => this.getCardKey(c) === this.getCardKey(card)
+            )?.[1]
+            if (sprite) {
+              sprite.faceUp = card.faceUp
+            }
+            // 카드 객체 자체도 업데이트
+            card.faceUp = card.faceUp !== false
+          })
+          
+          // 딜러 두 번째 카드 공개 애니메이션 (이미 있던 카드이므로 플립 애니메이션)
+          if (this.dealerHand.cards[1] && !this.dealerHand.cards[1].faceUp) {
+            this.dealerHand.cards[1].faceUp = true
+            const secondCardSprite = Array.from(this.cardSprites.entries()).find(
+              ([c]) => this.getCardKey(c) === this.getCardKey(this.dealerHand.cards[1])
+            )?.[1]
+            if (secondCardSprite) {
+              secondCardSprite.faceUp = true
+            }
+          }
+          
+          // 딜러 카드 애니메이션 (새로 받은 카드들)
+          for (let i = 2; i < this.dealerHand.cards.length; i++) {
+            const dealerCard = this.dealerHand.cards[i]
+            if (dealerCard) {
+              await this.animateCardToPosition('dealer', dealerCard, true, i)
             }
           }
           
@@ -1101,8 +1142,39 @@ export class BlackjackGame {
         }))
         this.dealerHand.cards = data.dealerCards.map((c: any) => ({
           ...c,
-          faceUp: true
+          faceUp: c.faceUp !== false // 서버에서 이미 공개된 상태
         }))
+        
+        // cardSprites의 faceUp 상태도 업데이트
+        this.playerHand.cards.forEach(card => {
+          const sprite = Array.from(this.cardSprites.entries()).find(
+            ([c]) => this.getCardKey(c) === this.getCardKey(card)
+          )?.[1]
+          if (sprite) {
+            sprite.faceUp = card.faceUp
+          }
+        })
+        this.dealerHand.cards.forEach((card, index) => {
+          const sprite = Array.from(this.cardSprites.entries()).find(
+            ([c]) => this.getCardKey(c) === this.getCardKey(card)
+          )?.[1]
+          if (sprite) {
+            sprite.faceUp = card.faceUp
+          }
+          // 카드 객체 자체도 업데이트
+          card.faceUp = card.faceUp !== false
+        })
+        
+        // 딜러 두 번째 카드 공개 (Double Down 시)
+        if (this.dealerHand.cards[1] && !this.dealerHand.cards[1].faceUp) {
+          this.dealerHand.cards[1].faceUp = true
+          const secondCardSprite = Array.from(this.cardSprites.entries()).find(
+            ([c]) => this.getCardKey(c) === this.getCardKey(this.dealerHand.cards[1])
+          )?.[1]
+          if (secondCardSprite) {
+            secondCardSprite.faceUp = true
+          }
+        }
         
         // 새 카드 애니메이션 (서버에서 받은 카드는 이미 hand에 있으므로 애니메이션만)
         const lastPlayerCard = this.playerHand.cards[this.playerHand.cards.length - 1]
