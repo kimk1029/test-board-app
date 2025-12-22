@@ -720,7 +720,18 @@ describe('블랙잭 게임 API', () => {
         gameType: 'blackjack',
         betAmount: 100,
         status: 'pending',
-        gameData: {},
+        gameData: {
+          deck: [],
+          playerCards: [
+            { suit: 'hearts', value: '10', faceUp: true },
+            { suit: 'diamonds', value: '9', faceUp: true },
+          ], // 첫 2장만 (더블다운 가능)
+          dealerCards: [
+            { suit: 'clubs', value: 'Q', faceUp: true },
+            { suit: 'spades', value: '5', faceUp: false },
+          ],
+          deckIndex: 0,
+        },
       }
 
       ;(prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser)

@@ -328,6 +328,16 @@ export async function POST(request: NextRequest) {
         )
       }
       
+      const gameData = gameSession.gameData as any as GameSessionData
+      
+      // 더블다운은 첫 2장만 가능
+      if (gameData.playerCards.length !== 2) {
+        return NextResponse.json(
+          { error: '더블다운은 첫 2장에서만 가능합니다.' },
+          { status: 400 }
+        )
+      }
+      
       // 추가 베팅 금액 확인
       if (user.points < gameSession.betAmount) {
         return NextResponse.json(
@@ -335,8 +345,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      
-      const gameData = gameSession.gameData as any as GameSessionData
       
       // 덱 복원
       const deck: Card[] = gameData.deck.map(c => ({

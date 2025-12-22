@@ -28,3 +28,6 @@ try {
 
 // fetch 모킹 (필요시)
 global.fetch = global.fetch || jest.fn()
+
+// @testing-library/jest-dom 설정
+require('@testing-library/jest-dom')

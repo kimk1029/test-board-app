@@ -104,7 +104,31 @@ export function hitCard(deck: Card[]): { card: Card; remainingDeck: Card[] } {
   return { card, remainingDeck: deck }
 }
 
-// 딜러 턴 (17 이상이 될 때까지 카드 받기)
+// 소프트 17 체크 (A가 포함되어 있고 A를 11로 계산했을 때 17인 경우)
+function isSoft17(cards: Card[]): boolean {
+  const score = calculateScore(cards)
+  if (score !== 17) return false
+  
+  // A가 포함되어 있는지 확인
+  let hasAce = false
+  let softScore = 0
+  
+  for (const card of cards) {
+    if (card.value === 'A') {
+      hasAce = true
+      softScore += 11
+    } else if (['J', 'Q', 'K'].includes(card.value)) {
+      softScore += 10
+    } else {
+      softScore += parseInt(card.value) || 0
+    }
+  }
+  
+  // A를 11로 계산했을 때 17이면 소프트 17
+  return hasAce && softScore === 17
+}
+
+// 딜러 턴 (17 이상이 될 때까지 카드 받기, 소프트 17도 히트)
 export function dealerTurn(dealerCards: Card[], deck: Card[]): {
   dealerCards: Card[]
   remainingDeck: Card[]
@@ -115,7 +139,16 @@ export function dealerTurn(dealerCards: Card[], deck: Card[]): {
     newDealerCards[1].faceUp = true
   }
   
-  while (calculateScore(newDealerCards) < 17) {
+  // 딜러는 17 이상이 될 때까지 히트 (소프트 17도 히트)
+  while (true) {
+    const currentScore = calculateScore(newDealerCards)
+    const soft17 = isSoft17(newDealerCards)
+    
+    // 하드 17 이상이면 스탠드, 소프트 17이면 히트
+    if (currentScore >= 17 && !soft17) {
+      break
+    }
+    
     const { card, remainingDeck } = hitCard(deck)
     newDealerCards.push(card)
     deck = remainingDeck

@@ -593,11 +593,10 @@ export class BlackjackGame {
       height: h,
       text: 'DEAL',
       onClick: async () => {
+        if (this.isProcessing) return; // 중복 클릭 방지
         if (this.currentBet > 0) {
-          const success = await this.confirmBet()
-          if (success) {
-             this.changeState(GameState.DEAL_START)
-          }
+          await this.confirmBet()
+          // confirmBet 내부에서 이미 상태를 변경하므로 여기서는 변경하지 않음
         } else {
           this.showMessage('베팅을 해주세요!')
         }
@@ -727,17 +726,78 @@ export class BlackjackGame {
   
   // 서버에서 받은 카드 애니메이션
   private async animateServerCards(): Promise<void> {
-    // 플레이어 카드 애니메이션
+    // 기존 애니메이션 정리 (중복 방지)
+    this.animations = this.animations.filter(anim => anim.type !== 'card')
+    
+    // 플레이어 카드 애니메이션 (카드는 이미 hand에 있으므로 애니메이션만 처리)
     for (let i = 0; i < this.playerHand.cards.length; i++) {
       const card = this.playerHand.cards[i]
-      await this.dealCard('player', card.faceUp, i)
+      await this.animateCardToPosition('player', card, card.faceUp, i)
     }
     
     // 딜러 카드 애니메이션
     for (let i = 0; i < this.dealerHand.cards.length; i++) {
       const card = this.dealerHand.cards[i]
-      await this.dealCard('dealer', card.faceUp, i)
+      await this.animateCardToPosition('dealer', card, card.faceUp, i)
     }
+  }
+  
+  // 카드 고유 키 생성 (suit + value로 비교)
+  private getCardKey(card: Card): string {
+    return `${card.suit}-${card.value}`
+  }
+
+  // 카드 애니메이션만 처리 (카드는 이미 hand에 있음)
+  private async animateCardToPosition(target: 'player' | 'dealer', card: Card, faceUp: boolean, index: number): Promise<void> {
+    const cardKey = this.getCardKey(card)
+    
+    // 이미 애니메이션이 진행 중인 카드는 건너뛰기
+    const existingAnimation = this.animations.find(
+      anim => anim.type === 'card' && anim.card && this.getCardKey(anim.card) === cardKey
+    )
+    if (existingAnimation) {
+      return // 이미 애니메이션 중이면 추가하지 않음
+    }
+
+    const spacing = (this.isMobile ? 25 : 30) * this.scaleFactor
+    const totalW = ((target === 'player' ? this.playerHand : this.dealerHand).cards.length - 1) * spacing
+    const baseX = target === 'player' ? this.playerPosition.x : this.dealerPosition.x
+    const baseY = target === 'player' ? this.playerPosition.y : this.dealerPosition.y
+    
+    const targetX = baseX + (index * spacing) - (totalW / 2)
+    const targetY = baseY
+
+    // 카드 스프라이트 찾기 (카드 키로 비교)
+    let sprite = Array.from(this.cardSprites.entries()).find(
+      ([c]) => this.getCardKey(c) === cardKey
+    )?.[1]
+
+    // 카드 스프라이트가 없으면 생성
+    if (!sprite) {
+      sprite = {
+        x: this.deckPosition.x,
+        y: this.deckPosition.y,
+        faceUp: faceUp,
+        rotation: Math.random() * Math.PI
+      }
+      this.cardSprites.set(card, sprite)
+    }
+
+    this.animations.push({
+      type: 'card',
+      startX: this.deckPosition.x,
+      startY: this.deckPosition.y,
+      targetX,
+      targetY,
+      duration: 500,
+      startTime: Date.now(),
+      card,
+      faceUp,
+      rotationStart: sprite.rotation,
+      rotationTarget: 0
+    })
+
+    await this.delay(300)
   }
 
   private async handleDealStart() {
@@ -745,7 +805,10 @@ export class BlackjackGame {
     // confirmBet에서 카드를 받아옴
   }
 
+  // 클라이언트에서 직접 카드를 추가할 때 사용 (Hit 등)
   private async dealCard(target: 'player' | 'dealer', faceUp: boolean, index: number): Promise<void> {
+    // 이 함수는 클라이언트에서 직접 카드를 추가할 때만 사용
+    // 서버에서 받은 카드는 이미 hand에 있으므로 animateCardToPosition 사용
     if (this.deck.length === 0) this.deck = createDeck()
     const card = this.deck.pop()!
     card.faceUp = faceUp
@@ -760,6 +823,14 @@ export class BlackjackGame {
     
     const targetX = baseX + (index * spacing) - (totalW / 2)
     const targetY = baseY
+
+    // 카드 스프라이트 생성
+    this.cardSprites.set(card, {
+      x: this.deckPosition.x,
+      y: this.deckPosition.y,
+      faceUp: faceUp,
+      rotation: Math.random() * Math.PI
+    })
 
     this.animations.push({
       type: 'card',
@@ -903,10 +974,10 @@ export class BlackjackGame {
             faceUp: c.faceUp !== false
           }))
           
-          // 새 카드 애니메이션
-          if (data.playerCards.length > this.playerHand.cards.length - 1) {
-            const newCard = data.playerCards[data.playerCards.length - 1]
-            await this.dealCard('player', true, this.playerHand.cards.length - 1)
+          // 새 카드 애니메이션 (서버에서 받은 카드는 이미 hand에 있으므로 애니메이션만)
+          const lastCard = this.playerHand.cards[this.playerHand.cards.length - 1]
+          if (lastCard) {
+            await this.animateCardToPosition('player', lastCard, true, this.playerHand.cards.length - 1)
           }
           
           this.updateScores()
@@ -963,11 +1034,14 @@ export class BlackjackGame {
             faceUp: true
           }))
           
-          // 딜러 카드 애니메이션
+          // 딜러 카드 애니메이션 (서버에서 받은 카드는 이미 hand에 있으므로 애니메이션만)
           for (let i = 0; i < this.dealerHand.cards.length; i++) {
             if (i >= this.dealerHand.cards.length - (data.dealerCards.length - 2)) {
               // 새로 받은 카드만 애니메이션
-              await this.dealCard('dealer', true, i)
+              const dealerCard = this.dealerHand.cards[i]
+              if (dealerCard) {
+                await this.animateCardToPosition('dealer', dealerCard, true, i)
+              }
             }
           }
           
@@ -1030,14 +1104,18 @@ export class BlackjackGame {
           faceUp: true
         }))
         
-        // 새 카드 애니메이션
-        if (data.playerCards.length > 2) {
-          await this.dealCard('player', true, this.playerHand.cards.length - 1)
+        // 새 카드 애니메이션 (서버에서 받은 카드는 이미 hand에 있으므로 애니메이션만)
+        const lastPlayerCard = this.playerHand.cards[this.playerHand.cards.length - 1]
+        if (lastPlayerCard) {
+          await this.animateCardToPosition('player', lastPlayerCard, true, this.playerHand.cards.length - 1)
         }
         
         // 딜러 카드 애니메이션
         for (let i = 2; i < this.dealerHand.cards.length; i++) {
-          await this.dealCard('dealer', true, i)
+          const dealerCard = this.dealerHand.cards[i]
+          if (dealerCard) {
+            await this.animateCardToPosition('dealer', dealerCard, true, i)
+          }
         }
         
         // 최종 결과 처리
