@@ -1049,26 +1049,8 @@ export class BlackjackGame {
         if (response.ok) {
           const data = await response.json()
           
-          // 딜러 카드 공개 및 업데이트 (서버에서 이미 faceUp이 true로 설정됨)
-          this.dealerHand.cards = data.dealerCards.map((c: any) => ({
-            ...c,
-            faceUp: c.faceUp !== false // 서버에서 이미 공개된 상태
-          }))
-          
-          // cardSprites의 faceUp 상태도 업데이트 (특히 두 번째 카드)
-          this.dealerHand.cards.forEach((card, index) => {
-            const sprite = Array.from(this.cardSprites.entries()).find(
-              ([c]) => this.getCardKey(c) === this.getCardKey(card)
-            )?.[1]
-            if (sprite) {
-              sprite.faceUp = card.faceUp
-            }
-            // 카드 객체 자체도 업데이트
-            card.faceUp = card.faceUp !== false
-          })
-          
-          // 딜러 두 번째 카드 공개 애니메이션 (이미 있던 카드이므로 플립 애니메이션)
-          if (this.dealerHand.cards[1] && !this.dealerHand.cards[1].faceUp) {
+          // 딜러 두 번째 카드 공개 (먼저 공개)
+          if (this.dealerHand.cards[1]) {
             this.dealerHand.cards[1].faceUp = true
             const secondCardSprite = Array.from(this.cardSprites.entries()).find(
               ([c]) => this.getCardKey(c) === this.getCardKey(this.dealerHand.cards[1])
@@ -1076,15 +1058,72 @@ export class BlackjackGame {
             if (secondCardSprite) {
               secondCardSprite.faceUp = true
             }
+            await this.delay(500) // 카드 공개 애니메이션 대기
           }
           
-          // 딜러 카드 애니메이션 (새로 받은 카드들)
-          for (let i = 2; i < this.dealerHand.cards.length; i++) {
-            const dealerCard = this.dealerHand.cards[i]
-            if (dealerCard) {
-              await this.animateCardToPosition('dealer', dealerCard, true, i)
+          // 딜러 점수 업데이트
+          this.updateScores()
+          
+          // 딜러가 17 이상이 될 때까지 카드를 하나씩 받음
+          const finalDealerCards = data.dealerCards.map((c: any) => ({
+            ...c,
+            faceUp: c.faceUp !== false
+          }))
+          
+          // 기존 딜러 카드 2장은 이미 있으므로, 3번째 카드부터 처리
+          for (let i = 2; i < finalDealerCards.length; i++) {
+            const dealerCard = finalDealerCards[i]
+            
+            // 기존 카드인지 확인 (카드 키로 비교)
+            const existingCardIndex = this.dealerHand.cards.findIndex(
+              c => this.getCardKey(c) === this.getCardKey(dealerCard)
+            )
+            
+            if (existingCardIndex === -1) {
+              // 새 카드 추가
+              this.dealerHand.cards.push({
+                ...dealerCard,
+                faceUp: true
+              })
+              
+              // 카드 애니메이션
+              await this.animateCardToPosition(
+                'dealer',
+                this.dealerHand.cards[this.dealerHand.cards.length - 1],
+                true,
+                this.dealerHand.cards.length - 1
+              )
+              
+              // 딜러 점수 업데이트
+              this.updateScores()
+              
+              // 딜러가 17 이상이면 멈춤 (블랙잭 룰: 하드 17 이상이면 스탠드)
+              if (this.dealerHand.score >= 17) {
+                break
+              }
+              
+              await this.delay(800) // 다음 카드 받기 전 대기
             }
           }
+          
+          // 최종 딜러 카드 상태 동기화
+          this.dealerHand.cards = finalDealerCards.map((c: any) => ({
+            ...c,
+            faceUp: c.faceUp !== false
+          }))
+          
+          // cardSprites 상태 업데이트
+          this.dealerHand.cards.forEach((card, index) => {
+            const sprite = Array.from(this.cardSprites.entries()).find(
+              ([c]) => this.getCardKey(c) === this.getCardKey(card)
+            )?.[1]
+            if (sprite) {
+              sprite.faceUp = card.faceUp
+            }
+          })
+          
+          // 최종 점수 업데이트
+          this.updateScores()
           
           // 최종 결과 처리
           await this.settleGame(data.result)
