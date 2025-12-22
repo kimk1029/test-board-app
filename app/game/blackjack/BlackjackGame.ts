@@ -1236,17 +1236,44 @@ export class BlackjackGame {
   private async handleRoundEnd() {
     await this.discardCards()
     
+    // 모든 게임 상태 완전 초기화
     this.playerHand = { cards: [], score: 0, isBlackjack: false, isBust: false }
     this.dealerHand = { cards: [], score: 0, isBlackjack: false, isBust: false }
     this.betChips = []
     this.currentBet = 0
+    this.initialBet = 0
+    
     // 인슈어런스 초기화
     this.insuranceBet = 0
-    this.insuranceInfo = null;
+    this.insuranceInfo = null
+    
+    // 게임 세션 초기화
+    this.gameSessionId = null
+    
+    // 카드 스프라이트 완전 초기화
+    this.cardSprites.clear()
+    
+    // 애니메이션 초기화
+    this.animations = []
+    
+    // 버튼 초기화
+    this.buttons = []
+    this.dealButton = null
+    
+    // 게임 결과 초기화
+    this.gameResult = {
+      type: null,
+      message: '',
+      winnings: 0,
+      startTime: 0,
+      visible: false
+    }
+    
+    // 처리 상태 초기화
+    this.isProcessing = false
     
     this.roundNumber++; 
     this.changeState(GameState.SHUFFLE)
-    this.isProcessing = false; 
   }
 
   private async discardCards(): Promise<void> {
