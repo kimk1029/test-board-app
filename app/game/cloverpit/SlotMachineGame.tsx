@@ -590,51 +590,77 @@ class MainScene extends Phaser.Scene {
         this.isSpinning = true
         const previousPoints = this.playerPoints
 
-        this.playerPoints = parseFloat((this.playerPoints - betAmount).toFixed(2))
-        this.updatePointsText()
-
         const token = localStorage.getItem('token')
-        if (token) {
-            try {
-                const res = await fetch('/api/game/bet', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ action: 'bet', amount: betAmount, gameType: 'cloverpit' })
-                })
-
-                if (!res.ok) throw new Error('Bet failed')
-
-                const data = await res.json()
-                if (data && data.points !== undefined) {
-                    this.playerPoints = parseFloat(data.points.toFixed(2))
-                    this.updatePointsText()
-                }
-            } catch (err) {
-                console.error(err)
-                this.playerPoints = previousPoints
-                this.updatePointsText()
-                this.showFloatingText(0, 0, '통신 오류!', '#ff0000')
-                this.isSpinning = false
-                return
-            }
+        if (!token) {
+            this.showFloatingText(0, 0, '로그인이 필요합니다!', '#ff0000')
+            this.isSpinning = false
+            return
         }
 
-        this.paylineGraphics.clear()
+        try {
+            // 서버에서 심볼 조합 생성 및 정산
+            const res = await fetch('/api/game/slot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    action: 'spin',
+                    betAmount: betAmount,
+                    multiplier: this.isX5Mode ? 5 : 1
+                })
+            })
 
-        const finalResult = [
-            [this.getRand(), this.getRand(), this.getRand()],
-            [this.getRand(), this.getRand(), this.getRand()],
-            [this.getRand(), this.getRand(), this.getRand()]
-        ]
+            if (!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Spin failed')
+            }
 
-        const promises = this.reels.map((reel, i) => {
-            return reel.spin(i * 100, this.spinDuration + i * 500, finalResult[i])
-        })
+            const data = await res.json()
+            this.playerPoints = parseFloat(data.points.toFixed(2))
+            this.updatePointsText()
 
-        await Promise.all(promises)
-        const currentBet = this.isX5Mode ? 5 : 1
-        this.checkWin(finalResult, this.isX5Mode ? 5 : 1, currentBet)
-        this.isSpinning = false
+            // 서버에서 받은 심볼 매트릭스로 게임 진행
+            const finalResult = data.matrix
+
+            this.paylineGraphics.clear()
+
+            const promises = this.reels.map((reel, i) => {
+                return reel.spin(i * 100, this.spinDuration + i * 500, finalResult[i])
+            })
+
+            await Promise.all(promises)
+            
+            // 서버에서 계산된 결과 사용
+            this.processServerResult(data, betAmount)
+            this.isSpinning = false
+        } catch (err) {
+            console.error(err)
+            this.playerPoints = previousPoints
+            this.updatePointsText()
+            this.showFloatingText(0, 0, '통신 오류!', '#ff0000')
+            this.isSpinning = false
+            return
+        }
+    }
+    
+    private processServerResult(data: any, betAmount: number) {
+        const { payout, comboCount, isJackpot } = data
+        
+        if (isJackpot) {
+            this.processWin(payout, true, betAmount, 8)
+        } else if (payout > 0) {
+            this.processWin(payout, false, betAmount, comboCount)
+            // 승리 라인 하이라이트 (서버에서 받은 매트릭스 기반)
+            const matrix = data.matrix
+            const lines = this.checkWinLines(matrix)
+            if (lines.length > 0) {
+                this.highlightLines(lines)
+                if (lines.length > 1) {
+                    this.time.delayedCall(500, () => this.showFloatingText(0, 0, `${lines.length} COMBO!\nx${lines.length}`, '#ffaa00', 80))
+                }
+            }
+        } else {
+            this.syncResultToServer(0, betAmount, 'lose')
+        }
     }
 
     private getRand() {
@@ -647,12 +673,17 @@ class MainScene extends Phaser.Scene {
         return SYMBOL_DATA[0].icon
     }
 
-    private checkWin(matrix: string[][], multiplier: number, betAmount: number) {
-        const lines = []
+    private checkWinLines(matrix: string[][]): Array<{ type: 'row' | 'col' | 'diag'; index: number; symbol: string }> {
+        const lines: Array<{ type: 'row' | 'col' | 'diag'; index: number; symbol: string }> = []
         for (let r = 0; r < 3; r++) { if (matrix[0][r] === matrix[1][r] && matrix[1][r] === matrix[2][r]) lines.push({ type: 'row', index: r, symbol: matrix[0][r] }) }
         for (let c = 0; c < 3; c++) { if (matrix[c][0] === matrix[c][1] && matrix[c][1] === matrix[c][2]) lines.push({ type: 'col', index: c, symbol: matrix[c][0] }) }
         if (matrix[0][0] === matrix[1][1] && matrix[1][1] === matrix[2][2]) lines.push({ type: 'diag', index: 0, symbol: matrix[1][1] })
         if (matrix[0][2] === matrix[1][1] && matrix[1][1] === matrix[2][0]) lines.push({ type: 'diag', index: 1, symbol: matrix[1][1] })
+        return lines
+    }
+    
+    private checkWin(matrix: string[][], multiplier: number, betAmount: number) {
+        const lines = this.checkWinLines(matrix)
 
         let baseScore = 0
         lines.forEach(line => {

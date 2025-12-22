@@ -472,28 +472,69 @@ class RouletteScene extends Phaser.Scene {
         this.isSpinning = true
         
         const token = localStorage.getItem('token')
-        if (token) {
-            try {
-                const res = await fetch('/api/game/bet', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ action: 'bet', amount: totalBet, gameType: 'roulette' }) })
-                if (!res.ok) throw new Error('Bet failed'); const data = await res.json()
-                this.playerPoints = data.points; this.updatePointsText()
-            } catch (e) { console.error(e); this.isSpinning = false; this.addLog('베팅 처리 실패'); return }
+        if (!token) {
+            this.addLog('로그인이 필요합니다.')
+            this.isSpinning = false
+            return
         }
-        const randomIndex = Math.floor(Math.random() * 37); const winningNumber = WHEEL_ORDER[randomIndex]
-        this.pendingResultNumber = winningNumber; this.pendingTotalBet = totalBet; this.spinStartTime = this.time.now
-        this.ball.setVisible(true); this.ball.setVelocity(0,0)
-        const wx = this.wheelContainer.x; const wy = this.wheelContainer.y; const wScale = this.wheelContainer.scale
-        const launchRadius = 180 * wScale; const launchX = wx; const launchY = wy - launchRadius
-        this.ball.setPosition(launchX, launchY); this.ball.setScale(wScale); this.ball.enableBody(true, launchX, launchY, true, true)
         
-        // Higher speed for more spins, scaled
-        const speed = (1800 + Math.random() * 500) * wScale 
-        this.ball.setVelocityX(speed)
-        this.ball.setVelocityY((Math.random() * 100 - 50) * wScale)
-        
-        // Drag for spin duration control (approx 10-15s)
-        this.ball.setDrag(150 * wScale) 
-        this.ball.setAngularVelocity(1500)
+        try {
+            // 서버에서 당첨 번호 생성 및 정산
+            const res = await fetch('/api/game/roulette', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    action: 'spin',
+                    bets: this.bets,
+                    totalBet: totalBet
+                })
+            })
+            
+            if (!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Spin failed')
+            }
+            
+            const data = await res.json()
+            const winningNumber = data.winningNumber
+            this.playerPoints = data.points
+            this.updatePointsText()
+            
+            // 서버에서 받은 당첨 번호로 게임 진행
+            this.pendingResultNumber = winningNumber
+            this.pendingTotalBet = totalBet
+            this.spinStartTime = this.time.now
+            
+            // 공 애니메이션 시작
+            this.ball.setVisible(true)
+            this.ball.setVelocity(0, 0)
+            const wx = this.wheelContainer.x
+            const wy = this.wheelContainer.y
+            const wScale = this.wheelContainer.scale
+            const launchRadius = 180 * wScale
+            const launchX = wx
+            const launchY = wy - launchRadius
+            this.ball.setPosition(launchX, launchY)
+            this.ball.setScale(wScale)
+            this.ball.enableBody(true, launchX, launchY, true, true)
+            
+            // Higher speed for more spins, scaled
+            const speed = (1800 + Math.random() * 500) * wScale
+            this.ball.setVelocityX(speed)
+            this.ball.setVelocityY((Math.random() * 100 - 50) * wScale)
+            
+            // Drag for spin duration control (approx 10-15s)
+            this.ball.setDrag(150 * wScale)
+            this.ball.setAngularVelocity(1500)
+        } catch (e) {
+            console.error(e)
+            this.isSpinning = false
+            this.addLog('스핀 처리 실패')
+            return
+        }
     }
     private finalizeSpin(winningNumber: number) {
         // Capture current physics state before disabling
@@ -570,29 +611,8 @@ class RouletteScene extends Phaser.Scene {
         this.resultCircle.setFillStyle(color); this.resultCircle.setStrokeStyle(4, 0xffd700); this.resultText.setText(number.toString())
         this.tweens.add({ targets: this.resultDisplay, alpha: 1, scale: { from: 0, to: 1 }, duration: 500, ease: 'Back.Out' })
         
-        let payout = 0
-        
-        // Calculate Payout based on bets
-        for (const [zone, amount] of Object.entries(this.bets)) {
-            let win = false; let multiplier = 0
-            if (zone.startsWith('n_')) { const betNum = parseInt(zone.split('_')[1]); if (betNum === number) { win = true; multiplier = 35; } }
-            else if (zone === 'red') { if (RED_NUMBERS.includes(number)) { win = true; multiplier = 1; } }
-            else if (zone === 'black') { if (BLACK_NUMBERS.includes(number)) { win = true; multiplier = 1; } }
-            else if (zone === 'even') { if (number !== 0 && number % 2 === 0) { win = true; multiplier = 1; } }
-            else if (zone === 'odd') { if (number !== 0 && number % 2 !== 0) { win = true; multiplier = 1; } }
-            else if (zone === 'low') { if (number >= 1 && number <= 18) { win = true; multiplier = 1; } }
-            else if (zone === 'high') { if (number >= 19 && number <= 36) { win = true; multiplier = 1; } }
-            else if (zone === 'doz_1') { if (number >= 1 && number <= 12) { win = true; multiplier = 2; } }
-            else if (zone === 'doz_2') { if (number >= 13 && number <= 24) { win = true; multiplier = 2; } }
-            else if (zone === 'doz_3') { if (number >= 25 && number <= 36) { win = true; multiplier = 2; } }
-            else if (zone === 'col_1') { if (number !== 0 && number % 3 === 0) { win = true; multiplier = 2; } }
-            else if (zone === 'col_2') { if (number !== 0 && number % 3 === 2) { win = true; multiplier = 2; } }
-            else if (zone === 'col_3') { if (number !== 0 && number % 3 === 1) { win = true; multiplier = 2; } }
-            
-            if (win) {
-                payout += amount * multiplier + amount
-            }
-        }
+        // 서버에서 이미 정산이 완료되었으므로 여기서는 UI만 업데이트
+        // 포인트는 spin()에서 이미 업데이트됨
         
         // Identify ALL winning zones for visual highlight
         const winningZones: string[] = []
@@ -626,23 +646,25 @@ class RouletteScene extends Phaser.Scene {
             }
         })
 
-        let msg = `Result: ${number}`; 
-        if (payout > 0) {
-            msg += ` WIN! (+${payout})`
-            this.fireConfetti()
-            this.showWinText(payout)
-        } else {
-            msg += ' LOSE'
-        }
-        this.addLog(msg)
-
+        // 서버 응답에서 payout 정보를 가져와야 하지만, 이미 포인트가 업데이트되었으므로
+        // 여기서는 결과만 표시
         const token = localStorage.getItem('token')
         if (token) {
-            try {
-                const res = await fetch('/api/game/bet', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ action: 'settle', result: payout > 0 ? 'win' : 'lose', amount: payout, betAmount: totalBet, gameType: 'roulette' }) })
-                const data = await res.json(); if (data.points !== undefined) { this.playerPoints = data.points; this.updatePointsText() }
-            } catch (e) { console.error(e) }
-        } else { this.playerPoints += payout; this.updatePointsText() }
+            // 서버에서 이미 정산 완료, 포인트는 spin()에서 업데이트됨
+            // 승리 여부는 포인트 변화로 판단
+            const previousPoints = this.playerPoints - (this.pendingTotalBet || 0)
+            const payout = this.playerPoints - previousPoints
+            
+            let msg = `Result: ${number}`; 
+            if (payout > 0) {
+                msg += ` WIN! (+${payout})`
+                this.fireConfetti()
+                this.showWinText(payout)
+            } else {
+                msg += ' LOSE'
+            }
+            this.addLog(msg)
+        }
         
         this.cleanupTimer = setTimeout(() => {
             this.clearBets(false)

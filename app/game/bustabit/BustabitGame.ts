@@ -40,6 +40,7 @@ export class BustabitGame {
   private cashOutMultiplier: number = 1.0;
   private selectedBetAmount: number = 0;
   private autoCashout: number = 0; // 0 means disabled
+  private gameSessionId: string | null = null; // 서버 게임 세션 ID
 
   // 캔버스 크기 및 레이아웃
   private canvasWidth: number = 1200;
@@ -595,46 +596,47 @@ export class BustabitGame {
     this.betAmount = this.selectedBetAmount;
 
     const prevPoints = this.playerPoints;
-    this.playerPoints -= this.betAmount; 
     
     const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const response = await fetch('/api/game/bet', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            action: 'bet',
-            betAmount: this.betAmount,
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          this.playerPoints = data.points; 
-          this.addLog('bet', `베팅: ${this.betAmount.toLocaleString()} P`, -this.betAmount, data.points);
-          this.startGame();
-        } else {
-          const errorData = await response.json();
-          this.showMessage(errorData.error || '베팅에 실패했습니다.');
-          this.playerPoints = prevPoints; 
-        }
-      } catch (error) {
-        console.error('Bet error:', error);
-        this.showMessage('베팅 중 오류가 발생했습니다.');
-        this.playerPoints = prevPoints; 
-      }
-    } else {
+    if (!token) {
       this.showMessage('로그인이 필요합니다.');
-      this.playerPoints = prevPoints; 
+      this.isProcessing = false;
+      this.updateButtonStates();
+      return;
     }
     
-    if (!this.isRunning) {
+    try {
+      // 서버에서 게임 시작 (베팅 + 크래시 포인트 생성)
+      const response = await fetch('/api/game/crash', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'start',
+          betAmount: this.betAmount,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.gameSessionId = data.sessionId;
+        this.crashPoint = data.crashPoint; // 서버에서 받은 크래시 포인트
+        this.playerPoints = data.points; 
+        this.addLog('bet', `베팅: ${this.betAmount.toLocaleString()} P`, -this.betAmount, data.points);
+        this.startGame();
+      } else {
+        const errorData = await response.json();
+        this.showMessage(errorData.error || '베팅에 실패했습니다.');
         this.isProcessing = false;
         this.updateButtonStates();
+      }
+    } catch (error) {
+      console.error('Bet error:', error);
+      this.showMessage('베팅 중 오류가 발생했습니다.');
+      this.isProcessing = false;
+      this.updateButtonStates();
     }
   }
 
@@ -655,7 +657,7 @@ export class BustabitGame {
     this.hasCashedOut = false;
     this.multiplier = 1.0;
     this.startTime = Date.now();
-    this.crashPoint = this.generateCrashPoint();
+    // crashPoint는 서버에서 이미 받아옴
     
     this.updateButtonStates();
     this.showMessage('게임시작 배당상승중');
@@ -663,58 +665,53 @@ export class BustabitGame {
     this.startLoop();
   }
 
-  private generateCrashPoint(): number {
-    const r = Math.random();
-    const crashPoint = 0.99 / (1 - r);
-    return Math.max(1.0, Math.floor(crashPoint * 100) / 100);
-  }
-
   private async cashOut() {
     if (!this.isRunning || this.hasCashedOut || this.crashed || this.isProcessing) return;
+    if (!this.gameSessionId) return;
 
     this.isProcessing = true;
     this.hasCashedOut = true;
     this.cashOutMultiplier = this.multiplier;
-    
-    const totalWinnings = Math.floor(this.betAmount * this.cashOutMultiplier);
-    const profit = totalWinnings - this.betAmount;
-
-    this.playerPoints += totalWinnings;
 
     this.updateButtonStates();
     this.showMessage(`캐시아웃! ${this.cashOutMultiplier.toFixed(2)}x (크래시 대기중...)`);
 
     const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const response = await fetch('/api/game/bet', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            action: 'settle',
-            result: 'win',
-            betAmount: this.betAmount,
-            multiplier: this.cashOutMultiplier,
-            gameType: 'bustabit',
-          }),
-        });
+    if (!token) {
+      this.showMessage('로그인이 필요합니다.');
+      this.isProcessing = false;
+      return;
+    }
+    
+    try {
+      // 서버에서 캐시아웃 처리
+      const response = await fetch('/api/game/crash', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'cashout',
+          sessionId: this.gameSessionId,
+          multiplier: this.cashOutMultiplier,
+        }),
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          this.playerPoints = data.points; 
-          this.addLog('win', `승리: ${this.cashOutMultiplier.toFixed(2)}x (+${profit} P)`, profit, data.points);
-        } else {
-             this.playerPoints -= totalWinnings;
-             this.showMessage('서버 통신 오류! 포인트가 지급되지 않았습니다.');
-        }
-      } catch (error) {
-        console.error('Cash out error:', error);
-        this.playerPoints -= totalWinnings;
-        this.showMessage('네트워크 오류! 포인트가 지급되지 않았습니다.');
+      if (response.ok) {
+        const data = await response.json();
+        this.playerPoints = data.points; 
+        const profit = data.pointsChange;
+        this.addLog('win', `승리: ${this.cashOutMultiplier.toFixed(2)}x (+${profit} P)`, profit, data.points);
+      } else {
+        const errorData = await response.json();
+        this.showMessage(errorData.error || '캐시아웃 실패');
+        this.hasCashedOut = false;
       }
+    } catch (error) {
+      console.error('Cash out error:', error);
+      this.showMessage('네트워크 오류! 포인트가 지급되지 않았습니다.');
+      this.hasCashedOut = false;
     }
     this.isProcessing = false;
   }
@@ -765,21 +762,20 @@ export class BustabitGame {
   }
 
   private async processCrashResult() {
-      if (!this.hasCashedOut) {
+      if (!this.hasCashedOut && this.gameSessionId) {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const response = await fetch('/api/game/bet', {
+          // 서버에서 크래시 처리
+          const response = await fetch('/api/game/crash', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              action: 'settle',
-              result: 'lose',
-              betAmount: this.betAmount,
-              gameType: 'bustabit',
+              action: 'crash',
+              sessionId: this.gameSessionId,
             }),
           });
           
@@ -798,6 +794,7 @@ export class BustabitGame {
         this.addLog('lose', `패배: ${this.crashPoint.toFixed(2)}x (-${this.betAmount} P)`, -this.betAmount, this.playerPoints);
       }
       this.showMessage(`크래시! ${this.crashPoint.toFixed(2)}x`);
+      this.gameSessionId = null; // 세션 초기화
     } else {
       this.showMessage(`라운드 종료! ${this.crashPoint.toFixed(2)}x 에서 터졌습니다.`);
     }
@@ -811,6 +808,7 @@ export class BustabitGame {
     this.crashed = false;
     this.hasCashedOut = false;
     this.multiplier = 1.0;
+    this.gameSessionId = null; // 세션 초기화
     
     if (!initial) {
         this.showMessage('베팅하세요');

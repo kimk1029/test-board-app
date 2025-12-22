@@ -57,6 +57,9 @@ export class BlackjackGame {
   // 중복 처리 방지 플래그
   private isProcessing: boolean = false;
   
+  // 게임 세션 ID (서버 연동용)
+  private gameSessionId: string | null = null;
+  
   // [최적화] 정적 배경 캐싱
   private staticCanvas: HTMLCanvasElement | null = null;
   private staticCtx: CanvasRenderingContext2D | null = null;
@@ -658,21 +661,46 @@ export class BlackjackGame {
     if (this.dealButton) this.dealButton.visible = false
 
     try {
-      const response = await fetch('/api/game/bet', {
+      // 서버에서 게임 시작 (베팅 + 카드 분배)
+      const response = await fetch('/api/game/blackjack', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          action: 'bet',
-          amount: this.currentBet,
+          action: 'start',
+          betAmount: this.currentBet,
         }),
       })
 
       if (response.ok) {
         const data = await response.json()
+        this.gameSessionId = data.sessionId
         this.playerPoints = data.points
+        
+        // 서버에서 받은 카드로 게임 상태 업데이트
+        this.playerHand.cards = data.playerCards.map((c: any) => ({
+          ...c,
+          faceUp: c.faceUp !== false
+        }))
+        this.dealerHand.cards = data.dealerCards.map((c: any) => ({
+          ...c,
+          faceUp: c.faceUp !== false
+        }))
+        
+        // 카드 애니메이션
+        await this.animateServerCards()
+        
+        // 블랙잭 체크
+        this.updateScores()
+        const dealerUp = this.dealerHand.cards[0]
+        if (dealerUp.value === 'A') {
+          this.changeState(GameState.INSURANCE)
+        } else {
+          this.changeState(GameState.CHECK_BLACKJACK)
+        }
+        
         this.isProcessing = false;
         return true
       } else {
@@ -696,27 +724,25 @@ export class BlackjackGame {
       return false
     }
   }
+  
+  // 서버에서 받은 카드 애니메이션
+  private async animateServerCards(): Promise<void> {
+    // 플레이어 카드 애니메이션
+    for (let i = 0; i < this.playerHand.cards.length; i++) {
+      const card = this.playerHand.cards[i]
+      await this.dealCard('player', card.faceUp, i)
+    }
+    
+    // 딜러 카드 애니메이션
+    for (let i = 0; i < this.dealerHand.cards.length; i++) {
+      const card = this.dealerHand.cards[i]
+      await this.dealCard('dealer', card.faceUp, i)
+    }
+  }
 
   private async handleDealStart() {
-    this.isProcessing = true; 
-    this.chipButtons = []
-    if (this.dealButton) this.dealButton.visible = false
-
-    this.playerHand = { cards: [], score: 0, isBlackjack: false, isBust: false }
-    this.dealerHand = { cards: [], score: 0, isBlackjack: false, isBust: false }
-
-    await this.dealCard('player', true, 0)
-    await this.dealCard('dealer', true, 0)
-    await this.dealCard('player', true, 1)
-    await this.dealCard('dealer', false, 1)
-
-    this.isProcessing = false; 
-    const dealerUp = this.dealerHand.cards[0]
-    if (dealerUp.value === 'A') {
-        this.changeState(GameState.INSURANCE)
-    } else {
-        this.changeState(GameState.CHECK_BLACKJACK)
-    }
+    // 이제 confirmBet에서 서버 API를 호출하므로 여기서는 처리하지 않음
+    // confirmBet에서 카드를 받아옴
   }
 
   private async dealCard(target: 'player' | 'dealer', faceUp: boolean, index: number): Promise<void> {
@@ -845,26 +871,124 @@ export class BlackjackGame {
   }
 
   private async playerHit() {
+      if (!this.gameSessionId) return
       this.isProcessing = true; 
-      await this.dealCard('player', true, this.playerHand.cards.length);
-      this.updateScores();
       
-      if (this.playerHand.score > 21) {
-          this.buttons = [];
-          this.changeState(GameState.SETTLEMENT);
-      } else {
-          this.isProcessing = false; 
+      const token = localStorage.getItem('token')
+      if (!token) {
+        this.showMessage('로그인이 필요합니다.')
+        this.isProcessing = false
+        return
+      }
+      
+      try {
+        const response = await fetch('/api/game/blackjack', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            action: 'hit',
+            sessionId: this.gameSessionId,
+          }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          
+          // 서버에서 받은 카드로 업데이트
+          this.playerHand.cards = data.playerCards.map((c: any) => ({
+            ...c,
+            faceUp: c.faceUp !== false
+          }))
+          
+          // 새 카드 애니메이션
+          if (data.playerCards.length > this.playerHand.cards.length - 1) {
+            const newCard = data.playerCards[data.playerCards.length - 1]
+            await this.dealCard('player', true, this.playerHand.cards.length - 1)
+          }
+          
+          this.updateScores()
+          
+          if (data.bust || data.result === 'lose') {
+            this.buttons = []
+            await this.settleGame('lose')
+          } else {
+            this.isProcessing = false
+          }
+        } else {
+          const errorData = await response.json()
+          this.showMessage(errorData.error || 'Hit 실패')
+          this.isProcessing = false
+        }
+      } catch (error) {
+        console.error('Hit error:', error)
+        this.showMessage('Hit 중 오류가 발생했습니다.')
+        this.isProcessing = false
       }
   }
 
   private async playerStand() {
+      if (!this.gameSessionId) return
       this.isProcessing = true;
       this.buttons = [];
-      this.changeState(GameState.DEALER_TURN);
+      
+      const token = localStorage.getItem('token')
+      if (!token) {
+        this.showMessage('로그인이 필요합니다.')
+        this.isProcessing = false
+        return
+      }
+      
+      try {
+        const response = await fetch('/api/game/blackjack', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            action: 'stand',
+            sessionId: this.gameSessionId,
+          }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          
+          // 딜러 카드 공개 및 업데이트
+          this.dealerHand.cards = data.dealerCards.map((c: any) => ({
+            ...c,
+            faceUp: true
+          }))
+          
+          // 딜러 카드 애니메이션
+          for (let i = 0; i < this.dealerHand.cards.length; i++) {
+            if (i >= this.dealerHand.cards.length - (data.dealerCards.length - 2)) {
+              // 새로 받은 카드만 애니메이션
+              await this.dealCard('dealer', true, i)
+            }
+          }
+          
+          // 최종 결과 처리
+          await this.settleGame(data.result)
+        } else {
+          const errorData = await response.json()
+          this.showMessage(errorData.error || 'Stand 실패')
+          this.isProcessing = false
+        }
+      } catch (error) {
+        console.error('Stand error:', error)
+        this.showMessage('Stand 중 오류가 발생했습니다.')
+        this.isProcessing = false
+      }
   }
   
   private async playerDouble() {
+    if (!this.gameSessionId) return
     this.isProcessing = true;
+    
     if (this.playerPoints < this.currentBet) {
       this.showMessage('포인트가 부족합니다.')
       this.isProcessing = false;
@@ -872,43 +996,64 @@ export class BlackjackGame {
     }
 
     const token = localStorage.getItem('token')
-    if (token) {
-      try {
-        const response = await fetch('/api/game/bet', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            action: 'bet',
-            amount: this.currentBet,
-          }),
-        })
+    if (!token) {
+      this.showMessage('로그인이 필요합니다.')
+      this.isProcessing = false
+      return
+    }
+    
+    try {
+      const response = await fetch('/api/game/blackjack', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'double',
+          sessionId: this.gameSessionId,
+        }),
+      })
 
-        if (response.ok) {
-          const data = await response.json()
-          this.playerPoints = data.points
-          this.currentBet *= 2
-        } else {
-          this.showMessage('Double Down 실패')
-          this.isProcessing = false;
-          return
+      if (response.ok) {
+        const data = await response.json()
+        this.playerPoints = data.points
+        this.currentBet *= 2
+        
+        // 서버에서 받은 카드로 업데이트
+        this.playerHand.cards = data.playerCards.map((c: any) => ({
+          ...c,
+          faceUp: c.faceUp !== false
+        }))
+        this.dealerHand.cards = data.dealerCards.map((c: any) => ({
+          ...c,
+          faceUp: true
+        }))
+        
+        // 새 카드 애니메이션
+        if (data.playerCards.length > 2) {
+          await this.dealCard('player', true, this.playerHand.cards.length - 1)
         }
-      } catch (error) {
-        console.error('Double down error:', error)
-        this.showMessage('오류 발생')
+        
+        // 딜러 카드 애니메이션
+        for (let i = 2; i < this.dealerHand.cards.length; i++) {
+          await this.dealCard('dealer', true, i)
+        }
+        
+        // 최종 결과 처리
+        await this.settleGame(data.result)
+      } else {
+        const errorData = await response.json()
+        this.showMessage(errorData.error || 'Double Down 실패')
         this.isProcessing = false;
         return
       }
-    } else {
-      this.playerPoints -= this.currentBet
-      this.currentBet *= 2
+    } catch (error) {
+      console.error('Double down error:', error)
+      this.showMessage('Double Down 중 오류가 발생했습니다.')
+      this.isProcessing = false;
+      return
     }
-
-    await this.dealCard('player', true, this.playerHand.cards.length);
-    this.buttons = [];
-    this.changeState(GameState.DEALER_TURN);
   }
   
   private playerSplit() {
@@ -952,15 +1097,11 @@ export class BlackjackGame {
   }
 
   private async settleGame(result: 'win' | 'lose' | 'draw' | 'blackjack') {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      this.showMessage('로그인이 필요합니다.')
-      this.isProcessing = false;
-      return
-    }
-
-    let winnings = 0
+    // Stand나 Double에서 이미 서버에서 정산이 완료되었으므로
+    // 여기서는 UI 업데이트만 수행
+    
     let message = ''
+    let winnings = 0
     
     if (result === 'win') {
       winnings = this.currentBet * 2
@@ -975,65 +1116,37 @@ export class BlackjackGame {
       winnings = 0
       message = '패배'
     }
-
-    try {
-      const response = await fetch('/api/game/bet', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          action: 'settle',
-          result: result,
-          betAmount: this.currentBet,
-          gameType: 'blackjack',
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        this.playerPoints = data.points
-        
-        this.gameResult = {
-          type: result,
-          message: message,
-          winnings: result === 'draw' ? 0 : winnings - this.currentBet,
-          startTime: Date.now(),
-          visible: true
-        }
-        
-        let logMsg = '';
-        let pointsChange = 0;
-        
-        if (result === 'win' || result === 'blackjack') {
-            pointsChange = winnings - this.currentBet;
-            logMsg = 'WIN';
-        } else if (result === 'draw') {
-            pointsChange = 0;
-            logMsg = 'DRAW (Push)';
-        } else {
-            pointsChange = -this.currentBet;
-            logMsg = 'LOSE';
-        }
-        
-        // [수정] 인슈어런스 정보가 있다면 로그 메시지에 통합
-        if (this.insuranceInfo) {
-            logMsg += `\n${this.insuranceInfo.message}`;
-        }
-        
-        this.addLog(result === 'blackjack' ? 'win' : (result as any), logMsg, pointsChange, data.points, this.currentBet);
-
-      } else {
-        const errorData = await response.json()
-        this.showMessage(errorData.error || '정산에 실패했습니다.')
-        return
-      }
-    } catch (error) {
-      console.error('Settlement error:', error)
-      this.showMessage('정산 중 오류가 발생했습니다.')
-      return
+    
+    // 포인트는 서버 응답에서 이미 업데이트됨
+    this.updateScores()
+    
+    this.gameResult = {
+      type: result,
+      message: message,
+      winnings: result === 'draw' ? 0 : winnings - this.currentBet,
+      startTime: Date.now(),
+      visible: true
     }
+    
+    let logMsg = '';
+    let pointsChange = 0;
+    
+    if (result === 'win' || result === 'blackjack') {
+        pointsChange = winnings - this.currentBet;
+        logMsg = 'WIN';
+    } else if (result === 'draw') {
+        pointsChange = 0;
+        logMsg = 'DRAW (Push)';
+    } else {
+        pointsChange = -this.currentBet;
+        logMsg = 'LOSE';
+    }
+    
+    if (this.insuranceInfo) {
+        logMsg += `\n${this.insuranceInfo.message}`;
+    }
+    
+    this.addLog(result === 'blackjack' ? 'win' : (result as any), logMsg, pointsChange, this.playerPoints, this.currentBet);
 
     await this.delay(3000)
     this.gameResult.visible = false
