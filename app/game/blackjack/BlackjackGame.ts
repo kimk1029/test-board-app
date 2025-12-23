@@ -1832,33 +1832,25 @@ export class BlackjackGame {
 
   private delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
   private updateScores(useServerDealerScore?: number) {
-      // 디버깅: 카드 값 확인
-      if (this.playerHand.cards.length > 0) {
-        console.log('플레이어 카드:', this.playerHand.cards.map(c => c.value).join(', '));
-      }
-      if (this.dealerHand.cards.length > 0) {
-        console.log('딜러 카드:', this.dealerHand.cards.map(c => c.value).join(', '));
-      }
-      
+      // 플레이어 점수 계산 (항상 클라이언트에서 계산)
       this.playerHand.score = calculateHandScore(this.playerHand)
       
+      // 딜러 점수 계산
       // 서버에서 받은 딜러 점수가 있으면 우선 사용, 없으면 클라이언트에서 계산
       const serverScore = useServerDealerScore !== undefined ? useServerDealerScore : this.serverDealerFinalScore
       if (serverScore !== null && serverScore > 0) {
+        // 서버 점수 사용 (가장 정확함)
         this.dealerHand.score = serverScore
-        console.log('서버 딜러 점수 사용:', serverScore)
       } else {
+        // 클라이언트에서 계산 (서버 점수가 없을 때만)
+        // 단, 딜러의 두 번째 카드가 공개되지 않았으면 계산하지 않음
+        const dealerSecondCard = this.dealerHand.cards[1]
+        if (dealerSecondCard?.faceUp === true || this.gameState === GameState.DEALER_TURN || this.gameState === GameState.SETTLEMENT) {
       this.dealerHand.score = calculateHandScore(this.dealerHand)
+        }
       }
       
-      // 디버깅: 계산된 점수 확인
-      if (this.playerHand.cards.length > 0) {
-        console.log('플레이어 점수:', this.playerHand.score);
-      }
-      if (this.dealerHand.cards.length > 0) {
-        console.log('딜러 점수:', this.dealerHand.score);
-      }
-      
+      // 버스트 및 블랙잭 체크
       this.playerHand.isBust = isBust(this.playerHand)
       this.playerHand.isBlackjack = isBlackjack(this.playerHand)
       this.dealerHand.isBust = isBust(this.dealerHand)
@@ -1875,6 +1867,9 @@ export class BlackjackGame {
 
   render() {
     if (!this.isRunning) return
+    
+    // 애니메이션을 먼저 업데이트 (렌더링 전에)
+    this.updateAnimations()
     
     // [최적화] 배경 그리기 (캐시 사용)
     if (this.staticCanvas) {
@@ -1894,7 +1889,6 @@ export class BlackjackGame {
     this.renderSidebarContent() // 이름 변경
     this.renderGameResult()
 
-    this.updateAnimations()
     this.animationFrameId = requestAnimationFrame(() => this.render())
   }
 
@@ -1933,9 +1927,10 @@ export class BlackjackGame {
         const dealerSecondCard = this.dealerHand.cards[1];
         const isDealerSecondCardRevealed = dealerSecondCard?.faceUp === true;
         
+        // 점수는 카드가 변경될 때만 업데이트되므로 여기서는 표시만 함
+        // (매 프레임마다 계산하지 않음)
         if (isDealerSecondCardRevealed || this.gameState === GameState.DEALER_TURN || this.gameState === GameState.SETTLEMENT) {
             // 딜러 두 번째 카드가 공개되었거나 딜러 턴/정산 단계면 실제 점수 표시
-            this.updateScores(); // 점수 업데이트
             dScoreText = `${this.dealerHand.score}`;
         }
         
@@ -2344,11 +2339,14 @@ export class BlackjackGame {
 
   private updateAnimations() {
       const now = Date.now();
+      let hasActiveAnimations = false;
+      
       for (let i = this.animations.length - 1; i >= 0; i--) {
           const anim = this.animations[i];
           const elapsed = now - anim.startTime;
           const progress = Math.min(elapsed / anim.duration, 1);
           
+          // 더 부드러운 이징 함수 (ease-out cubic)
           const ease = 1 - Math.pow(1 - progress, 3);
           
           if (anim.type === 'card' && anim.card) {
@@ -2369,6 +2367,18 @@ export class BlackjackGame {
               if (anim.rotationStart !== undefined && anim.rotationTarget !== undefined) {
                   s.rotation = anim.rotationStart + (anim.rotationTarget - anim.rotationStart) * ease;
               }
+
+              // 애니메이션 완료 체크
+              if (progress >= 1) {
+                  s.x = anim.targetX;
+                  s.y = anim.targetY;
+                  if (anim.rotationTarget !== undefined) {
+                      s.rotation = anim.rotationTarget;
+                  }
+                  this.animations.splice(i, 1);
+              } else {
+                  hasActiveAnimations = true;
+              }
           } else if (anim.type === 'flip' && anim.card) {
               // 카드 뒤집기 애니메이션 (Y축 회전)
               const sprite = this.cardSprites.get(anim.card);
@@ -2382,9 +2392,11 @@ export class BlackjackGame {
                   }
                   
                   // 애니메이션 완료
-              if (progress >= 1) {
+                  if (progress >= 1) {
                       sprite.flipRotation = undefined;
                       this.animations.splice(i, 1);
+                  } else {
+                      hasActiveAnimations = true;
                   }
               } else {
                   // 스프라이트가 없으면 애니메이션 제거
@@ -2406,6 +2418,8 @@ export class BlackjackGame {
                       this.cardSprites.delete(anim.card);
                   }
                   this.animations.splice(i, 1);
+              } else {
+                  hasActiveAnimations = true;
               }
           } else if (anim.type === 'chip' && anim.chip) {
               anim.chip.x = anim.startX + (anim.targetX - anim.startX) * ease;
@@ -2414,9 +2428,16 @@ export class BlackjackGame {
                   anim.chip.x = anim.targetX;
                   anim.chip.y = anim.targetY;
                   this.animations.splice(i, 1);
+              } else {
+                  hasActiveAnimations = true;
               }
           }
       }
+      
+      // 애니메이션이 없으면 렌더링 최적화 (선택적)
+      // if (!hasActiveAnimations && this.animations.length === 0) {
+      //     // 정적 상태에서는 렌더링 빈도 감소 가능
+      // }
   }
 
   destroy() {
