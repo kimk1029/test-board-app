@@ -1922,13 +1922,14 @@ export class BlackjackGame {
     this.ctx.textAlign = 'center'
     
     if (this.gameState !== GameState.BETTING && this.gameState !== GameState.SHUFFLE) {
+        // 점수 업데이트 (카드가 변경될 때마다)
+        this.updateScores()
+        
         // 딜러 점수 표시: 두 번째 카드가 공개되지 않았으면 "?", 공개되었으면 실제 점수
         let dScoreText = "?";
         const dealerSecondCard = this.dealerHand.cards[1];
         const isDealerSecondCardRevealed = dealerSecondCard?.faceUp === true;
         
-        // 점수는 카드가 변경될 때만 업데이트되므로 여기서는 표시만 함
-        // (매 프레임마다 계산하지 않음)
         if (isDealerSecondCardRevealed || this.gameState === GameState.DEALER_TURN || this.gameState === GameState.SETTLEMENT) {
             // 딜러 두 번째 카드가 공개되었거나 딜러 턴/정산 단계면 실제 점수 표시
             dScoreText = `${this.dealerHand.score}`;
