@@ -1220,6 +1220,18 @@ export class BlackjackGame {
                   
                   // 애니메이션 완료 대기
                   await this.delay(650)
+                  
+                  // 애니메이션 완료 후 스프라이트 상태 최종 업데이트
+                  const finalSprite = this.cardSprites.get(newCard)
+                  if (finalSprite) {
+                    finalSprite.faceUp = true
+                    finalSprite.flipRotation = undefined
+                  }
+                  
+                  // 딜러 두 번째 카드가 제대로 공개되었는지 확인
+                  if (this.dealerHand.cards[1]) {
+                    this.dealerHand.cards[1].faceUp = true
+                  }
                 } else {
                   // 스프라이트가 없으면 새로 생성
                   this.cardSprites.set(newCard, {
@@ -1229,6 +1241,9 @@ export class BlackjackGame {
                     rotation: 0
                   })
                 }
+                
+                // 딜러 두 번째 카드 공개 후 점수 업데이트
+                this.updateScores()
               }
             }
           } catch (error) {
@@ -1236,10 +1251,25 @@ export class BlackjackGame {
             // 에러 발생 시 기존 카드 사용
             if (this.dealerHand.cards[1]) {
               this.dealerHand.cards[1].faceUp = true
+              const sprite = this.cardSprites.get(this.dealerHand.cards[1])
+              if (sprite) {
+                sprite.faceUp = true
+              }
+            }
+            this.updateScores()
+          }
+          
+          // 딜러 두 번째 카드가 제대로 공개되었는지 최종 확인
+          if (this.dealerHand.cards[1]) {
+            this.dealerHand.cards[1].faceUp = true
+            const secondCardSprite = this.cardSprites.get(this.dealerHand.cards[1])
+            if (secondCardSprite) {
+              secondCardSprite.faceUp = true
+              secondCardSprite.flipRotation = undefined
             }
           }
           
-          // 딜러 점수 업데이트
+          // 딜러 두 번째 카드 공개 후 점수 업데이트
           this.updateScores()
           
           // 딜러가 17 이상이 될 때까지 카드를 하나씩 받음
