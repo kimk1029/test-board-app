@@ -576,6 +576,11 @@ export class BlackjackGame {
         this.addChipToTable(this.initialBet);
         this.initialBet = 0;
     }
+    
+    // 베팅 안내 메시지 표시
+    if (this.currentBet === 0) {
+      this.showMessage('베팅을 해주세요')
+    }
   }
 
   private createChipButtons() {
@@ -951,7 +956,9 @@ export class BlackjackGame {
     
     const totalW = actions.length * btnW + (actions.length - 1) * gap;
     const startX = (this.gameAreaWidth - totalW) / 2;
-    const y = this.canvasHeight * 0.85; // Fixed at bottom area for all devices to avoid overlap
+    // 칩 버튼과 겹치지 않도록 버튼 위치를 더 위로 조정
+    // 칩 버튼이 아래쪽에 있으므로 버튼은 중간 아래쪽에 배치
+    const y = this.isMobile ? this.canvasHeight * 0.75 : this.canvasHeight * 0.78; // 칩과 겹치지 않도록 조정
 
     this.buttons = actions.map((text, i) => ({
         x: startX + i * (btnW + gap),
@@ -1013,6 +1020,10 @@ export class BlackjackGame {
           this.updateScores()
           
           if (data.bust || data.result === 'lose') {
+            // 버스트 메시지 표시
+            if (data.bust || this.playerHand.isBust) {
+              this.showMessage('버스트 패배!')
+            }
             this.buttons = []
             await this.settleGame('lose')
           } else {
