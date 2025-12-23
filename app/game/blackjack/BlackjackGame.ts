@@ -93,7 +93,7 @@ export class BlackjackGame {
   }
 
   private animations: Array<{
-    type: 'card' | 'chip' | 'discard'
+    type: 'card' | 'chip' | 'discard' | 'flip'
     startX: number
     startY: number
     targetX: number
@@ -105,6 +105,7 @@ export class BlackjackGame {
     faceUp?: boolean
     rotationStart?: number
     rotationTarget?: number
+    flipRotation?: number
   }> = []
 
   private canvasWidth: number = 1200
@@ -150,7 +151,7 @@ export class BlackjackGame {
       return { x: this.gameAreaWidth * 0.5, y: this.canvasHeight * 0.88 }; 
   }
 
-  private cardSprites: Map<Card, { x: number; y: number; faceUp: boolean; rotation: number }> = new Map()
+  private cardSprites: Map<Card, { x: number; y: number; faceUp: boolean; rotation: number; flipRotation?: number }> = new Map()
   // 카드 인덱스 추적 (같은 카드가 여러 장 있을 경우 구분)
   private cardIndices: Map<Card, { target: 'player' | 'dealer', index: number }> = new Map()
 
@@ -1196,10 +1197,29 @@ export class BlackjackGame {
                 if (oldSprite) {
                   // 기존 스프라이트를 제거하고 새 카드로 추가
                   this.cardSprites.delete(oldCard)
-                  this.cardSprites.set(newCard, {
+                  const sprite = {
                     ...oldSprite,
-                    faceUp: true
+                    faceUp: false, // 처음에는 뒷면
+                    flipRotation: 0 // 뒤집기 회전 시작
+                  }
+                  this.cardSprites.set(newCard, sprite)
+                  
+                  // 카드 뒤집기 애니메이션 추가
+                  this.animations.push({
+                    type: 'flip',
+                    startX: sprite.x,
+                    startY: sprite.y,
+                    targetX: sprite.x,
+                    targetY: sprite.y,
+                    duration: 600, // 0.6초 애니메이션
+                    startTime: Date.now(),
+                    card: newCard,
+                    faceUp: true,
+                    flipRotation: 0 // 0에서 Math.PI까지 회전
                   })
+                  
+                  // 애니메이션 완료 대기
+                  await this.delay(650)
                 } else {
                   // 스프라이트가 없으면 새로 생성
                   this.cardSprites.set(newCard, {
@@ -1209,8 +1229,6 @@ export class BlackjackGame {
                     rotation: 0
                   })
                 }
-                
-                await this.delay(500) // 카드 공개 애니메이션 대기
               }
             }
           } catch (error) {
@@ -1893,8 +1911,18 @@ export class BlackjackGame {
       this.ctx.translate(sprite.x, sprite.y);
       this.ctx.rotate(sprite.rotation);
       
+      // 카드 뒤집기 애니메이션 처리
+      if (sprite.flipRotation !== undefined) {
+        // Y축 회전 (카드 뒤집기) - scale을 사용하여 3D 효과
+        const scaleY = Math.cos(sprite.flipRotation);
+        this.ctx.scale(1, scaleY);
+      }
+      
       // 카드와 스프라이트의 faceUp 상태 모두 확인 (스프라이트 우선)
-      const isFaceUp = sprite.faceUp !== undefined ? sprite.faceUp : card.faceUp;
+      // 뒤집기 중간 지점을 넘으면 앞면 표시
+      const isFaceUp = sprite.flipRotation !== undefined 
+        ? (sprite.flipRotation >= Math.PI / 2 ? (sprite.faceUp || card.faceUp) : false)
+        : (sprite.faceUp !== undefined ? sprite.faceUp : card.faceUp);
       
       this.ctx.shadowColor = 'transparent'; // 성능 최적화: 그림자 제거
       this.ctx.shadowBlur = 0;
@@ -2279,11 +2307,25 @@ export class BlackjackGame {
               if (anim.rotationStart !== undefined && anim.rotationTarget !== undefined) {
                   s.rotation = anim.rotationStart + (anim.rotationTarget - anim.rotationStart) * ease;
               }
-
-              if (progress >= 1) {
-                  s.x = anim.targetX;
-                  s.y = anim.targetY;
-                  s.rotation = anim.rotationTarget || 0;
+          } else if (anim.type === 'flip' && anim.card) {
+              // 카드 뒤집기 애니메이션 (Y축 회전)
+              const sprite = this.cardSprites.get(anim.card);
+              if (sprite) {
+                  // 0에서 Math.PI까지 회전 (뒷면 -> 앞면)
+                  sprite.flipRotation = Math.PI * progress;
+                  
+                  // 중간 지점(Math.PI/2)을 넘으면 앞면으로 전환
+                  if (progress >= 0.5 && !sprite.faceUp) {
+                      sprite.faceUp = anim.faceUp || true;
+                  }
+                  
+                  // 애니메이션 완료
+                  if (progress >= 1) {
+                      sprite.flipRotation = undefined;
+                      this.animations.splice(i, 1);
+                  }
+              } else {
+                  // 스프라이트가 없으면 애니메이션 제거
                   this.animations.splice(i, 1);
               }
           } else if (anim.type === 'discard' && anim.card) {
