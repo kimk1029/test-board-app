@@ -47,6 +47,8 @@ export class BlackjackGame {
   private currentBet: number = 0
   private playerPoints: number = 0
   private initialBet: number = 0
+  // 서버에서 받은 딜러 최종 점수를 저장하는 변수
+  private serverDealerFinalScore: number | null = null
   private insuranceBet: number = 0; // [신규] 속성 추가
   
   // 인슈어런스 정보 임시 저장 (로그 통합용)
@@ -1343,11 +1345,6 @@ export class BlackjackGame {
             }
           }
           
-          // 최종 딜러 점수 설정 (서버에서 받은 점수로 동기화)
-          if (dealerFinalScore > 0) {
-            this.dealerHand.score = dealerFinalScore
-          }
-          
           // 딜러 카드 상태 업데이트 (서버에서 받은 초기 2장)
           if (data.dealerCards && data.dealerCards.length > 0) {
             // 기존 카드 2장만 업데이트 (추가 카드는 위에서 이미 추가됨)
@@ -1371,8 +1368,8 @@ export class BlackjackGame {
             }
           })
           
-          // 최종 점수 업데이트
-          this.updateScores()
+          // 최종 점수 업데이트 (서버에서 받은 최종 점수 우선 사용)
+          this.updateScores(this.serverDealerFinalScore || undefined)
           
           // 서버에서 받은 포인트 업데이트
           if (data.points !== undefined) {
@@ -1765,6 +1762,9 @@ export class BlackjackGame {
     // 게임 세션 초기화
     this.gameSessionId = null
     
+    // 서버 딜러 점수 초기화
+    this.serverDealerFinalScore = null
+    
     // 카드 스프라이트 완전 초기화
     this.cardSprites.clear()
     
@@ -1831,7 +1831,7 @@ export class BlackjackGame {
   }
 
   private delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-  private updateScores() {
+  private updateScores(useServerDealerScore?: number) {
       // 디버깅: 카드 값 확인
       if (this.playerHand.cards.length > 0) {
         console.log('플레이어 카드:', this.playerHand.cards.map(c => c.value).join(', '));
@@ -1841,7 +1841,15 @@ export class BlackjackGame {
       }
       
       this.playerHand.score = calculateHandScore(this.playerHand)
+      
+      // 서버에서 받은 딜러 점수가 있으면 우선 사용, 없으면 클라이언트에서 계산
+      const serverScore = useServerDealerScore !== undefined ? useServerDealerScore : this.serverDealerFinalScore
+      if (serverScore !== null && serverScore > 0) {
+        this.dealerHand.score = serverScore
+        console.log('서버 딜러 점수 사용:', serverScore)
+      } else {
       this.dealerHand.score = calculateHandScore(this.dealerHand)
+      }
       
       // 디버깅: 계산된 점수 확인
       if (this.playerHand.cards.length > 0) {
