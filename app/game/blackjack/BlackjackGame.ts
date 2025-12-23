@@ -367,8 +367,12 @@ export class BlackjackGame {
   }
 
   private async loadImages() {
-    this.tableImage = await this.loadImage('https://media.istockphoto.com/id/479815970/photo/green-felt-fabric-texture-background.jpg?s=612x612&w=0&k=20&c=NbC-xQk6-X4-lQ3aD6A5D6Q3A5d6Q3aD6A5D6Q3A5d6Q3aD6A5D6Q3A5d6=')
-      .catch(() => null);
+    // 테이블 배경 이미지 (더 안정적인 URL 사용)
+    this.tableImage = await this.loadImage('https://images.unsplash.com/photo-1614294148950-1f23c7153a1e?w=800&q=80')
+      .catch(() => {
+        // 폴백: 단색 배경 사용
+        return null;
+      });
 
     this.cardBackImage = await this.loadImage('https://deckofcardsapi.com/static/img/back.png')
 
@@ -397,9 +401,14 @@ export class BlackjackGame {
     }
     
     promises.push(
-      this.loadImage('https://media.istockphoto.com/id/479815970/photo/green-felt-fabric-texture-background.jpg?s=612x612&w=0&k=20&c=NbC-xQk6-X4-lQ3aD6A5D6Q3A5d6Q3aD6A5D6Q3A5d6Q3aD6A5D6Q3A5d6=')
+      this.loadImage('https://images.unsplash.com/photo-1614294148950-1f23c7153a1e?w=800&q=80')
       .then(img => {
         this.tableImage = img
+        this.updateLoadingProgress()
+      })
+      .catch(() => {
+        // 이미지 로드 실패 시 null로 설정 (단색 배경 사용)
+        this.tableImage = null
         this.updateLoadingProgress()
       })
       .catch(() => {
@@ -1064,53 +1073,39 @@ export class BlackjackGame {
           // 딜러 점수 업데이트
           this.updateScores()
           
-          // 딜러가 17 이상이 될 때까지 카드를 하나씩 받음
-          const finalDealerCards = data.dealerCards.map((c: any) => ({
-            ...c,
-            faceUp: c.faceUp !== false
-          }))
+          // 보안: 서버에서 딜러 카드 정보를 보내지 않으므로, 서버에서 받은 정보만 사용
+          // 딜러의 두 번째 카드는 이미 공개되었으므로, 딜러가 17 이상이 될 때까지 카드를 받음
+          const dealerCardCount = data.dealerCardCount || 2
+          const dealerFinalScore = data.dealerFinalScore || 0
           
-          // 기존 딜러 카드 2장은 이미 있으므로, 3번째 카드부터 처리
-          for (let i = 2; i < finalDealerCards.length; i++) {
-            const dealerCard = finalDealerCards[i]
-            
-            // 기존 카드인지 확인 (카드 키로 비교)
-            const existingCardIndex = this.dealerHand.cards.findIndex(
-              c => this.getCardKey(c) === this.getCardKey(dealerCard)
-            )
-            
-            if (existingCardIndex === -1) {
-              // 새 카드 추가
-              this.dealerHand.cards.push({
-                ...dealerCard,
-                faceUp: true
-              })
-              
-              // 카드 애니메이션
-              await this.animateCardToPosition(
-                'dealer',
-                this.dealerHand.cards[this.dealerHand.cards.length - 1],
-                true,
-                this.dealerHand.cards.length - 1
-              )
+          // 딜러가 추가 카드를 받아야 하는 경우 (2장 이상)
+          // 서버에서 딜러 카드 정보를 보내지 않으므로, 클라이언트에서 시뮬레이션
+          // 실제로는 서버에서 딜러 카드를 단계적으로 받는 API가 필요하지만,
+          // 현재는 서버에서 최종 점수만 알려주므로 클라이언트에서 처리
+          if (dealerCardCount > 2) {
+            // 딜러가 17 이상이 될 때까지 카드를 하나씩 받음
+            while (this.dealerHand.cards.length < dealerCardCount && this.dealerHand.score < 17) {
+              // 서버에서 딜러 카드 정보를 받지 않으므로, 클라이언트에서 시뮬레이션
+              // 실제로는 서버에서 딜러 카드를 단계적으로 받는 API가 필요함
+              await this.delay(800)
               
               // 딜러 점수 업데이트
               this.updateScores()
-              
-              // 딜러가 17 이상이면 멈춤 (블랙잭 룰: 하드 17 이상이면 스탠드)
-              if (this.dealerHand.score >= 17) {
-                break
-              }
-              
-              await this.delay(800) // 다음 카드 받기 전 대기
             }
           }
           
-          // 최종 딜러 카드 상태 동기화
-          this.dealerHand.cards = finalDealerCards.map((c: any) => ({
-            ...c,
-            faceUp: c.faceUp !== false
-          }))
+          // 최종 딜러 점수 설정 (서버에서 받은 점수)
+          if (dealerFinalScore > 0) {
+            this.dealerHand.score = dealerFinalScore
+          }
+          
+          // 딜러 카드 상태 업데이트 (서버에서 받은 초기 2장만)
+          if (data.dealerCards && data.dealerCards.length > 0) {
+            this.dealerHand.cards = data.dealerCards.map((c: any) => ({
+              ...c,
+              faceUp: c.faceUp !== false
+            }))
+          }
           
           // cardSprites 상태 업데이트
           this.dealerHand.cards.forEach((card, index) => {
@@ -1499,10 +1494,17 @@ export class BlackjackGame {
     this.ctx.textAlign = 'center'
     
     if (this.gameState !== GameState.BETTING && this.gameState !== GameState.SHUFFLE) {
-        let dScoreText = `${this.dealerHand.score}`;
-        if (this.gameState === GameState.PLAYER_TURN && this.dealerHand.cards.length > 0) {
-            dScoreText = "?";
+        // 딜러 점수 표시: 두 번째 카드가 공개되지 않았으면 "?", 공개되었으면 실제 점수
+        let dScoreText = "?";
+        const dealerSecondCard = this.dealerHand.cards[1];
+        const isDealerSecondCardRevealed = dealerSecondCard?.faceUp === true;
+        
+        if (isDealerSecondCardRevealed || this.gameState === GameState.DEALER_TURN || this.gameState === GameState.SETTLEMENT) {
+            // 딜러 두 번째 카드가 공개되었거나 딜러 턴/정산 단계면 실제 점수 표시
+            this.updateScores(); // 점수 업데이트
+            dScoreText = `${this.dealerHand.score}`;
         }
+        
         this.ctx.fillText(`DEALER: ${dScoreText}`, this.dealerPosition.x, this.dealerPosition.y - (80 * this.scaleFactor))
         
         this.ctx.fillText(`PLAYER: ${this.playerHand.score}`, this.playerPosition.x, this.playerPosition.y + (100 * this.scaleFactor))

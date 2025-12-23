@@ -129,9 +129,9 @@ export default function ProfilePage() {
                             Most Played Games
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[250px]">
+                    <CardContent className="h-[250px] min-h-[250px]">
                         {pieData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                                 <PieChart>
                                     <Pie
                                         data={pieData}
@@ -167,9 +167,9 @@ export default function ProfilePage() {
                             Win Rate by Game
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[250px]">
+                    <CardContent className="h-[250px] min-h-[250px]">
                         {gameStats.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                                 <BarChart data={gameStats} layout="vertical">
                                     <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
                                     <XAxis type="number" stroke="#666" domain={[0, 100]} unit="%" hide />
@@ -200,9 +200,9 @@ export default function ProfilePage() {
                     Daily Profit History (30 Days)
                 </CardTitle>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="h-[300px] min-h-[300px]">
                 {lineData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                         <LineChart data={lineData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                             <XAxis dataKey="date" stroke="#666" fontSize={12} tickLine={false} />

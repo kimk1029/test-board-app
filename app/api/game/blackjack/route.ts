@@ -10,6 +10,7 @@ import {
   calculateFinalResult,
   isBlackjack,
   isBust,
+  calculateScore,
 } from '@/lib/game-servers/blackjack-server'
 import { Card } from '@/lib/game-servers/blackjack-server'
 
@@ -288,6 +289,14 @@ export async function POST(request: NextRequest) {
         })
       }
       
+      // 보안: 딜러 카드 정보를 응답에서 제거 (네트워크 응답에서 미리 알 수 없도록)
+      // 딜러의 두 번째 카드만 공개된 상태로 보냄 (이미 클라이언트에 있음)
+      const initialDealerCards = dealerCards.map((card, index) => ({
+        suit: card.suit,
+        value: card.value,
+        faceUp: index === 0 || index === 1, // 첫 번째와 두 번째 카드만 공개
+      }))
+      
       return NextResponse.json({
         result: finalResult.result,
         payout: finalResult.payout,
@@ -295,7 +304,10 @@ export async function POST(request: NextRequest) {
         level: updatedLevel,
         pointsChange: finalResult.payout - gameSession.betAmount,
         playerCards: playerCards,
-        dealerCards: finalDealerCards,
+        // 보안: 딜러 카드는 초기 2장만 보냄 (나머지는 클라이언트에서 서버 지시에 따라 받음)
+        dealerCards: initialDealerCards,
+        dealerFinalScore: calculateScore(finalDealerCards), // 최종 점수만 알려줌
+        dealerCardCount: finalDealerCards.length, // 딜러 카드 개수만 알려줌
       })
     }
     

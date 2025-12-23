@@ -300,9 +300,9 @@ export default function GameLobby() {
                             <CardTitle className="text-lg text-white">Casino Statistics Overview</CardTitle>
                             <CardDescription>카지노 게임별 승률, 환급률, 거래량, 배율 통합 현황</CardDescription>
                         </CardHeader>
-                        <CardContent className="h-[400px]">
+                        <CardContent className="h-[400px] min-h-[400px]">
                             {stats?.byGame && stats.byGame.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minHeight={400}>
                                     <LineChart data={stats.byGame}>
                                         <defs>
                                             <linearGradient id="colorWinRate" x1="0" y1="0" x2="0" y2="1">

@@ -193,13 +193,13 @@ export default function Home() {
                             <BarChart3 className="w-5 h-5 text-cyan-400" />
                             POINT HISTORY
                         </h3>
-                        <div className="flex-1 w-full min-h-0">
+                        <div className="flex-1 w-full min-h-[300px]">
                             {pointsHistory.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-slate-500 text-sm">
                                     {isClient && localStorage.getItem('token') ? 'No history data' : 'Login required to view history'}
                                 </div>
                             ) : (
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                                     <LineChart data={pointsHistory}>
                                         <defs>
                                             <linearGradient id="colorPoints" x1="0" y1="0" x2="0" y2="1">
