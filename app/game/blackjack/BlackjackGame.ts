@@ -1832,8 +1832,25 @@ export class BlackjackGame {
 
   private delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
   private updateScores() {
+      // 디버깅: 카드 값 확인
+      if (this.playerHand.cards.length > 0) {
+        console.log('플레이어 카드:', this.playerHand.cards.map(c => c.value).join(', '));
+      }
+      if (this.dealerHand.cards.length > 0) {
+        console.log('딜러 카드:', this.dealerHand.cards.map(c => c.value).join(', '));
+      }
+      
       this.playerHand.score = calculateHandScore(this.playerHand)
       this.dealerHand.score = calculateHandScore(this.dealerHand)
+      
+      // 디버깅: 계산된 점수 확인
+      if (this.playerHand.cards.length > 0) {
+        console.log('플레이어 점수:', this.playerHand.score);
+      }
+      if (this.dealerHand.cards.length > 0) {
+        console.log('딜러 점수:', this.dealerHand.score);
+      }
+      
       this.playerHand.isBust = isBust(this.playerHand)
       this.playerHand.isBlackjack = isBlackjack(this.playerHand)
       this.dealerHand.isBust = isBust(this.dealerHand)
