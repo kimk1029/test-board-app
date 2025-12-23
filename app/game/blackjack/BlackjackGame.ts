@@ -1277,8 +1277,15 @@ export class BlackjackGame {
           const dealerCardCount = data.dealerCardCount || 2
           const dealerFinalScore = data.dealerFinalScore || 0
           
-          // 딜러가 추가 카드를 받아야 하는 경우
-          if (dealerCardCount > 2) {
+          // 딜러 두 번째 카드 공개 후 이미 17-21이면 추가 카드를 받지 않음
+          if (this.dealerHand.score >= 17 && this.dealerHand.score <= 21) {
+            // 딜러가 이미 17-21이면 추가 카드를 받지 않음
+            // 서버에서 받은 최종 점수로 설정
+            if (dealerFinalScore > 0) {
+              this.dealerHand.score = dealerFinalScore
+            }
+          } else if (dealerCardCount > 2) {
+          // 딜러가 추가 카드를 받아야 하는 경우 (17 미만이거나 21 초과)
             // 딜러가 17 이상이 될 때까지 카드를 하나씩 받음
             while (this.dealerHand.cards.length < dealerCardCount) {
               // 서버에서 딜러 카드를 단계적으로 받기
@@ -2350,7 +2357,7 @@ export class BlackjackGame {
                   }
                   
                   // 애니메이션 완료
-                  if (progress >= 1) {
+              if (progress >= 1) {
                       sprite.flipRotation = undefined;
                       this.animations.splice(i, 1);
                   }
