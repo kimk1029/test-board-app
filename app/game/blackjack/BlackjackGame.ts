@@ -547,6 +547,10 @@ export class BlackjackGame {
     setTimeout(() => {
         if (this.roundNumber === 0) this.roundNumber = 1;
         this.changeState(GameState.BETTING);
+        // 베팅 안내 메시지 표시
+        if (this.currentBet === 0) {
+          this.showMessage('베팅을 해주세요')
+        }
     }, 1000)
   }
 
@@ -957,8 +961,9 @@ export class BlackjackGame {
     const totalW = actions.length * btnW + (actions.length - 1) * gap;
     const startX = (this.gameAreaWidth - totalW) / 2;
     // 칩 버튼과 겹치지 않도록 버튼 위치를 더 위로 조정
-    // 칩 버튼이 아래쪽에 있으므로 버튼은 중간 아래쪽에 배치
-    const y = this.isMobile ? this.canvasHeight * 0.75 : this.canvasHeight * 0.78; // 칩과 겹치지 않도록 조정
+    // 칩 버튼이 아래쪽(0.85/0.88)에 있으므로 버튼은 더 위에 배치
+    // 플레이어 위치(0.55/0.60)와 칩 버튼(0.85/0.88) 사이에 배치
+    const y = this.isMobile ? this.canvasHeight * 0.68 : this.canvasHeight * 0.70; // 칩과 겹치지 않도록 조정
 
     this.buttons = actions.map((text, i) => ({
         x: startX + i * (btnW + gap),
@@ -1024,8 +1029,12 @@ export class BlackjackGame {
             if (data.bust || this.playerHand.isBust) {
               this.showMessage('버스트 패배!')
             }
+            // 서버에서 받은 포인트 업데이트
+            if (data.points !== undefined) {
+              this.playerPoints = data.points
+            }
             this.buttons = []
-            await this.settleGame('lose')
+            await this.settleGame('lose', data.points)
           } else {
             this.isProcessing = false
           }
@@ -1179,8 +1188,30 @@ export class BlackjackGame {
           // 최종 점수 업데이트
           this.updateScores()
           
-          // 최종 결과 처리
-          await this.settleGame(data.result)
+          // 서버에서 받은 포인트 업데이트
+          if (data.points !== undefined) {
+            this.playerPoints = data.points
+          }
+          
+          // 버스트 체크 및 메시지 표시
+          this.updateScores()
+          if (this.dealerHand.isBust) {
+            this.showMessage('딜러 버스트 승리!')
+          }
+          
+        // 서버에서 받은 포인트 업데이트
+        if (data.points !== undefined) {
+          this.playerPoints = data.points
+        }
+        
+        // 버스트 체크 및 메시지 표시
+        this.updateScores()
+        if (this.dealerHand.isBust) {
+          this.showMessage('딜러 버스트 승리!')
+        }
+        
+        // 최종 결과 처리
+        await this.settleGame(data.result, data.points)
         } else {
           const errorData = await response.json()
           this.showMessage(errorData.error || 'Stand 실패')
@@ -1284,7 +1315,11 @@ export class BlackjackGame {
         }
         
         // 최종 결과 처리
-        await this.settleGame(data.result)
+        // 서버에서 받은 포인트 업데이트
+        if (data.points !== undefined) {
+          this.playerPoints = data.points
+        }
+        await this.settleGame(data.result, data.points)
       } else {
         const errorData = await response.json()
         this.showMessage(errorData.error || 'Double Down 실패')
@@ -1328,20 +1363,36 @@ export class BlackjackGame {
       const dScore = this.dealerHand.score;
       let result: 'win' | 'lose' | 'draw' | 'blackjack' = 'lose';
 
-      if (this.playerHand.isBust) result = 'lose';
-      else if (this.dealerHand.isBust) result = 'win';
-      else if (isBlackjack(this.playerHand) && isBlackjack(this.dealerHand)) result = 'draw';
-      else if (isBlackjack(this.playerHand)) result = 'blackjack';
-      else if (pScore > dScore) result = 'win';
-      else if (pScore < dScore) result = 'lose';
-      else result = 'draw';
+      // 버스트 체크 및 메시지 표시
+      if (this.playerHand.isBust) {
+        result = 'lose';
+        this.showMessage('버스트 패배!')
+      } else if (this.dealerHand.isBust) {
+        result = 'win';
+        this.showMessage('딜러 버스트 승리!')
+      } else if (isBlackjack(this.playerHand) && isBlackjack(this.dealerHand)) {
+        result = 'draw';
+      } else if (isBlackjack(this.playerHand)) {
+        result = 'blackjack';
+      } else if (pScore > dScore) {
+        result = 'win';
+      } else if (pScore < dScore) {
+        result = 'lose';
+      } else {
+        result = 'draw';
+      }
 
       this.settleGame(result);
   }
 
-  private async settleGame(result: 'win' | 'lose' | 'draw' | 'blackjack') {
+  private async settleGame(result: 'win' | 'lose' | 'draw' | 'blackjack', serverPoints?: number) {
     // Stand나 Double에서 이미 서버에서 정산이 완료되었으므로
     // 여기서는 UI 업데이트만 수행
+    
+    // 서버에서 받은 포인트로 업데이트 (가장 중요!)
+    if (serverPoints !== undefined) {
+      this.playerPoints = serverPoints
+    }
     
     let message = ''
     let winnings = 0
