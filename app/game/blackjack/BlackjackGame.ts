@@ -701,10 +701,20 @@ export class BlackjackGame {
           ...c,
           faceUp: c.faceUp !== false // 서버에서 faceUp이 true로 설정되어 있음
         }))
-        this.dealerHand.cards = data.dealerCards.map((c: any) => ({
-          ...c,
-          faceUp: c.faceUp !== false // 첫 번째는 true, 두 번째는 false
-        }))
+        // 딜러 카드: 첫 번째 카드만 받고, 두 번째 카드는 나중에 받음 (보안)
+        // 두 번째 카드는 임시로 뒷면 카드 생성 (나중에 서버에서 받음)
+        this.dealerHand.cards = [
+          {
+            ...data.dealerCards[0],
+            faceUp: true
+          },
+          // 두 번째 카드는 임시로 뒷면 카드 생성 (나중에 서버에서 받음)
+          {
+            suit: 'spades' as any, // 임시 값 (나중에 서버에서 받음)
+            value: 'A', // 임시 값 (나중에 서버에서 받음)
+            faceUp: false
+          }
+        ]
         
         // cardSprites의 faceUp 상태도 업데이트
         this.playerHand.cards.forEach(card => {
@@ -715,14 +725,15 @@ export class BlackjackGame {
             sprite.faceUp = card.faceUp
           }
         })
-        this.dealerHand.cards.forEach(card => {
+        // 딜러 카드: 첫 번째만 처리 (두 번째는 나중에 받음)
+        if (this.dealerHand.cards[0]) {
           const sprite = Array.from(this.cardSprites.entries()).find(
-            ([c]) => this.getCardKey(c) === this.getCardKey(card)
+            ([c]) => this.getCardKey(c) === this.getCardKey(this.dealerHand.cards[0])
           )?.[1]
           if (sprite) {
-            sprite.faceUp = card.faceUp
+            sprite.faceUp = this.dealerHand.cards[0].faceUp
           }
-        })
+        }
         
         // 카드 애니메이션
         await this.animateServerCards()
@@ -1078,16 +1089,45 @@ export class BlackjackGame {
         if (response.ok) {
           const data = await response.json()
           
-          // 딜러 두 번째 카드 공개 (먼저 공개)
-          if (this.dealerHand.cards[1]) {
-            this.dealerHand.cards[1].faceUp = true
-            const secondCardSprite = Array.from(this.cardSprites.entries()).find(
-              ([c]) => this.getCardKey(c) === this.getCardKey(this.dealerHand.cards[1])
-            )?.[1]
-            if (secondCardSprite) {
-              secondCardSprite.faceUp = true
+          // 딜러 두 번째 카드 공개 (서버에서 받아옴)
+          try {
+            const secondCardResponse = await fetch('/api/game/blackjack', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                action: 'getDealerSecondCard',
+                sessionId: this.gameSessionId,
+              }),
+            })
+            
+            if (secondCardResponse.ok) {
+              const secondCardData = await secondCardResponse.json()
+              
+              // 딜러 두 번째 카드 업데이트
+              if (secondCardData.dealerSecondCard && this.dealerHand.cards[1]) {
+                this.dealerHand.cards[1] = {
+                  ...secondCardData.dealerSecondCard,
+                  faceUp: true
+                }
+                
+                const secondCardSprite = Array.from(this.cardSprites.entries()).find(
+                  ([c]) => this.getCardKey(c) === this.getCardKey(this.dealerHand.cards[1])
+                )?.[1]
+                if (secondCardSprite) {
+                  secondCardSprite.faceUp = true
+                }
+                await this.delay(500) // 카드 공개 애니메이션 대기
+              }
             }
-            await this.delay(500) // 카드 공개 애니메이션 대기
+          } catch (error) {
+            console.error('Get dealer second card error:', error)
+            // 에러 발생 시 기존 카드 사용
+            if (this.dealerHand.cards[1]) {
+              this.dealerHand.cards[1].faceUp = true
+            }
           }
           
           // 딜러 점수 업데이트

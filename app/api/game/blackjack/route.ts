@@ -96,10 +96,17 @@ export async function POST(request: NextRequest) {
         data: { points: updatedPoints }
       })
       
+      // 보안: 딜러 카드 정보를 최소한만 보냄 (네트워크 응답에서 미리 알 수 없도록)
+      // 딜러의 첫 번째 카드만 보내고, 두 번째 카드는 정보를 숨김
+      const visibleDealerCards = [
+        { suit: dealerCards[0].suit, value: dealerCards[0].value, faceUp: true }, // 첫 번째 카드만
+        // 두 번째 카드는 정보를 보내지 않음 (보안)
+      ]
+      
       return NextResponse.json({
         sessionId: gameSession.id,
-        playerCards: playerCards,
-        dealerCards: dealerCards,
+        playerCards: playerCards, // 플레이어 카드는 모두 보냄 (플레이어가 봐야 함)
+        dealerCards: visibleDealerCards, // 딜러 카드는 첫 번째만 보냄 (두 번째는 정보 없음)
         points: updatedPoints,
       })
     }
