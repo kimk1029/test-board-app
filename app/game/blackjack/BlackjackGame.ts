@@ -1073,38 +1073,86 @@ export class BlackjackGame {
           // 딜러 점수 업데이트
           this.updateScores()
           
-          // 보안: 서버에서 딜러 카드 정보를 보내지 않으므로, 서버에서 받은 정보만 사용
-          // 딜러의 두 번째 카드는 이미 공개되었으므로, 딜러가 17 이상이 될 때까지 카드를 받음
+          // 딜러가 17 이상이 될 때까지 카드를 하나씩 받음
+          // 서버에서 딜러 카드 정보를 단계적으로 받기 위해 API 호출
           const dealerCardCount = data.dealerCardCount || 2
           const dealerFinalScore = data.dealerFinalScore || 0
           
-          // 딜러가 추가 카드를 받아야 하는 경우 (2장 이상)
-          // 서버에서 딜러 카드 정보를 보내지 않으므로, 클라이언트에서 시뮬레이션
-          // 실제로는 서버에서 딜러 카드를 단계적으로 받는 API가 필요하지만,
-          // 현재는 서버에서 최종 점수만 알려주므로 클라이언트에서 처리
+          // 딜러가 추가 카드를 받아야 하는 경우
           if (dealerCardCount > 2) {
             // 딜러가 17 이상이 될 때까지 카드를 하나씩 받음
-            while (this.dealerHand.cards.length < dealerCardCount && this.dealerHand.score < 17) {
-              // 서버에서 딜러 카드 정보를 받지 않으므로, 클라이언트에서 시뮬레이션
-              // 실제로는 서버에서 딜러 카드를 단계적으로 받는 API가 필요함
-              await this.delay(800)
+            while (this.dealerHand.cards.length < dealerCardCount) {
+              // 서버에서 딜러 카드를 단계적으로 받기
+              try {
+                const dealerCardResponse = await fetch('/api/game/blackjack', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    action: 'dealerHit',
+                    sessionId: this.gameSessionId,
+                    currentCardCount: this.dealerHand.cards.length,
+                  }),
+                })
+                
+                if (dealerCardResponse.ok) {
+                  const dealerCardData = await dealerCardResponse.json()
+                  
+                  // 딜러 카드 추가
+                  if (dealerCardData.dealerCard) {
+                    const newCard = {
+                      ...dealerCardData.dealerCard,
+                      faceUp: true
+                    }
+                    this.dealerHand.cards.push(newCard)
+                    
+                    // 카드 애니메이션
+                    await this.animateCardToPosition(
+                      'dealer',
+                      newCard,
+                      true,
+                      this.dealerHand.cards.length - 1
+                    )
+                    
+                    // 딜러 점수 업데이트
+                    this.updateScores()
+                    
+                    // 딜러가 17 이상이면 멈춤
+                    if (this.dealerHand.score >= 17) {
+                      break
+                    }
+                  }
+                } else {
+                  // API 호출 실패 시 서버에서 받은 최종 점수로 설정
+                  break
+                }
+              } catch (error) {
+                console.error('Dealer hit error:', error)
+                break
+              }
               
-              // 딜러 점수 업데이트
-              this.updateScores()
+              await this.delay(800) // 다음 카드 받기 전 대기
             }
           }
           
-          // 최종 딜러 점수 설정 (서버에서 받은 점수)
+          // 최종 딜러 점수 설정 (서버에서 받은 점수로 동기화)
           if (dealerFinalScore > 0) {
             this.dealerHand.score = dealerFinalScore
           }
           
-          // 딜러 카드 상태 업데이트 (서버에서 받은 초기 2장만)
+          // 딜러 카드 상태 업데이트 (서버에서 받은 초기 2장)
           if (data.dealerCards && data.dealerCards.length > 0) {
-            this.dealerHand.cards = data.dealerCards.map((c: any) => ({
-              ...c,
-              faceUp: c.faceUp !== false
-            }))
+            // 기존 카드 2장만 업데이트 (추가 카드는 위에서 이미 추가됨)
+            for (let i = 0; i < Math.min(2, data.dealerCards.length); i++) {
+              if (this.dealerHand.cards[i]) {
+                this.dealerHand.cards[i] = {
+                  ...data.dealerCards[i],
+                  faceUp: data.dealerCards[i].faceUp !== false
+                }
+              }
+            }
           }
           
           // cardSprites 상태 업데이트

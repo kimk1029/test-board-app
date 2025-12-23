@@ -260,6 +260,8 @@ export async function POST(request: NextRequest) {
             ...gameData,
             playerCards: playerCards.map(c => ({ suit: c.suit, value: c.value, faceUp: c.faceUp })),
             dealerCards: finalDealerCards.map(c => ({ suit: c.suit, value: c.value, faceUp: c.faceUp })),
+            // 딜러 카드 데이터 저장 (단계적으로 받기 위해)
+            dealerCardsData: finalDealerCards.map(c => ({ suit: c.suit, value: c.value, faceUp: c.faceUp })),
           } as Prisma.InputJsonValue,
         }
       })
@@ -308,6 +310,65 @@ export async function POST(request: NextRequest) {
         dealerCards: initialDealerCards,
         dealerFinalScore: calculateScore(finalDealerCards), // 최종 점수만 알려줌
         dealerCardCount: finalDealerCards.length, // 딜러 카드 개수만 알려줌
+        // 딜러 카드 정보를 세션에 저장 (단계적으로 받기 위해)
+        dealerCardsData: finalDealerCards.map(c => ({ suit: c.suit, value: c.value, faceUp: c.faceUp })),
+      })
+    }
+    
+    // 딜러 카드를 단계적으로 받기
+    if (action === 'dealerHit') {
+      const { sessionId, currentCardCount } = body
+      
+      if (!sessionId) {
+        return NextResponse.json(
+          { error: '게임 세션이 필요합니다.' },
+          { status: 400 }
+        )
+      }
+      
+      const gameSession = await prisma.gameSession.findUnique({
+        where: { id: sessionId }
+      })
+      
+      if (!gameSession || gameSession.userId !== payload.userId) {
+        return NextResponse.json(
+          { error: '유효하지 않은 게임 세션입니다.' },
+          { status: 400 }
+        )
+      }
+      
+      const gameData = gameSession.gameData as any as GameSessionData & { dealerCardsData?: any[] }
+      
+      // 딜러 카드 데이터가 없으면 에러
+      if (!gameData.dealerCardsData || gameData.dealerCardsData.length === 0) {
+        return NextResponse.json(
+          { error: '딜러 카드 데이터를 찾을 수 없습니다.' },
+          { status: 400 }
+        )
+      }
+      
+      // 현재 카드 개수에 따라 다음 카드 반환
+      const nextCardIndex = currentCardCount || 2
+      if (nextCardIndex >= gameData.dealerCardsData.length) {
+        return NextResponse.json(
+          { error: '더 이상 받을 카드가 없습니다.' },
+          { status: 400 }
+        )
+      }
+      
+      const nextCard = gameData.dealerCardsData[nextCardIndex]
+      
+      return NextResponse.json({
+        dealerCard: {
+          suit: nextCard.suit,
+          value: nextCard.value,
+          faceUp: true,
+        },
+        currentScore: calculateScore(gameData.dealerCardsData.slice(0, nextCardIndex + 1).map(c => ({
+          suit: c.suit as Card['suit'],
+          value: c.value,
+          faceUp: c.faceUp !== false,
+        }))),
       })
     }
     
