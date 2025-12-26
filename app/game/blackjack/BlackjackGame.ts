@@ -1104,6 +1104,9 @@ export class BlackjackGame {
                   }
                   
                   await this.delay(500) // 카드 공개 애니메이션 대기
+                  
+                  // 점수 업데이트 (카드가 공개되었으므로)
+                  this.updateScores()
                 }
               }
             } catch (error) {
@@ -1234,6 +1237,9 @@ export class BlackjackGame {
                   if (this.dealerHand.cards[1]) {
                     this.dealerHand.cards[1].faceUp = true
                   }
+                  
+                  // 점수 업데이트 (카드가 공개되었으므로)
+                  this.updateScores()
                 } else {
                   // 스프라이트가 없으면 새로 생성
                   this.cardSprites.set(newCard, {
@@ -1832,8 +1838,15 @@ export class BlackjackGame {
 
   private delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
   private updateScores(useServerDealerScore?: number) {
-      // 플레이어 점수 계산 (항상 클라이언트에서 계산)
-      this.playerHand.score = calculateHandScore(this.playerHand)
+      // 플레이어 점수 계산: 공개된 카드만 계산
+      const visiblePlayerCards = this.playerHand.cards.filter(c => c.faceUp !== false)
+      const playerHandForScore: Hand = {
+        cards: visiblePlayerCards,
+        score: 0,
+        isBlackjack: false,
+        isBust: false
+      }
+      this.playerHand.score = calculateHandScore(playerHandForScore)
       
       // 딜러 점수 계산
       // 서버에서 받은 딜러 점수가 있으면 우선 사용, 없으면 클라이언트에서 계산
@@ -1843,14 +1856,39 @@ export class BlackjackGame {
         this.dealerHand.score = serverScore
       } else {
         // 클라이언트에서 계산 (서버 점수가 없을 때만)
-        // 단, 딜러의 두 번째 카드가 공개되지 않았으면 계산하지 않음
-        const dealerSecondCard = this.dealerHand.cards[1]
-        if (dealerSecondCard?.faceUp === true || this.gameState === GameState.DEALER_TURN || this.gameState === GameState.SETTLEMENT) {
-      this.dealerHand.score = calculateHandScore(this.dealerHand)
+        // 공개된 카드만 계산 (faceUp이 true인 카드만)
+        const visibleDealerCards = this.dealerHand.cards.filter(c => c.faceUp === true)
+        
+        // 딜러의 두 번째 카드가 공개되지 않았으면 첫 번째 카드만 계산
+        if (visibleDealerCards.length < this.dealerHand.cards.length && 
+            this.gameState !== GameState.DEALER_TURN && 
+            this.gameState !== GameState.SETTLEMENT) {
+          // 두 번째 카드가 숨겨져 있으면 첫 번째 카드만 계산
+          if (visibleDealerCards.length > 0) {
+            const dealerHandForScore: Hand = {
+              cards: visibleDealerCards,
+              score: 0,
+              isBlackjack: false,
+              isBust: false
+            }
+            this.dealerHand.score = calculateHandScore(dealerHandForScore)
+          } else {
+            this.dealerHand.score = 0
+          }
+        } else {
+          // 모든 카드가 공개되었거나 딜러 턴/정산 단계면 전체 계산
+          // 공개된 카드만 사용 (임시 카드는 faceUp이 false이므로 자동 제외)
+          const dealerHandForScore: Hand = {
+            cards: visibleDealerCards.length > 0 ? visibleDealerCards : this.dealerHand.cards.filter(c => c.faceUp === true),
+            score: 0,
+            isBlackjack: false,
+            isBust: false
+          }
+          this.dealerHand.score = calculateHandScore(dealerHandForScore)
         }
       }
       
-      // 버스트 및 블랙잭 체크
+      // 버스트 및 블랙잭 체크 (전체 카드로 체크)
       this.playerHand.isBust = isBust(this.playerHand)
       this.playerHand.isBlackjack = isBlackjack(this.playerHand)
       this.dealerHand.isBust = isBust(this.dealerHand)
