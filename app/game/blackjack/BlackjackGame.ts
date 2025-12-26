@@ -702,10 +702,21 @@ export class BlackjackGame {
         this.playerPoints = data.points
         
         // 서버에서 받은 카드로 게임 상태 업데이트
-        this.playerHand.cards = data.playerCards.map((c: any) => ({
-          ...c,
-          faceUp: c.faceUp !== false // 서버에서 faceUp이 true로 설정되어 있음
-        }))
+        this.playerHand.cards = data.playerCards.map((c: any) => {
+          const card = {
+            ...c,
+            faceUp: c.faceUp !== false // 서버에서 faceUp이 true로 설정되어 있음
+          }
+          // 디버깅: A + K/J/Q 조합 확인
+          if (data.playerCards.length === 2) {
+            const hasAce = data.playerCards.some((card: any) => card.value === 'A')
+            const hasFaceCard = data.playerCards.some((card: any) => ['J', 'Q', 'K'].includes(card.value))
+            if (hasAce && hasFaceCard) {
+              console.log('[초기 카드] 플레이어 카드:', data.playerCards.map((c: any) => `${c.value}(${c.suit})`).join(', '))
+            }
+          }
+          return card
+        })
         // 딜러 카드: 첫 번째 카드만 받고, 두 번째 카드는 나중에 받음 (보안)
         // 두 번째 카드는 임시로 뒷면 카드 생성 (나중에 서버에서 받음)
         this.dealerHand.cards = [
@@ -1846,7 +1857,21 @@ export class BlackjackGame {
         isBlackjack: false,
         isBust: false
       }
-      this.playerHand.score = calculateHandScore(playerHandForScore)
+      // 플레이어 점수 계산
+      const calculatedPlayerScore = calculateHandScore(playerHandForScore)
+      
+      // 디버깅: A + K/J/Q 조합 확인
+      if (visiblePlayerCards.length === 2) {
+        const hasAce = visiblePlayerCards.some(c => c.value === 'A')
+        const hasFaceCard = visiblePlayerCards.some(c => ['J', 'Q', 'K'].includes(c.value))
+        if (hasAce && hasFaceCard) {
+          const cardValues = visiblePlayerCards.map(c => `${c.value}(${c.suit})`).join(', ')
+          console.log(`[점수 계산] 플레이어 카드: ${cardValues}, 계산된 점수: ${calculatedPlayerScore}`)
+          console.log(`[점수 계산] 카드 상세:`, visiblePlayerCards.map(c => ({ value: c.value, suit: c.suit, faceUp: c.faceUp })))
+        }
+      }
+      
+      this.playerHand.score = calculatedPlayerScore
       
       // 딜러 점수 계산
       // 서버에서 받은 딜러 점수가 있으면 우선 사용, 없으면 클라이언트에서 계산

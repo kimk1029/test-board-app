@@ -4,9 +4,12 @@ import { Card, Hand } from './types'
 
 // 카드 값에 따른 점수 계산
 export function getCardValue(card: Card): number {
-  if (card.value === 'A') return 11
-  if (['J', 'Q', 'K'].includes(card.value)) return 10
-  return parseInt(card.value) || 0
+  // 값 정규화 (공백 제거, 대문자 변환)
+  const normalizedValue = String(card.value).trim().toUpperCase()
+  
+  if (normalizedValue === 'A') return 11
+  if (['J', 'Q', 'K'].includes(normalizedValue)) return 10
+  return parseInt(normalizedValue) || 0
 }
 
 // 핸드 점수 계산 (A는 1 또는 11)
@@ -14,8 +17,16 @@ export function calculateHandScore(hand: Hand): number {
   let score = 0
   let aceCount = 0
 
+  // 카드가 없으면 0 반환
+  if (!hand.cards || hand.cards.length === 0) {
+    return 0
+  }
+
   hand.cards.forEach((card) => {
-    if (card.value === 'A') {
+    // 값 정규화 (공백 제거, 대문자 변환)
+    const normalizedValue = String(card.value).trim().toUpperCase()
+    
+    if (normalizedValue === 'A') {
       score += 11
       aceCount++
     } else {
