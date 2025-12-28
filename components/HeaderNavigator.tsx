@@ -45,28 +45,65 @@ const HeaderNavigator = () => {
     const token = localStorage.getItem('token')
     const storedUser = localStorage.getItem('user')
 
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
+    // 토큰이 없으면 로그인 상태 해제
+    if (!token) {
+      if (storedUser) {
+        localStorage.removeItem('user')
+        setUser(null)
+      }
+      return
+    }
 
-        if (token) {
+    // 토큰이 있으면 반드시 검증
+    try {
+      const response = await fetch('/api/user/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (response.ok) {
+        // 토큰이 유효함 - 사용자 정보 업데이트
+        const userData = await response.json()
+        setUser(userData)
+        localStorage.setItem('user', JSON.stringify(userData))
+      } else if (response.status === 401) {
+        // 토큰이 유효하지 않음 - 자동 로그아웃
+        console.warn('토큰이 유효하지 않아 자동 로그아웃됩니다.')
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        setUser(null)
+      } else if (response.status === 503) {
+        // 데이터베이스 연결 오류 - 기존 상태 유지하되 경고 표시
+        console.error('데이터베이스 연결 오류:', response.status)
+        if (storedUser) {
           try {
-            const response = await fetch('/api/user/me', {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-
-            if (response.ok) {
-              const userData = await response.json()
-              setUser(userData)
-              localStorage.setItem('user', JSON.stringify(userData))
-            }
-          } catch (error) {
-            console.error('Failed to fetch user data:', error)
+            const parsedUser = JSON.parse(storedUser)
+            setUser(parsedUser)
+          } catch (e) {
+            console.error('Failed to parse user data')
           }
         }
-      } catch (e) {
-        console.error('Failed to parse user data')
+      } else {
+        // 기타 오류 (500 등) - 기존 상태 유지
+        console.error('사용자 정보 조회 실패:', response.status)
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser)
+            setUser(parsedUser)
+          } catch (e) {
+            console.error('Failed to parse user data')
+          }
+        }
+      }
+    } catch (error) {
+      // 네트워크 오류 등 - 기존 상태 유지
+      console.error('Failed to fetch user data:', error)
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
+        } catch (e) {
+          console.error('Failed to parse user data')
+        }
       }
     }
   }
@@ -95,15 +132,9 @@ const HeaderNavigator = () => {
     window.location.href = '/'
   }
 
-  const handleLoginSuccess = () => {
-    const storedUser = localStorage.getItem('user')
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser))
-      } catch (e) {
-        console.error('Failed to parse user data')
-      }
-    }
+  const handleLoginSuccess = async () => {
+    // 로그인 성공 시 즉시 사용자 데이터를 다시 로드하여 헤더 업데이트
+    await loadUserData()
   }
 
   const level = user?.level || 1
