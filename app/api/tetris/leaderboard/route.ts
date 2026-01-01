@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
-// 전체 사용자 리더보드 조회 (상위 3명)
+// 전체 사용자 리더보드 조회 (상위 5명)
 export async function GET(request: NextRequest) {
   try {
     // 1. Fetch top scores (fetch more than limit to handle duplicate users)
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         uniqueMap.set(record.userId, true)
         rankings.push({
           userId: record.userId,
-          nickname: record.user.nickname || record.user.email.split('@')[0],
+          nickname: record.user.nickname || record.user.email?.split('@')[0] || 'Unknown',
           email: record.user.email,
           level: record.user.level,
           score: record.score,

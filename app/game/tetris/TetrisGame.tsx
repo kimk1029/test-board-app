@@ -58,6 +58,7 @@ function createTetrisScene(Phaser: any): any {
     private nextPieceGraphics: any = null;
     private leaderboardTexts: any[] = [];
     private leaderboardData: any[] = [];
+    private gameOverUIElements: any[] = []; // 게임 오버 UI 요소 추적용
 
     constructor() { super('TetrisScene'); }
 
@@ -69,10 +70,24 @@ function createTetrisScene(Phaser: any): any {
     }
 
     create() {
+      // 게임 상태 초기화
       this.gameOver = false;
       this.score = 0;
       this.level = 1;
       this.combo = 0;
+      this.gameStartTime = Date.now();
+      this.activePiece = null;
+      this.nextPiece = null;
+      this.gameOverUIElements = [];
+      this.starPositions = [];
+
+      // 기존 별 제거
+      this.stars.forEach((star: any) => {
+        if (star && star.destroy) {
+          star.destroy();
+        }
+      });
+      this.stars = [];
 
       // 1. 배경 및 별무리
       this.cameras.main.setBackgroundColor('#050510');
@@ -505,11 +520,167 @@ function createTetrisScene(Phaser: any): any {
 
     showGameOver() {
       const { width, height } = this.game.config as any;
-      this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8).setDepth(3000);
-      this.add.text(width / 2, height / 2 - 50, 'MISSION FAILED', { fontSize: '60px', color: '#ff0000', fontWeight: 'bold' }).setOrigin(0.5).setDepth(3001);
-      const btn = this.add.rectangle(width / 2, height / 2 + 50, 200, 50, 0x00aaff).setInteractive({ useHandCursor: true }).setDepth(3001);
-      this.add.text(width / 2, height / 2 + 50, 'RETRY', { fontSize: '24px', color: '#fff' }).setOrigin(0.5).setDepth(3002);
-      btn.on('pointerdown', () => this.scene.restart());
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      // 기존 게임 오버 UI 제거
+      this.gameOverUIElements.forEach((element: any) => {
+        if (element && element.destroy) {
+          element.destroy();
+        }
+      });
+      this.gameOverUIElements = [];
+
+      // 싱글플레이 모드인 경우 점수 저장
+      if (this.mode === 'single') {
+        this.saveScore(this.score);
+      }
+
+      // 게임 오버 오버레이
+      const overlay = this.add.rectangle(centerX, centerY, width, height, 0x000000, 0.8).setDepth(3000);
+      this.gameOverUIElements.push(overlay);
+
+      const gameOverText = this.add.text(centerX, centerY - 80, 'MISSION FAILED', {
+        fontSize: '60px',
+        color: '#ff0000',
+        fontWeight: 'bold'
+      }).setOrigin(0.5).setDepth(3001);
+      this.gameOverUIElements.push(gameOverText);
+
+      const finalScoreText = this.add.text(centerX, centerY - 20, `Final Score: ${this.score.toLocaleString()}`, {
+        fontSize: '32px',
+        color: '#ffffff',
+        fontWeight: 'bold'
+      }).setOrigin(0.5).setDepth(3001);
+      this.gameOverUIElements.push(finalScoreText);
+
+      const btn = this.add.rectangle(centerX, centerY + 80, 200, 50, 0x00aaff).setInteractive({ useHandCursor: true }).setDepth(3001);
+      this.gameOverUIElements.push(btn);
+
+      const btnText = this.add.text(centerX, centerY + 80, 'RETRY', { fontSize: '24px', color: '#fff' }).setOrigin(0.5).setDepth(3002);
+      this.gameOverUIElements.push(btnText);
+
+      // 버튼 호버 효과
+      btn.on('pointerover', () => {
+        btn.setFillStyle(0x0088dd);
+      });
+      btn.on('pointerout', () => {
+        btn.setFillStyle(0x00aaff);
+      });
+
+      // 재시작 버튼 클릭 이벤트
+      btn.on('pointerdown', () => {
+        this.restartGame();
+      });
+    }
+
+    async saveScore(finalScore: number) {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('/api/tetris/action', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            roomId: null,
+            finalScore: finalScore,
+            lines: 0,
+            level: this.level || 1
+          })
+        });
+
+        if (response.ok) {
+          // 점수 저장 후 리더보드 새로고침
+          const { width, height } = this.game.config as any;
+          const gameAreaWidth = Math.floor(width * 0.7);
+          const centerX = gameAreaWidth + (width - gameAreaWidth) / 2;
+          const startY = (height - (ROWS * BLOCK_SIZE)) / 2;
+          this.loadLeaderboard(centerX, startY + 280);
+        }
+      } catch (error) {
+        console.error('Failed to save score:', error);
+      }
+    }
+
+    restartGame() {
+      // 게임 상태 완전 초기화
+      this.gameOver = false;
+      this.score = 0;
+      this.level = 1;
+      this.combo = 0;
+      this.activePiece = null;
+      this.nextPiece = null;
+      this.gameStartTime = Date.now();
+
+      // 그리드 초기화
+      for (let y = 0; y < ROWS; y++) {
+        this.grid[y] = Array(COLS).fill(null);
+      }
+
+      // 게임 오버 UI 제거
+      this.gameOverUIElements.forEach((element: any) => {
+        if (element && element.destroy) {
+          element.destroy();
+        }
+      });
+      this.gameOverUIElements = [];
+
+      // UI 텍스트 업데이트
+      if (this.scoreText) {
+        this.scoreText.setText('SCORE\n0');
+      }
+
+      // 콤보 텍스트 제거
+      if (this.comboText) {
+        this.comboText.destroy();
+        this.comboText = null;
+      }
+
+      // 타이머 재설정
+      if (this.timer) {
+        this.timer.remove();
+        this.timer = null;
+      }
+
+      // ghostGrid 초기화
+      if (this.ghostGrid) {
+        this.ghostGrid.clear();
+      }
+
+      // nextPieceGraphics 초기화
+      if (this.nextPieceGraphics) {
+        this.nextPieceGraphics.clear();
+      }
+
+      // 파티클 시스템 초기화
+      if (this.particles) {
+        this.particles.clear();
+      }
+
+      // 게임 다시 시작
+      this.spawnPiece();
+      this.updateDropTimer();
+      this.drawGrid();
+
+      // 리더보드 다시 로드 (약간의 지연 후)
+      const { width, height } = this.game.config as any;
+      const gameAreaWidth = Math.floor(width * 0.7);
+      const centerX = gameAreaWidth + (width - gameAreaWidth) / 2;
+      const startY = (height - (ROWS * BLOCK_SIZE)) / 2;
+
+      // 약간의 지연 후 리더보드 새로고침
+      this.time.delayedCall(200, () => {
+        const scene = this.scene;
+        if (scene && scene.isActive && typeof scene.isActive === 'function') {
+          if (scene.isActive('TetrisScene') && this.add) {
+            this.loadLeaderboard(centerX, startY + 280);
+          }
+        }
+      });
     }
 
     updateDropTimer() {
