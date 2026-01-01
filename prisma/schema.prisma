@@ -31,6 +31,7 @@ model User {
   likes         Like[]    // 좋아요 한 기록
   missionRewards Json?    @default("[]") // 수령한 미션 보상 목록 (예: ["post_10", "comment_50"])
   holdemPlayers HoldemPlayer[] // 홀덤 플레이어 관계
+  tetrisPlayers TetrisPlayer[] // 테트리스 플레이어 관계
   passwordResetTokens PasswordResetToken[] // 비밀번호 재설정 토큰
   gameSessions GameSession[] // 게임 베팅 세션
 }
@@ -257,6 +258,46 @@ model HoldemPlayer {
   
   @@unique([roomId, userId])
   @@unique([roomId, seatIndex])
+  @@index([roomId])
+  @@index([userId])
+}
+
+// 테트리스 게임 방
+model TetrisRoom {
+  id            String   @id @default(uuid())
+  name          String?
+  mode          String   @default("single") // 'single', 'multiplayer'
+  status        String   @default("waiting") // 'waiting', 'playing', 'finished'
+  gameState     Json?    // 게임 상태 (플레이어별 그리드, 점수 등)
+  winnerId      Int?     // 승자 ID (멀티플레이어 모드)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  players       TetrisPlayer[]
+
+  @@index([status])
+  @@index([mode])
+  @@index([createdAt])
+}
+
+// 테트리스 플레이어 (방 참여자)
+model TetrisPlayer {
+  id          Int      @id @default(autoincrement())
+  roomId      String
+  room        TetrisRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  playerIndex Int      @default(0) // 플레이어 인덱스 (0 또는 1)
+  score       Int      @default(0) // 현재 점수
+  lines       Int      @default(0) // 제거한 라인 수
+  level       Int      @default(1) // 현재 레벨
+  isGameOver  Boolean  @default(false) // 게임 오버 여부
+  grid        Json?    // 현재 그리드 상태
+  currentPiece Json?   // 현재 블록 정보
+  nextPiece   Json?    // 다음 블록 정보
+  createdAt   DateTime @default(now())
+  
+  @@unique([roomId, userId])
+  @@unique([roomId, playerIndex])
   @@index([roomId])
   @@index([userId])
 }

@@ -1,0 +1,562 @@
+"use client";
+
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase 클라이언트 초기화
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+let supabase: any = null;
+if (typeof window !== 'undefined' && SUPABASE_URL && SUPABASE_KEY) {
+  try {
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch (e) {
+    console.error('Supabase client init failed:', e);
+  }
+}
+
+const COLS = 10;
+const ROWS = 20;
+const BLOCK_SIZE = 30;
+
+const TETROMINOS = {
+  I: { shape: [[1, 1, 1, 1]], color: 0x00f0f0 },
+  J: { shape: [[1, 0, 0], [1, 1, 1]], color: 0x0000f0 },
+  L: { shape: [[0, 0, 1], [1, 1, 1]], color: 0xf0a000 },
+  O: { shape: [[1, 1], [1, 1]], color: 0xf0f000 },
+  S: { shape: [[0, 1, 1], [1, 1, 0]], color: 0x00f000 },
+  T: { shape: [[0, 1, 0], [1, 1, 1]], color: 0xa000f0 },
+  Z: { shape: [[1, 1, 0], [0, 1, 1]], color: 0xf00000 },
+};
+
+function createTetrisScene(Phaser: any): any {
+  return class TetrisScene extends Phaser.Scene {
+    private grid: (number | null)[][] = [];
+    private activePiece: any = null;
+    private nextPiece: any = null;
+    private timer: any = null;
+    private ghostGrid: any = null;
+    private stars: Phaser.GameObjects.Graphics[] = [];
+    private particles: any = null;
+    private score: number = 0;
+    private level: number = 1;
+    private gameOver: boolean = false;
+    private combo: number = 0;
+    private comboText: Phaser.GameObjects.Text | null = null;
+    private starPositions: { x: number; y: number; size: number; opacity: number }[][] = [];
+
+    // 멀티플레이어 관련
+    private roomId?: string;
+    private mode: 'single' | 'multiplayer' = 'single';
+    private playerIndex?: number;
+    private channel: any = null;
+    private opponentGrid: (number | null)[][] = [];
+
+    // UI
+    private scoreText: any = null;
+    private nextPieceGraphics: any = null;
+    private leaderboardTexts: any[] = [];
+    private leaderboardData: any[] = [];
+
+    constructor() { super('TetrisScene'); }
+
+    init(data?: any) {
+      const registry = this.game.registry;
+      this.roomId = data?.roomId || registry.get('roomId');
+      this.mode = data?.mode || registry.get('mode') || 'single';
+      this.playerIndex = data?.playerIndex ?? registry.get('playerIndex');
+    }
+
+    create() {
+      this.gameOver = false;
+      this.score = 0;
+      this.level = 1;
+      this.combo = 0;
+
+      // 1. 배경 및 별무리
+      this.cameras.main.setBackgroundColor('#050510');
+      this.createStarfield();
+
+      // 2. 파티클 (ADD 모드로 빛나게 설정)
+      const rect = this.add.graphics().fillStyle(0xffffff).fillRect(0, 0, 4, 4);
+      rect.generateTexture('pixel', 4, 4);
+      this.particles = this.add.particles(0, 0, 'pixel', {
+        speed: { min: 100, max: 500 },
+        scale: { start: 2, end: 0 },
+        blendMode: 'ADD',
+        lifespan: 800,
+        emitting: false
+      });
+
+      // 3. 그리드 초기화
+      for (let y = 0; y < ROWS; y++) this.grid[y] = Array(COLS).fill(null);
+      if (this.mode === 'multiplayer') {
+        for (let y = 0; y < ROWS; y++) this.opponentGrid[y] = Array(COLS).fill(null);
+        this.setupRealtime();
+      }
+
+      this.setupUI();
+
+      // 4. 입력 설정
+      this.input.keyboard?.on('keydown-LEFT', () => this.movePiece(-1, 0));
+      this.input.keyboard?.on('keydown-RIGHT', () => this.movePiece(1, 0));
+      this.input.keyboard?.on('keydown-DOWN', () => this.movePiece(0, 1));
+      this.input.keyboard?.on('keydown-UP', () => this.rotatePiece());
+      this.input.keyboard?.on('keydown-SPACE', () => this.hardDrop());
+
+      this.spawnPiece();
+      this.updateDropTimer();
+    }
+
+    createStarfield() {
+      for (let i = 0; i < 3; i++) {
+        const graphics = this.add.graphics();
+        const layerPositions: { x: number; y: number; size: number; opacity: number }[] = [];
+        const opacity = i === 0 ? 0.9 : 0.4;
+
+        for (let j = 0; j < 80; j++) {
+          const x = Phaser.Math.Between(0, 800);
+          const y = Phaser.Math.Between(0, 800);
+          const size = Phaser.Math.Between(1, 2);
+          layerPositions.push({ x, y, size, opacity });
+          graphics.fillStyle(0xffffff, opacity);
+          graphics.fillCircle(x, y, size);
+        }
+
+        this.starPositions.push(layerPositions);
+        this.stars.push(graphics);
+      }
+    }
+
+    update() {
+      this.stars.forEach((layer, index) => {
+        layer.y += (index + 1) * 0.3;
+        if (layer.y > 0) layer.y = -800;
+      });
+    }
+
+    setupUI() {
+      const { width, height } = this.game.config as any;
+      const gameAreaWidth = Math.floor(width * 0.7);
+      const centerX = gameAreaWidth + (width - gameAreaWidth) / 2;
+      const startY = (height - (ROWS * BLOCK_SIZE)) / 2;
+
+      // 사이드바 패널
+      const panel = this.add.graphics().fillStyle(0x000000, 0.5);
+      panel.fillRoundedRect(gameAreaWidth + 10, startY, width - gameAreaWidth - 20, ROWS * BLOCK_SIZE, 15);
+      panel.lineStyle(2, 0x00ffff, 0.2).strokeRoundedRect(gameAreaWidth + 10, startY, width - gameAreaWidth - 20, ROWS * BLOCK_SIZE, 15);
+
+      this.scoreText = this.add.text(centerX, startY + 50, 'SCORE\n0', { fontSize: '20px', color: '#00ffff', align: 'center', fontWeight: 'bold' }).setOrigin(0.5);
+      this.add.text(centerX, startY + 120, 'NEXT', { fontSize: '16px', color: '#00ffff', fontWeight: 'bold' }).setOrigin(0.5);
+      this.nextPieceGraphics = this.add.graphics();
+
+      // 리더보드 로드
+      this.loadLeaderboard(centerX, startY + 280);
+    }
+
+    async loadLeaderboard(x: number, y: number) {
+      try {
+        const response = await fetch('/api/tetris/leaderboard');
+        if (response.ok) {
+          const data = await response.json();
+          this.leaderboardData = Array.isArray(data) ? data : [];
+          // scene이 활성화되어 있고 add 메서드가 사용 가능한지 확인
+          // 비동기 작업 후에도 씬이 여전히 활성화되어 있는지 확인
+          if (!this.add || !this.scene) {
+            return;
+          }
+
+          try {
+            const isActive = this.scene.isActive && typeof this.scene.isActive === 'function'
+              ? this.scene.isActive('TetrisScene')
+              : true;
+            if (isActive && this.add) {
+              // drawLeaderboard 호출 전에 다시 한번 확인
+              this.drawLeaderboard(x, y);
+            }
+          } catch (e) {
+            // isActive 호출 실패 시에도 add가 있으면 drawLeaderboard 실행
+            if (this.add) {
+              this.drawLeaderboard(x, y);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load leaderboard:', error);
+        this.leaderboardData = [];
+      }
+    }
+
+    drawLeaderboard(x: number, y: number) {
+      // add 메서드를 로컬 변수에 저장 (씬이 파괴되면 null이 될 수 있음)
+      const addMethod = this.add;
+      if (!addMethod || !this.scene) {
+        return;
+      }
+
+      // scene이 활성화되어 있는지 확인 (옵셔널)
+      try {
+        if (this.scene && this.scene.isActive && typeof this.scene.isActive === 'function') {
+          if (!this.scene.isActive('TetrisScene')) {
+            return;
+          }
+        }
+      } catch (e) {
+        // isActive 체크 실패 시 계속 진행
+      }
+
+      // addMethod가 여전히 존재하고 text 함수가 있는지 확인
+      if (!addMethod || typeof addMethod.text !== 'function') {
+        return;
+      }
+
+      // 기존 리더보드 텍스트 제거
+      this.leaderboardTexts.forEach(text => {
+        if (text && text.scene) {
+          text.destroy();
+        }
+      });
+      this.leaderboardTexts = [];
+
+      // 리더보드 타이틀
+      let titleText: any = null;
+      try {
+        // addMethod가 여전히 유효한지 확인
+        if (!addMethod || typeof addMethod.text !== 'function') {
+          return;
+        }
+        // 저장된 addMethod 사용
+        titleText = addMethod.text(x, y, 'TOP PILOTS', {
+          fontSize: '18px',
+          color: '#ffcc00',
+          fontWeight: 'bold'
+        });
+        if (titleText) {
+          titleText.setOrigin(0.5, 0);
+          this.leaderboardTexts.push(titleText);
+        }
+      } catch (e: any) {
+        // 에러가 발생하면 조용히 종료 (씬이 파괴되었을 가능성)
+        if (e && e.message && !e.message.includes('null')) {
+          console.error('Failed to create leaderboard title:', e);
+        }
+        return;
+      }
+
+      let currentY = y + 25;
+
+      // 상위 5명 표시
+      const maxEntries = Math.min(5, this.leaderboardData.length);
+      for (let i = 0; i < maxEntries; i++) {
+        // 각 반복마다 addMethod가 여전히 유효한지 확인
+        if (!addMethod || typeof addMethod.text !== 'function') {
+          return;
+        }
+
+        const entry = this.leaderboardData[i];
+        if (!entry || !entry.nickname) {
+          continue;
+        }
+
+        const rankColors = [0xffd700, 0xc0c0c0, 0xcd7f32, 0xffffff, 0xffffff]; // 금, 은, 동, 나머지
+        const rankSymbols = ['🥇', '🥈', '🥉', '4.', '5.'];
+        const color = i < 3 ? `#${rankColors[i].toString(16).padStart(6, '0')}` : '#ffffff';
+
+        // 닉네임이 너무 길면 자르기
+        const displayName = entry.nickname.length > 10
+          ? entry.nickname.substring(0, 10) + '...'
+          : entry.nickname;
+
+        // 순위와 닉네임
+        let rankText: any = null;
+        let scoreText: any = null;
+        try {
+          rankText = addMethod.text(
+            x - 70,
+            currentY,
+            i < 3 ? `${rankSymbols[i]} ${displayName}` : `${rankSymbols[i]} ${displayName}`,
+            {
+              fontSize: '13px',
+              color: color,
+              fontWeight: i < 3 ? 'bold' : 'normal'
+            }
+          );
+          if (rankText) {
+            rankText.setOrigin(0, 0.5);
+            this.leaderboardTexts.push(rankText);
+          }
+
+          // 점수
+          scoreText = addMethod.text(
+            x + 70,
+            currentY,
+            entry.score ? entry.score.toLocaleString() : '0',
+            {
+              fontSize: '11px',
+              color: '#aaaaaa'
+            }
+          );
+          if (scoreText) {
+            scoreText.setOrigin(1, 0.5);
+            this.leaderboardTexts.push(scoreText);
+          }
+        } catch (e) {
+          console.error('Failed to create leaderboard entry:', e);
+          // 에러 발생 시 생성된 텍스트만 정리하고 반환
+          if (rankText) rankText.destroy();
+          if (scoreText) scoreText.destroy();
+          return;
+        }
+
+        currentY += 30;
+      }
+
+      // 데이터가 없을 때
+      if (this.leaderboardData.length === 0 && addMethod && typeof addMethod.text === 'function') {
+        try {
+          const noDataText = addMethod.text(x, currentY, 'No records yet', {
+            fontSize: '12px',
+            color: '#666666'
+          });
+          if (noDataText) {
+            noDataText.setOrigin(0.5, 0.5);
+            this.leaderboardTexts.push(noDataText);
+          }
+        } catch (e) {
+          console.error('Failed to create no data text:', e);
+        }
+      }
+    }
+
+    spawnPiece() {
+      this.activePiece = this.nextPiece || this.generateRandomPiece();
+      this.nextPiece = this.generateRandomPiece();
+      this.drawNextPiece();
+      if (this.checkCollision(0, 0, this.activePiece.shape)) {
+        this.gameOver = true;
+        this.showGameOver();
+      }
+      this.drawGrid();
+    }
+
+    generateRandomPiece() {
+      const keys = Object.keys(TETROMINOS) as (keyof typeof TETROMINOS)[];
+      const type = keys[Phaser.Math.Between(0, keys.length - 1)];
+      return { x: 4, y: 0, shape: TETROMINOS[type].shape, color: TETROMINOS[type].color };
+    }
+
+    movePiece(dx: number, dy: number) {
+      if (this.gameOver) return false;
+      if (!this.checkCollision(dx, dy, this.activePiece.shape)) {
+        this.activePiece.x += dx; this.activePiece.y += dy;
+        this.drawGrid(); return true;
+      } else if (dy > 0) this.lockPiece();
+      return false;
+    }
+
+    rotatePiece() {
+      const rotated = this.activePiece.shape[0].map((_: any, i: number) => this.activePiece.shape.map((row: any) => row[i]).reverse());
+      if (!this.checkCollision(0, 0, rotated)) { this.activePiece.shape = rotated; this.drawGrid(); }
+    }
+
+    hardDrop() {
+      while (this.movePiece(0, 1)) { }
+      this.cameras.main.shake(100, 0.005);
+    }
+
+    checkCollision(dx: number, dy: number, shape: number[][]) {
+      for (let y = 0; y < shape.length; y++) {
+        for (let x = 0; x < shape[y].length; x++) {
+          if (shape[y][x]) {
+            const nx = this.activePiece.x + x + dx, ny = this.activePiece.y + y + dy;
+            if (nx < 0 || nx >= COLS || ny >= ROWS || (ny >= 0 && this.grid[ny][nx] !== null)) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    lockPiece() {
+      this.activePiece.shape.forEach((row: any, y: any) => {
+        row.forEach((v: any, x: any) => {
+          if (v && this.activePiece.y + y >= 0) this.grid[this.activePiece.y + y][this.activePiece.x + x] = this.activePiece.color;
+        });
+      });
+      this.clearLines();
+      this.spawnPiece();
+    }
+
+    clearLines() {
+      let lines = 0;
+      for (let y = ROWS - 1; y >= 0; y--) {
+        if (this.grid[y].every(c => c !== null)) {
+          this.triggerExplosion(y);
+          this.grid.splice(y, 1);
+          this.grid.unshift(Array(COLS).fill(null));
+          y++; lines++;
+        }
+      }
+      if (lines > 0) {
+        this.combo++;
+        this.score += (lines * 100) + (this.combo * 50);
+        this.scoreText.setText(`SCORE\n${this.score}`);
+        this.showComboEffects(this.combo);
+      } else {
+        this.combo = 0;
+      }
+    }
+
+    showComboEffects(combo: number) {
+      const { width, height } = this.game.config as any;
+      // 1. 점진적 카메라 흔들림 (Combo가 높을수록 강렬)
+      this.cameras.main.shake(Math.min(600, 200 + combo * 50), Math.min(0.04, 0.005 * combo));
+
+      if (this.comboText) this.comboText.destroy();
+      const colors = ['#ffffff', '#00ffff', '#ffff00', '#ffaa00', '#ff0000', '#ff00ff'];
+
+      this.comboText = this.add.text(width / 2, height / 2, `${combo} COMBO!`, {
+        fontSize: `${30 + (combo * 15)}px`, fontStyle: 'bold', color: colors[Math.min(combo, 5)],
+        stroke: '#000', strokeThickness: 8, fontFamily: 'Arial Black'
+      }).setOrigin(0.5).setDepth(2000);
+
+      this.tweens.add({
+        targets: this.comboText, y: height / 2 - 150, scale: 1.3, alpha: 0,
+        duration: 1000, ease: 'Back.easeOut', onComplete: () => this.comboText?.destroy()
+      });
+
+      if (combo >= 3) this.cameras.main.flash(300, 0, 255, 255, 0.2);
+      if (combo >= 5) {
+        // Graphics 객체에는 setTint()가 없으므로 별을 다시 그려서 보라색으로 변경
+        this.stars.forEach((star, index) => {
+          star.clear();
+          const positions = this.starPositions[index] || [];
+          positions.forEach((pos: { x: number; y: number; size: number; opacity: number }) => {
+            star.fillStyle(0xff00ff, pos.opacity);
+            star.fillCircle(pos.x, pos.y, pos.size);
+          });
+        });
+
+        this.time.delayedCall(1000, () => {
+          // 원래 색상(흰색)으로 복원
+          this.stars.forEach((star, index) => {
+            star.clear();
+            const positions = this.starPositions[index] || [];
+            positions.forEach((pos: { x: number; y: number; size: number; opacity: number }) => {
+              star.fillStyle(0xffffff, pos.opacity);
+              star.fillCircle(pos.x, pos.y, pos.size);
+            });
+          });
+        });
+      }
+    }
+
+    triggerExplosion(rowY: number) {
+      const offsetX = (Math.floor(this.game.config.width as number * 0.7) - 300) / 2;
+      const offsetY = (this.game.config.height as number - 600) / 2;
+      const worldY = offsetY + rowY * BLOCK_SIZE;
+
+      const flash = this.add.graphics().fillStyle(0xffffff, 1).fillRect(offsetX, worldY, 300, 30);
+      this.tweens.add({ targets: flash, alpha: 0, scaleY: 0, duration: 300, onComplete: () => flash.destroy() });
+
+      const pCount = 10 + (this.combo * 5);
+      for (let i = 0; i < COLS; i++) {
+        this.particles.emitParticleAt(offsetX + i * BLOCK_SIZE + 15, worldY + 15, pCount);
+      }
+    }
+
+    drawGrid() {
+      if (!this.ghostGrid) this.ghostGrid = this.add.graphics();
+      this.ghostGrid.clear();
+      const offsetX = (Math.floor(this.game.config.width as number * 0.7) - 300) / 2;
+      const offsetY = (this.game.config.height as number - 600) / 2;
+
+      this.ghostGrid.lineStyle(1, 0x00ffff, 0.1);
+      for (let i = 0; i <= COLS; i++) this.ghostGrid.lineBetween(offsetX + i * 30, offsetY, offsetX + i * 30, offsetY + 600);
+      for (let j = 0; j <= ROWS; j++) this.ghostGrid.lineBetween(offsetX, offsetY + j * 30, offsetX + 300, offsetY + j * 30);
+
+      this.grid.forEach((row, y) => row.forEach((col, x) => {
+        if (col !== null) this.drawNeonBlock(offsetX + x * 30, offsetY + y * 30, col);
+      }));
+
+      if (this.activePiece && !this.gameOver) {
+        this.activePiece.shape.forEach((row: any, y: any) => row.forEach((v: any, x: any) => {
+          if (v) this.drawNeonBlock(offsetX + (this.activePiece.x + x) * 30, offsetY + (this.activePiece.y + y) * 30, this.activePiece.color);
+        }));
+      }
+    }
+
+    drawNeonBlock(x: number, y: number, color: number) {
+      this.ghostGrid.fillStyle(color, 0.8).fillRoundedRect(x + 2, y + 2, 26, 26, 6);
+      this.ghostGrid.lineStyle(3, color, 0.4).strokeRoundedRect(x, y, 30, 30, 8);
+      this.ghostGrid.fillStyle(0xffffff, 0.3).fillRect(x + 6, y + 6, 18, 5);
+    }
+
+    drawNextPiece() {
+      this.nextPieceGraphics.clear();
+      const centerX = (this.game.config.width as number) * 0.85;
+      const startY = (this.game.config.height as number - 600) / 2 + 150;
+      this.nextPiece.shape.forEach((row: any, y: any) => row.forEach((v: any, x: any) => {
+        if (v) {
+          this.nextPieceGraphics.fillStyle(this.nextPiece.color, 0.8).fillRoundedRect(centerX - (this.nextPiece.shape[0].length * 10) + x * 20, startY + y * 20, 18, 18, 4);
+        }
+      }));
+    }
+
+    showGameOver() {
+      const { width, height } = this.game.config as any;
+      this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8).setDepth(3000);
+      this.add.text(width / 2, height / 2 - 50, 'MISSION FAILED', { fontSize: '60px', color: '#ff0000', fontWeight: 'bold' }).setOrigin(0.5).setDepth(3001);
+      const btn = this.add.rectangle(width / 2, height / 2 + 50, 200, 50, 0x00aaff).setInteractive({ useHandCursor: true }).setDepth(3001);
+      this.add.text(width / 2, height / 2 + 50, 'RETRY', { fontSize: '24px', color: '#fff' }).setOrigin(0.5).setDepth(3002);
+      btn.on('pointerdown', () => this.scene.restart());
+    }
+
+    updateDropTimer() {
+      if (this.timer) this.timer.remove();
+      this.timer = this.time.addEvent({ delay: Math.max(100, 800 - (this.level - 1) * 100), callback: () => this.movePiece(0, 1), loop: true });
+    }
+
+    setupRealtime() {
+      if (!supabase || !this.roomId) return;
+      this.channel = supabase.channel(`tetris-${this.roomId}`).subscribe();
+    }
+  };
+}
+
+export default function TetrisGame({ roomId, mode = 'single', playerIndex, userId }: any) {
+  const gameRef = useRef<HTMLDivElement>(null);
+  const phaserGameRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!gameRef.current) return;
+    import('phaser').then((Phaser) => {
+      if (phaserGameRef.current) phaserGameRef.current.destroy(true);
+      const config = {
+        type: Phaser.AUTO,
+        width: 800, // 사이드바 공간 확보
+        height: 700,
+        parent: gameRef.current,
+        scene: createTetrisScene(Phaser),
+      };
+      const game = new Phaser.Game(config);
+      phaserGameRef.current = game;
+      game.events.once('ready', () => {
+        game.registry.set('roomId', roomId);
+        game.registry.set('mode', mode);
+        game.registry.set('playerIndex', playerIndex);
+      });
+    });
+    return () => phaserGameRef.current?.destroy(true);
+  }, [roomId, mode, playerIndex, userId]);
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full h-full bg-black overflow-hidden p-4">
+      <div className="relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+        <div ref={gameRef} className="relative rounded-xl overflow-hidden border border-white/10 shadow-2xl" />
+      </div>
+      <p className="mt-4 text-gray-500 text-xs tracking-widest uppercase">Navigation: Arrows | Hyper-Drop: Space</p>
+    </div>
+  );
+}
