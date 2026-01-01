@@ -40,51 +40,25 @@ function TetrisGameComponent() {
   const [loading, setLoading] = useState(true)
   const [isDemo, setIsDemo] = useState(false)
 
-  useEffect(() => {
-    // 모드가 선택되지 않았으면 로딩 종료
-    if (!mode) {
-      setLoading(false)
-      return
-    }
-
-    // 인증 확인
-    const token = localStorage.getItem('token')
-    if (!token) {
-      setIsDemo(true)
-      setLoading(false)
-      return
-    }
-
-    try {
-      const storedUser = localStorage.getItem('user')
-      if (storedUser) {
-        const user = JSON.parse(storedUser)
-        const parsedUserId = user.id
-        setUserId(parsedUserId)
-
-        // 멀티플레이어 모드인 경우 방 정보 가져오기
-        if (mode === 'multiplayer' && roomId) {
-          fetchRoomInfo(roomId, parsedUserId)
-        } else {
-          setLoading(false)
-        }
-      } else {
-        setLoading(false)
-      }
-    } catch (e) {
-      console.error('Failed to parse user data:', e)
-      setLoading(false)
-    }
-  }, [roomId, mode])
-
   const fetchRoomInfo = async (roomId: string, currentUserId: number) => {
     try {
       const token = localStorage.getItem('token')
+      if (!token) {
+        setLoading(false)
+        return
+      }
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10초 타임아웃
+
       const response = await fetch(`/api/tetris/room?roomId=${roomId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         const data = await response.json()
@@ -93,13 +67,95 @@ function TetrisGameComponent() {
         if (myPlayer) {
           setPlayerIndex(myPlayer.playerIndex)
         }
+      } else {
+        console.error('Failed to fetch room info:', response.status, response.statusText)
       }
-    } catch (error) {
-      console.error('Failed to fetch room info:', error)
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('Request timeout while fetching room info')
+      } else {
+        console.error('Failed to fetch room info:', error)
+      }
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    // 안전장치: 15초 후에도 로딩이 끝나지 않으면 강제로 로딩 종료
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.warn('Loading timeout - forcing load to complete')
+        setLoading(false)
+      }
+    }, 15000)
+
+    // 모드가 선택되지 않았으면 로딩 종료
+    if (!mode) {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (isMounted) {
+        setLoading(false)
+      }
+      return
+    }
+
+    // 인증 확인
+    const token = localStorage.getItem('token')
+    if (!token) {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (isMounted) {
+        setIsDemo(true)
+        setLoading(false)
+      }
+      return
+    }
+
+    try {
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        const user = JSON.parse(storedUser)
+        const parsedUserId = user.id
+        if (isMounted) {
+          setUserId(parsedUserId)
+        }
+
+        // 멀티플레이어 모드인 경우 방 정보 가져오기
+        if (mode === 'multiplayer' && roomId) {
+          fetchRoomInfo(roomId, parsedUserId).catch((error) => {
+            console.error('Failed to fetch room info:', error)
+            if (timeoutId) clearTimeout(timeoutId)
+            if (isMounted) {
+              setLoading(false)
+            }
+          })
+        } else {
+          if (timeoutId) clearTimeout(timeoutId)
+          if (isMounted) {
+            setLoading(false)
+          }
+        }
+      } else {
+        if (timeoutId) clearTimeout(timeoutId)
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse user data:', e)
+      if (timeoutId) clearTimeout(timeoutId)
+      if (isMounted) {
+        setLoading(false)
+      }
+    }
+
+    return () => {
+      isMounted = false
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [roomId, mode])
 
   const handleCreateRoom = async () => {
     try {

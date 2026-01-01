@@ -35,6 +35,8 @@ function createTetrisScene(Phaser: any): any {
     private grid: (number | null)[][] = [];
     private activePiece: any = null;
     private nextPiece: any = null;
+    private holdPiece: any = null; // 홀드 블록
+    private canHold: boolean = true; // 홀드 가능 여부 (한 블록을 내려놓을 때까지 한 번만)
     private timer: any = null;
     private ghostGrid: any = null;
     private stars: Phaser.GameObjects.Graphics[] = [];
@@ -56,6 +58,7 @@ function createTetrisScene(Phaser: any): any {
     // UI
     private scoreText: any = null;
     private nextPieceGraphics: any = null;
+    private holdPieceGraphics: any = null; // 홀드 블록 그래픽
     private leaderboardTexts: any[] = [];
     private leaderboardData: any[] = [];
     private gameOverUIElements: any[] = []; // 게임 오버 UI 요소 추적용
@@ -78,6 +81,8 @@ function createTetrisScene(Phaser: any): any {
       this.gameStartTime = Date.now();
       this.activePiece = null;
       this.nextPiece = null;
+      this.holdPiece = null;
+      this.canHold = true;
       this.gameOverUIElements = [];
       this.starPositions = [];
 
@@ -119,6 +124,7 @@ function createTetrisScene(Phaser: any): any {
       this.input.keyboard?.on('keydown-DOWN', () => this.movePiece(0, 1));
       this.input.keyboard?.on('keydown-UP', () => this.rotatePiece());
       this.input.keyboard?.on('keydown-SPACE', () => this.hardDrop());
+      this.input.keyboard?.on('keydown-C', () => this.holdCurrentPiece());
 
       this.spawnPiece();
       this.updateDropTimer();
@@ -163,11 +169,17 @@ function createTetrisScene(Phaser: any): any {
       panel.lineStyle(2, 0x00ffff, 0.2).strokeRoundedRect(gameAreaWidth + 10, startY, width - gameAreaWidth - 20, ROWS * BLOCK_SIZE, 15);
 
       this.scoreText = this.add.text(centerX, startY + 50, 'SCORE\n0', { fontSize: '20px', color: '#00ffff', align: 'center', fontWeight: 'bold' }).setOrigin(0.5);
-      this.add.text(centerX, startY + 120, 'NEXT', { fontSize: '16px', color: '#00ffff', fontWeight: 'bold' }).setOrigin(0.5);
+
+      // 홀드 영역
+      this.add.text(centerX, startY + 130, 'HOLD', { fontSize: '16px', color: '#00ffff', fontWeight: 'bold' }).setOrigin(0.5);
+      this.holdPieceGraphics = this.add.graphics();
+
+      // 다음 블록 영역
+      this.add.text(centerX, startY + 220, 'NEXT', { fontSize: '16px', color: '#00ffff', fontWeight: 'bold' }).setOrigin(0.5);
       this.nextPieceGraphics = this.add.graphics();
 
       // 리더보드 로드
-      this.loadLeaderboard(centerX, startY + 280);
+      this.loadLeaderboard(centerX, startY + 380);
     }
 
     async loadLeaderboard(x: number, y: number) {
@@ -347,7 +359,9 @@ function createTetrisScene(Phaser: any): any {
     spawnPiece() {
       this.activePiece = this.nextPiece || this.generateRandomPiece();
       this.nextPiece = this.generateRandomPiece();
+      this.canHold = true; // 새 블록이 생성되면 홀드 가능
       this.drawNextPiece();
+      this.drawHoldPiece(); // 홀드 블록도 다시 그리기
       if (this.checkCollision(0, 0, this.activePiece.shape)) {
         this.gameOver = true;
         this.showGameOver();
@@ -362,7 +376,7 @@ function createTetrisScene(Phaser: any): any {
     }
 
     movePiece(dx: number, dy: number) {
-      if (this.gameOver) return false;
+      if (this.gameOver || !this.activePiece) return false;
       if (!this.checkCollision(dx, dy, this.activePiece.shape)) {
         this.activePiece.x += dx; this.activePiece.y += dy;
         this.drawGrid(); return true;
@@ -376,6 +390,7 @@ function createTetrisScene(Phaser: any): any {
     }
 
     hardDrop() {
+      if (!this.activePiece) return;
       while (this.movePiece(0, 1)) { }
       this.cameras.main.shake(100, 0.005);
     }
@@ -400,6 +415,42 @@ function createTetrisScene(Phaser: any): any {
       });
       this.clearLines();
       this.spawnPiece();
+    }
+
+    holdCurrentPiece() {
+      if (!this.canHold || !this.activePiece || this.gameOver) return;
+
+      // 현재 블록의 shape를 deep copy하여 저장 (회전 상태 유지)
+      const currentPieceShape = this.activePiece.shape.map((row: any) => [...row]);
+      const currentPieceType = {
+        shape: currentPieceShape,
+        color: this.activePiece.color
+      };
+
+      if (this.holdPiece) {
+        // 홀드에 블록이 있으면 교환
+        const tempHold = this.holdPiece;
+        this.holdPiece = currentPieceType;
+
+        // 홀드된 블록의 shape를 deep copy하여 현재 블록으로
+        const holdShape = tempHold.shape.map((row: any) => [...row]);
+        this.activePiece = {
+          x: 4,
+          y: 0,
+          shape: holdShape,
+          color: tempHold.color
+        };
+      } else {
+        // 홀드가 비어있으면 현재 블록을 홀드로 이동하고 다음 블록을 현재 블록으로
+        this.holdPiece = currentPieceType;
+        this.activePiece = this.nextPiece || this.generateRandomPiece();
+        this.nextPiece = this.generateRandomPiece();
+        this.drawNextPiece();
+      }
+
+      this.canHold = false; // 한 번 홀드했으면 다음 블록을 내려놓을 때까지 홀드 불가
+      this.drawHoldPiece();
+      this.drawGrid();
     }
 
     clearLines() {
@@ -508,12 +559,28 @@ function createTetrisScene(Phaser: any): any {
     }
 
     drawNextPiece() {
+      if (!this.nextPieceGraphics || !this.nextPiece) return;
       this.nextPieceGraphics.clear();
       const centerX = (this.game.config.width as number) * 0.85;
-      const startY = (this.game.config.height as number - 600) / 2 + 150;
+      const startY = (this.game.config.height as number - 600) / 2 + 240;
       this.nextPiece.shape.forEach((row: any, y: any) => row.forEach((v: any, x: any) => {
         if (v) {
           this.nextPieceGraphics.fillStyle(this.nextPiece.color, 0.8).fillRoundedRect(centerX - (this.nextPiece.shape[0].length * 10) + x * 20, startY + y * 20, 18, 18, 4);
+        }
+      }));
+    }
+
+    drawHoldPiece() {
+      if (!this.holdPieceGraphics) return;
+      this.holdPieceGraphics.clear();
+
+      if (!this.holdPiece) return; // 홀드가 비어있으면 그리지 않음
+
+      const centerX = (this.game.config.width as number) * 0.85;
+      const startY = (this.game.config.height as number - 600) / 2 + 150;
+      this.holdPiece.shape.forEach((row: any, y: any) => row.forEach((v: any, x: any) => {
+        if (v) {
+          this.holdPieceGraphics.fillStyle(this.holdPiece.color, 0.8).fillRoundedRect(centerX - (this.holdPiece.shape[0].length * 10) + x * 20, startY + y * 20, 18, 18, 4);
         }
       }));
     }
@@ -656,9 +723,18 @@ function createTetrisScene(Phaser: any): any {
         this.nextPieceGraphics.clear();
       }
 
+      // holdPieceGraphics 초기화
+      if (this.holdPieceGraphics) {
+        this.holdPieceGraphics.clear();
+      }
+
+      // 홀드 관련 초기화
+      this.holdPiece = null;
+      this.canHold = true;
+
       // 파티클 시스템 초기화
       if (this.particles) {
-        this.particles.clear();
+        this.particles.stop();
       }
 
       // 게임 다시 시작
@@ -698,27 +774,63 @@ function createTetrisScene(Phaser: any): any {
 export default function TetrisGame({ roomId, mode = 'single', playerIndex, userId }: any) {
   const gameRef = useRef<HTMLDivElement>(null);
   const phaserGameRef = useRef<any>(null);
+  const [phaserLoaded, setPhaserLoaded] = useState(false);
 
   useEffect(() => {
     if (!gameRef.current) return;
+
+    let isMounted = true;
+
     import('phaser').then((Phaser) => {
-      if (phaserGameRef.current) phaserGameRef.current.destroy(true);
-      const config = {
-        type: Phaser.AUTO,
-        width: 800, // 사이드바 공간 확보
-        height: 700,
-        parent: gameRef.current,
-        scene: createTetrisScene(Phaser),
-      };
-      const game = new Phaser.Game(config);
-      phaserGameRef.current = game;
-      game.events.once('ready', () => {
-        game.registry.set('roomId', roomId);
-        game.registry.set('mode', mode);
-        game.registry.set('playerIndex', playerIndex);
-      });
+      if (!isMounted || !gameRef.current) return;
+
+      try {
+        if (phaserGameRef.current) {
+          phaserGameRef.current.destroy(true);
+          phaserGameRef.current = null;
+        }
+
+        const config = {
+          type: Phaser.AUTO,
+          width: 800,
+          height: 700,
+          parent: gameRef.current,
+          scene: createTetrisScene(Phaser),
+        };
+
+        const game = new Phaser.Game(config);
+        phaserGameRef.current = game;
+
+        game.events.once('ready', () => {
+          if (isMounted && game && phaserGameRef.current === game) {
+            try {
+              game.registry.set('roomId', roomId);
+              game.registry.set('mode', mode);
+              game.registry.set('playerIndex', playerIndex);
+              setPhaserLoaded(true);
+            } catch (error) {
+              console.error('Error setting game registry:', error);
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Failed to initialize Phaser game:', error);
+      }
+    }).catch((error) => {
+      console.error('Failed to load Phaser:', error);
     });
-    return () => phaserGameRef.current?.destroy(true);
+
+    return () => {
+      isMounted = false;
+      if (phaserGameRef.current) {
+        try {
+          phaserGameRef.current.destroy(true);
+          phaserGameRef.current = null;
+        } catch (error) {
+          console.error('Error destroying Phaser game:', error);
+        }
+      }
+    };
   }, [roomId, mode, playerIndex, userId]);
 
   return (
