@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import GameContainer from '@/components/GameContainer'
 import TetrisGame from './TetrisGame'
+import { getWebSocketClient } from '@/lib/websocket'
 
 function RoomJoinForm({ onJoin }: { onJoin: (roomId: string) => void }) {
   const [roomId, setRoomId] = useState('')
@@ -17,6 +18,11 @@ function RoomJoinForm({ onJoin }: { onJoin: (roomId: string) => void }) {
         onChange={(e) => setRoomId(e.target.value)}
         placeholder="방 ID 입력"
         className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && roomId) {
+            onJoin(roomId)
+          }
+        }}
       />
       <button
         onClick={() => onJoin(roomId)}
@@ -25,6 +31,53 @@ function RoomJoinForm({ onJoin }: { onJoin: (roomId: string) => void }) {
       >
         입장
       </button>
+    </div>
+  )
+}
+
+function RoomList({ rooms, onJoin, onRefresh }: { rooms: any[], onJoin: (roomId: string) => void, onRefresh: () => void }) {
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-bold text-white">방 목록</h3>
+        <button
+          onClick={onRefresh}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-colors"
+        >
+          새로고침
+        </button>
+      </div>
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {rooms.length === 0 ? (
+          <div className="text-gray-400 text-center py-8">대기 중인 방이 없습니다</div>
+        ) : (
+          rooms.map((room) => (
+            <div
+              key={room.id}
+              className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors cursor-pointer"
+              onClick={() => onJoin(room.id)}
+            >
+              <div>
+                <div className="text-white font-bold">
+                  방 #{room.id.substring(0, 8)}
+                </div>
+                <div className="text-gray-400 text-sm">
+                  플레이어 {room.players?.length || 0}/2 · {room.status === 'waiting' ? '대기 중' : room.status === 'playing' ? '게임 중' : '종료'}
+                </div>
+              </div>
+              <button
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-sm transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onJoin(room.id)
+                }}
+              >
+                입장
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }
@@ -39,44 +92,66 @@ function TetrisGameComponent() {
   const [playerIndex, setPlayerIndex] = useState<number | undefined>()
   const [loading, setLoading] = useState(true)
   const [isDemo, setIsDemo] = useState(false)
+  const [rooms, setRooms] = useState<any[]>([])
 
   const fetchRoomInfo = async (roomId: string, currentUserId: number) => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        setLoading(false)
-        return
-      }
+      const wsClient = getWebSocketClient()
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10초 타임아웃
-
-      const response = await fetch(`/api/tetris/room?roomId=${roomId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-
-      if (response.ok) {
-        const data = await response.json()
-        // 플레이어 인덱스 찾기
-        const myPlayer = data.players?.find((p: any) => p.userId === currentUserId)
-        if (myPlayer) {
-          setPlayerIndex(myPlayer.playerIndex)
+      // 웹소켓 연결 확인
+      if (!wsClient.isConnected) {
+        const token = localStorage.getItem('token')
+        const storedUser = localStorage.getItem('user')
+        let userId: number | undefined
+        let username: string | undefined
+        if (storedUser) {
+          const user = JSON.parse(storedUser)
+          userId = user.id
+          username = user.nickname || user.email?.split('@')[0]
         }
-      } else {
-        console.error('Failed to fetch room info:', response.status, response.statusText)
+        await wsClient.connect(userId, username, token || undefined)
       }
+
+      // 방 참가 리스너
+      const handleRoomJoined = (payload: { room: any }) => {
+        wsClient.off('room_joined', handleRoomJoined)
+        if (payload.room && payload.room.players) {
+          const myPlayer = payload.room.players.find((p: any) => p.userId === currentUserId)
+          if (myPlayer) {
+            // playerIndex는 웹소켓 서버에서 관리하지 않으므로 players 배열 인덱스 사용
+            const index = payload.room.players.findIndex((p: any) => p.userId === currentUserId)
+            setPlayerIndex(index >= 0 ? index : 0)
+          }
+        }
+        setLoading(false)
+      }
+
+      const handleRoomUpdate = (payload: { room: any }) => {
+        if (payload.room && payload.room.id === roomId && payload.room.players) {
+          const myPlayer = payload.room.players.find((p: any) => p.userId === currentUserId)
+          if (myPlayer) {
+            const index = payload.room.players.findIndex((p: any) => p.userId === currentUserId)
+            setPlayerIndex(index >= 0 ? index : 0)
+          }
+        }
+      }
+
+      wsClient.on('room_joined', handleRoomJoined)
+      wsClient.on('room_update', handleRoomUpdate)
+
+      // 방에 참가
+      wsClient.joinRoom(roomId)
+
+      // 타임아웃 설정
+      setTimeout(() => {
+        wsClient.off('room_joined', handleRoomJoined)
+        wsClient.off('room_update', handleRoomUpdate)
+        if (loading) {
+          setLoading(false)
+        }
+      }, 5000)
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.error('Request timeout while fetching room info')
-      } else {
-        console.error('Failed to fetch room info:', error)
-      }
-    } finally {
+      console.error('Failed to join room via WebSocket:', error)
       setLoading(false)
     }
   }
@@ -84,6 +159,7 @@ function TetrisGameComponent() {
   useEffect(() => {
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
+    let roomListCleanup: (() => void) | undefined
 
     // 안전장치: 15초 후에도 로딩이 끝나지 않으면 강제로 로딩 종료
     timeoutId = setTimeout(() => {
@@ -93,13 +169,19 @@ function TetrisGameComponent() {
       }
     }, 15000)
 
-    // 모드가 선택되지 않았으면 로딩 종료
+    // 모드가 선택되지 않았으면 로딩 종료 및 방 목록 로드
     if (!mode) {
       if (timeoutId) clearTimeout(timeoutId)
       if (isMounted) {
         setLoading(false)
+        // 방 목록 로드
+        fetchRoomList().then((cleanup) => {
+          if (cleanup) roomListCleanup = cleanup
+        })
       }
-      return
+      return () => {
+        if (roomListCleanup) roomListCleanup()
+      }
     }
 
     // 인증 확인
@@ -154,8 +236,51 @@ function TetrisGameComponent() {
     return () => {
       isMounted = false
       if (timeoutId) clearTimeout(timeoutId)
+      if (roomListCleanup) roomListCleanup()
     }
   }, [roomId, mode])
+
+  const fetchRoomList = async () => {
+    try {
+      const { getWebSocketClient } = await import('@/lib/websocket')
+      const wsClient = getWebSocketClient()
+
+      // 웹소켓 연결 확인
+      if (!wsClient.isConnected) {
+        const token = localStorage.getItem('token')
+        const storedUser = localStorage.getItem('user')
+        let userId: number | undefined
+        let username: string | undefined
+        if (storedUser) {
+          const user = JSON.parse(storedUser)
+          userId = user.id
+          username = user.nickname || user.email?.split('@')[0]
+        }
+        await wsClient.connect(userId, username, token || undefined)
+      }
+
+      // 방 목록 리스너
+      const handleRoomList = (payload: { rooms: any[] }) => {
+        const tetrisRooms = payload.rooms.filter((room: any) => room.type === 'tetris' && room.status === 'waiting')
+        setRooms(tetrisRooms)
+      }
+
+      wsClient.on('room_list', handleRoomList)
+      wsClient.getRooms('tetris')
+
+      // 주기적으로 방 목록 새로고침
+      const intervalId = setInterval(() => {
+        wsClient.getRooms('tetris')
+      }, 3000)
+
+      return () => {
+        clearInterval(intervalId)
+        wsClient.off('room_list', handleRoomList)
+      }
+    } catch (error) {
+      console.error('Failed to fetch room list:', error)
+    }
+  }
 
   const handleCreateRoom = async () => {
     try {
@@ -165,21 +290,32 @@ function TetrisGameComponent() {
         return
       }
 
-      const response = await fetch('/api/tetris/room', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          mode: 'multiplayer'
-        })
-      })
+      const { getWebSocketClient } = await import('@/lib/websocket')
+      const wsClient = getWebSocketClient()
 
-      if (response.ok) {
-        const data = await response.json()
-        router.push(`/game/tetris?mode=multiplayer&roomId=${data.roomId}`)
+      // 웹소켓 연결 확인
+      if (!wsClient.isConnected) {
+        const storedUser = localStorage.getItem('user')
+        let userId: number | undefined
+        let username: string | undefined
+        if (storedUser) {
+          const user = JSON.parse(storedUser)
+          userId = user.id
+          username = user.nickname || user.email?.split('@')[0]
+        }
+        await wsClient.connect(userId, username, token)
       }
+
+      // 방 생성 리스너
+      const handleRoomCreated = (payload: { room: any }) => {
+        wsClient.off('room_created', handleRoomCreated)
+        // 방 목록 새로고침
+        wsClient.getRooms('tetris')
+        router.push(`/game/tetris?mode=multiplayer&roomId=${payload.room.id}`)
+      }
+
+      wsClient.on('room_created', handleRoomCreated)
+      wsClient.createRoom('tetris')
     } catch (error) {
       console.error('Failed to create room:', error)
     }
@@ -193,21 +329,37 @@ function TetrisGameComponent() {
         return
       }
 
-      const response = await fetch('/api/tetris/room', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          roomId: targetRoomId,
-          mode: 'multiplayer'
-        })
-      })
+      const { getWebSocketClient } = await import('@/lib/websocket')
+      const wsClient = getWebSocketClient()
 
-      if (response.ok) {
+      // 웹소켓 연결 확인
+      if (!wsClient.isConnected) {
+        const storedUser = localStorage.getItem('user')
+        let userId: number | undefined
+        let username: string | undefined
+        if (storedUser) {
+          const user = JSON.parse(storedUser)
+          userId = user.id
+          username = user.nickname || user.email?.split('@')[0]
+        }
+        await wsClient.connect(userId, username, token)
+      }
+
+      // 방 참가 리스너
+      const handleRoomJoined = (payload: { room: any }) => {
+        wsClient.off('room_joined', handleRoomJoined)
         router.push(`/game/tetris?mode=multiplayer&roomId=${targetRoomId}`)
       }
+
+      const handleError = (payload: { message: string }) => {
+        wsClient.off('error', handleError)
+        console.error('Failed to join room:', payload.message)
+        alert('방 입장에 실패했습니다: ' + payload.message)
+      }
+
+      wsClient.on('room_joined', handleRoomJoined)
+      wsClient.on('error', handleError)
+      wsClient.joinRoom(targetRoomId)
     } catch (error) {
       console.error('Failed to join room:', error)
     }
@@ -231,29 +383,43 @@ function TetrisGameComponent() {
             Cosmic Tetris
           </h1>
           
-          <div className="flex flex-col gap-4 w-full max-w-md">
-            <button
-              onClick={() => router.push('/game/tetris?mode=single')}
-              className="px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-lg transition-colors"
-            >
-              싱글플레이
-            </button>
-            
-            <button
-              onClick={handleCreateRoom}
-              className="px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-lg transition-colors"
-            >
-              새 방 만들기
-            </button>
+          <div className="flex flex-col gap-6 w-full max-w-2xl">
+            <div className="flex gap-4">
+              <button
+                onClick={() => router.push('/game/tetris?mode=single')}
+                className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-lg transition-colors"
+              >
+                싱글플레이
+              </button>
+              
+              <button
+                onClick={handleCreateRoom}
+                className="flex-1 px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-lg transition-colors"
+              >
+                새 방 만들기
+              </button>
+            </div>
 
-            <div className="mt-8">
+            <div className="mt-4">
               <h2 className="text-xl font-bold text-white mb-4">방 입장하기</h2>
               <RoomJoinForm onJoin={handleJoinRoom} />
             </div>
 
+            <div className="mt-4">
+              <RoomList 
+                rooms={rooms} 
+                onJoin={handleJoinRoom}
+                onRefresh={() => {
+                  const { getWebSocketClient } = require('@/lib/websocket')
+                  const wsClient = getWebSocketClient()
+                  wsClient.getRooms('tetris')
+                }}
+              />
+            </div>
+
             <button
               onClick={() => router.push('/game')}
-              className="mt-8 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold text-sm transition-colors"
+              className="mt-4 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold text-sm transition-colors"
             >
               ← 게임 로비로 돌아가기
             </button>

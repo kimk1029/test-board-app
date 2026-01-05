@@ -6,7 +6,7 @@ import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Gift, TrendingUp, Clover, Club, Disc, Layers, Rocket, Wind, Users,
-    BarChart2, Trophy, Coins, Zap, LayoutGrid, Dices, Award, Box, Shield
+    BarChart2, Trophy, Coins, Zap, LayoutGrid, Dices, Award, Box, Shield, Sparkles
 } from 'lucide-react'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -35,7 +35,8 @@ const GAMES = {
         { id: 'tetris', name: 'Tetris', desc: '우주 테트리스', icon: LayoutGrid, path: '/game/tetris', color: 'from-blue-500 to-cyan-700', accent: 'text-blue-400', multiplayer: true },
     ],
     shop: [ // Kuji moved to shop category for display
-        { id: 'kuji', name: 'Ichiban Kuji', desc: '행운의 뽑기! (100P)', icon: Gift, path: '/game/kuji', color: 'from-yellow-500 to-amber-700', accent: 'text-yellow-500', inProgress: true }
+        { id: 'kuji', name: 'Ichiban Kuji', desc: '행운의 뽑기! (100P)', icon: Gift, path: '/game/kuji', color: 'from-yellow-500 to-amber-700', accent: 'text-yellow-500', inProgress: true },
+        { id: 'space-race', name: '우주 레이스', desc: '우주를 가르는 레이스', icon: Rocket, path: '/game/kuji/space-race', color: 'from-cyan-500 to-blue-700', accent: 'text-cyan-400' }
     ]
 }
 

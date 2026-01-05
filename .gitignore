@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/websocket-server/node_modules
+**/node_modules
 /.pnp
 .pnp.js
 
@@ -15,6 +17,7 @@
 
 # production
 /build
+/websocket-server/dist
 
 # misc
 .DS_Store
