@@ -6,7 +6,7 @@ import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Gift, TrendingUp, Clover, Club, Disc, Layers, Rocket, Wind, Users,
-    BarChart2, Trophy, Coins, Zap, LayoutGrid, Dices, Award, Box, Shield, Sparkles
+    BarChart2, Trophy, Coins, Zap, LayoutGrid, Dices, Award, Box, Shield, Sparkles, Wrench
 } from 'lucide-react'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 // --- Game Data ---
 const GAMES = {
     casino: [
-        { id: 'holdem', name: 'Texas Holdem', desc: '심리전의 정수, 텍사스 홀덤', icon: Users, path: '/game/holdem', color: 'from-red-600 to-rose-900', accent: 'text-red-500', multiplayer: true },
+        { id: 'holdem', name: 'Texas Holdem', desc: '심리전의 정수, 텍사스 홀덤', icon: Users, path: '/game/holdem', color: 'from-red-600 to-rose-900', accent: 'text-red-500', multiplayer: true, maintenance: true },
         { id: 'blackjack', name: 'Blackjack', desc: '21을 향한 승부', icon: Club, path: '/game/blackjack', color: 'from-slate-700 to-slate-900', accent: 'text-slate-400' },
         { id: 'bustabit', name: 'Graph Game', desc: '타이밍이 생명! 그래프', icon: TrendingUp, path: '/game/bustabit', color: 'from-orange-600 to-red-700', accent: 'text-orange-500' },
         { id: 'roulette', name: 'Roulette', desc: '운명의 휠을 돌려라', icon: Disc, path: '/game/roulette', color: 'from-purple-600 to-pink-700', accent: 'text-purple-500' },
@@ -32,7 +32,7 @@ const GAMES = {
         { id: 'stairs', name: 'Infinite Stairs', desc: '무한 계단 오르기', icon: Layers, path: '/game/stairs', color: 'from-blue-600 to-indigo-700', accent: 'text-blue-500' },
         { id: 'stacker', name: 'Stacker', desc: '블록을 쌓아 올려라', icon: Box, path: '/game/stacker', color: 'from-cyan-600 to-purple-700', accent: 'text-cyan-400' },
         { id: 'orbital-defense', name: 'Orbital Defense', desc: '궤도를 지켜라', icon: Shield, path: '/game/orbital-defense', color: 'from-green-600 to-yellow-600', accent: 'text-green-400' },
-        { id: 'tetris', name: 'Tetris', desc: '우주 테트리스', icon: LayoutGrid, path: '/game/tetris', color: 'from-blue-500 to-cyan-700', accent: 'text-blue-400', multiplayer: true },
+        { id: 'tetris', name: 'Tetris', desc: '우주 테트리스', icon: LayoutGrid, path: '/game/tetris', color: 'from-blue-500 to-cyan-700', accent: 'text-blue-400', multiplayer: true, maintenance: true },
     ],
     shop: [ // Kuji moved to shop category for display
         { id: 'kuji', name: 'Ichiban Kuji', desc: '행운의 뽑기! (100P)', icon: Gift, path: '/game/kuji', color: 'from-yellow-500 to-amber-700', accent: 'text-yellow-500', inProgress: true },
@@ -155,21 +155,35 @@ export default function GameLobby() {
         const stat = gameStats?.find((s: any) => s.gameType === game.id)
         
         return (
-        <Link href={game.path} onClick={(e) => handleGameClick(e, game)} className="group relative block h-40">
+        <Link href={game.path} onClick={(e) => {
+            if (game.maintenance) {
+                e.preventDefault()
+            } else {
+                handleGameClick(e, game)
+            }
+        }} className={`group relative block h-40 ${game.maintenance ? 'cursor-not-allowed' : ''}`}>
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ y: -5 }}
+                whileHover={game.maintenance ? {} : { y: -5 }}
                 className="h-full w-full"
             >
                 <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 rounded-2xl -z-10`} />
                 <div className={`h-full bg-[#18181b] border rounded-2xl p-4 flex flex-col justify-between hover:bg-[#202023] transition-all duration-300 relative overflow-hidden ${game.inProgress
                         ? 'border-cyan-500/60 animate-neon-pulse'
                         : 'border-white/5 hover:border-white/20'
-                    }`}>
+                    } ${game.maintenance ? 'opacity-50' : ''}`}>
                     {game.beta && <span className="absolute top-3 right-3 text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-400/20">BETA</span>}
                     {game.pcOnly && <span className="absolute top-3 right-3 text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20">PC</span>}
-                    {game.multiplayer && <span className="absolute top-3 right-3 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20 animate-pulse">MULTI</span>}
+                    {game.multiplayer && !game.maintenance && <span className="absolute top-3 right-3 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20 animate-pulse">MULTI</span>}
+                    {game.maintenance && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 rounded-2xl">
+                            <div className="flex flex-col items-center gap-2">
+                                <Wrench className="w-8 h-8 text-yellow-400 animate-pulse" />
+                                <span className="text-yellow-400 font-bold text-sm">공사중</span>
+                            </div>
+                        </div>
+                    )}
                     {game.inProgress && (
                         <>
                             {/* 사이버펑크 네온 효과 배경 - 번쩍이는 효과 */}

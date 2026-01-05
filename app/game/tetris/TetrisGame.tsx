@@ -1167,6 +1167,31 @@ function createTetrisScene(Phaser: any): any {
       this.drawGrid();
     }
 
+    handleMobileInput(action: string) {
+      if (this.gameOver || !this.gameStarted) return;
+      
+      switch (action) {
+        case 'left':
+          this.movePiece(-1, 0);
+          break;
+        case 'right':
+          this.movePiece(1, 0);
+          break;
+        case 'down':
+          this.movePiece(0, 1);
+          break;
+        case 'rotate':
+          this.rotatePiece();
+          break;
+        case 'hardDrop':
+          this.hardDrop();
+          break;
+        case 'hold':
+          this.holdCurrentPiece();
+          break;
+      }
+    }
+
     syncGameState() {
       if (!this.wsConnected || !this.roomId || this.mode !== 'multiplayer' || !this.gameStarted) return;
 
@@ -1211,12 +1236,21 @@ export default function TetrisGame({ roomId, mode = 'single', playerIndex, userI
           phaserGameRef.current = null;
         }
 
+        // 모바일 감지 및 크기 조정
+        const isMobile = window.innerWidth < 768;
+        const gameWidth = isMobile ? Math.min(window.innerWidth - 32, 400) : 800;
+        const gameHeight = isMobile ? Math.min(window.innerHeight - 200, 600) : 700;
+
         const config = {
           type: Phaser.AUTO,
-          width: 800,
-          height: 700,
+          width: gameWidth,
+          height: gameHeight,
           parent: gameRef.current,
           scene: createTetrisScene(Phaser),
+          scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+          },
         };
 
         const game = new Phaser.Game(config);
@@ -1255,13 +1289,100 @@ export default function TetrisGame({ roomId, mode = 'single', playerIndex, userI
     };
   }, [roomId, mode, playerIndex, userId]);
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const handleMobileInput = (action: string) => {
+    if (phaserGameRef.current) {
+      const scene = phaserGameRef.current.scene.getScene('TetrisScene');
+      if (scene && typeof (scene as any).handleMobileInput === 'function') {
+        (scene as any).handleMobileInput(action);
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-black overflow-hidden p-4">
-      <div className="relative group">
+    <div className="flex flex-col items-center justify-center w-full h-full bg-black overflow-hidden p-2 md:p-4">
+      <div className="relative group w-full max-w-[800px]">
         <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
-        <div ref={gameRef} className="relative rounded-xl overflow-hidden border border-white/10 shadow-2xl" />
+        <div ref={gameRef} className="relative rounded-xl overflow-hidden border border-white/10 shadow-2xl w-full" />
       </div>
-      <p className="mt-4 text-gray-500 text-xs tracking-widest uppercase">Navigation: Arrows | Hyper-Drop: Space</p>
+      
+      {/* 모바일 컨트롤 */}
+      {isMobile && mode === 'single' && (
+        <div className="mt-4 w-full max-w-[800px] px-2">
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <button
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileInput('hold');
+              }}
+              className="px-4 py-3 bg-purple-600/80 hover:bg-purple-500/90 active:bg-purple-700 text-white rounded-lg font-bold text-sm border-2 border-purple-400 shadow-lg active:scale-95 transition-all"
+            >
+              홀드
+            </button>
+            <button
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileInput('rotate');
+              }}
+              className="px-4 py-3 bg-blue-600/80 hover:bg-blue-500/90 active:bg-blue-700 text-white rounded-lg font-bold text-sm border-2 border-blue-400 shadow-lg active:scale-95 transition-all"
+            >
+              회전
+            </button>
+            <button
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileInput('hardDrop');
+              }}
+              className="px-4 py-3 bg-red-600/80 hover:bg-red-500/90 active:bg-red-700 text-white rounded-lg font-bold text-sm border-2 border-red-400 shadow-lg active:scale-95 transition-all"
+            >
+              하드드롭
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileInput('left');
+              }}
+              className="px-4 py-4 bg-gray-700/80 hover:bg-gray-600/90 active:bg-gray-800 text-white rounded-lg font-bold text-lg border-2 border-gray-500 shadow-lg active:scale-95 transition-all"
+            >
+              ←
+            </button>
+            <button
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileInput('down');
+              }}
+              className="px-4 py-4 bg-gray-700/80 hover:bg-gray-600/90 active:bg-gray-800 text-white rounded-lg font-bold text-lg border-2 border-gray-500 shadow-lg active:scale-95 transition-all"
+            >
+              ↓
+            </button>
+            <button
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileInput('right');
+              }}
+              className="px-4 py-4 bg-gray-700/80 hover:bg-gray-600/90 active:bg-gray-800 text-white rounded-lg font-bold text-lg border-2 border-gray-500 shadow-lg active:scale-95 transition-all"
+            >
+              →
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {!isMobile && (
+        <p className="mt-4 text-gray-500 text-xs tracking-widest uppercase">Navigation: Arrows | Hyper-Drop: Space | Hold: C</p>
+      )}
     </div>
   );
 }

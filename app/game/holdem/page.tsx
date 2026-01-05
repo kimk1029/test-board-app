@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { motion } from 'framer-motion'
-import { Users, Plus, Loader2, Clock, Coins } from 'lucide-react'
+import { Users, Plus, Loader2, Clock, Coins, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -129,21 +129,12 @@ export default function HoldemPage() {
         <div className="mb-8 flex justify-center">
           <Button
             onClick={handleCreateRoom}
-            disabled={creating}
+            disabled={true}
             size="lg"
-            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold px-8 py-6 rounded-full shadow-[0_0_30px_rgba(220,38,38,0.4)] hover:shadow-[0_0_50px_rgba(220,38,38,0.6)] transition-all"
+            className="bg-gradient-to-r from-gray-600 to-gray-700 text-white font-bold px-8 py-6 rounded-full opacity-50 cursor-not-allowed"
           >
-            {creating ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                생성 중...
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-5 w-5" />
-                새 방 만들기
-              </>
-            )}
+            <Wrench className="mr-2 h-5 w-5" />
+            점검 중 (공사중)
           </Button>
         </div>
 

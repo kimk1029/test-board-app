@@ -6,6 +6,7 @@ import HeaderNavigator from '@/components/HeaderNavigator'
 import GameContainer from '@/components/GameContainer'
 import TetrisGame from './TetrisGame'
 import { getWebSocketClient } from '@/lib/websocket'
+import { Wrench } from 'lucide-react'
 
 function RoomJoinForm({ onJoin }: { onJoin: (roomId: string) => void }) {
   const [roomId, setRoomId] = useState('')
@@ -383,20 +384,23 @@ function TetrisGameComponent() {
             Cosmic Tetris
           </h1>
           
-          <div className="flex flex-col gap-6 w-full max-w-2xl">
-            <div className="flex gap-4">
+          <div className="flex flex-col gap-6 w-full max-w-2xl px-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={() => router.push('/game/tetris?mode=single')}
-                className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-lg transition-colors"
+                className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-base sm:text-lg transition-colors active:scale-95"
               >
                 싱글플레이
               </button>
               
               <button
                 onClick={handleCreateRoom}
-                className="flex-1 px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-lg transition-colors"
+                disabled={true}
+                className="flex-1 px-6 py-4 bg-gray-600 text-white rounded-lg font-bold text-base sm:text-lg opacity-50 cursor-not-allowed flex items-center justify-center gap-2"
               >
-                새 방 만들기
+                <Wrench className="w-5 h-5" />
+                <span className="hidden sm:inline">점검 중 (공사중)</span>
+                <span className="sm:hidden">점검중</span>
               </button>
             </div>
 
