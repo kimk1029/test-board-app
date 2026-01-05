@@ -39,6 +39,7 @@
   ],
   "exclude": [
     "node_modules",
+    "websocket-server",
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",
