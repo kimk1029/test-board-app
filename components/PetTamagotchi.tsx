@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Smile, Droplet, Poop, Utensils, Gamepad2, Sparkles, Zap } from 'lucide-react'
+import { Heart, Droplet, Utensils, Gamepad2, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
@@ -233,7 +233,7 @@ export default function PetTamagotchi() {
 
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Smile className="w-4 h-4 text-yellow-400" />
+                <span className="text-lg">😊</span>
                 <span className="text-sm text-slate-300">행복도</span>
                 <span className="text-xs text-slate-500 ml-auto">{Math.round(pet.happiness)}%</span>
               </div>
@@ -260,7 +260,7 @@ export default function PetTamagotchi() {
             {pet.poop > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <Poop className="w-4 h-4 text-amber-700" />
+                  <span className="text-lg">💩</span>
                   <span className="text-sm text-slate-300">똥</span>
                   <span className="text-xs text-slate-500 ml-auto">{pet.poop}개</span>
                 </div>
