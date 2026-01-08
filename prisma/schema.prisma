@@ -34,6 +34,7 @@ model User {
   tetrisPlayers TetrisPlayer[] // 테트리스 플레이어 관계
   passwordResetTokens PasswordResetToken[] // 비밀번호 재설정 토큰
   gameSessions GameSession[] // 게임 베팅 세션
+  pet           Pet?          // 펫 관계 (1:1)
 }
 
 model Post {
@@ -299,5 +300,28 @@ model TetrisPlayer {
   @@unique([roomId, userId])
   @@unique([roomId, playerIndex])
   @@index([roomId])
+  @@index([userId])
+}
+
+// 펫 (다마고치)
+model Pet {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String   @default("펫")
+  type          String   @default("default") // 펫 타입 (나중에 확장 가능)
+  level         Int      @default(1) // 펫 레벨
+  exp           Int      @default(0) // 경험치
+  hunger        Int      @default(80) // 배고픔 (0-100)
+  happiness     Int      @default(80) // 행복도 (0-100)
+  health        Int      @default(100) // 건강 (0-100)
+  poop          Int      @default(0) // 똥 개수 (0-5)
+  lastFedAt     DateTime? // 마지막 밥 준 시간
+  lastPlayedAt  DateTime? // 마지막 놀아준 시간
+  lastCleanedAt DateTime? // 마지막 똥 치운 시간
+  lastDecayAt   DateTime  @default(now()) // 마지막 상태 감소 시간
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   @@index([userId])
 }

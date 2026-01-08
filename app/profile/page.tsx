@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { Trophy, Medal, Target, TrendingUp, Gift, Gamepad2, User } from 'lucide-react'
 import { getLevelProgress, getPointsForNextLevel } from '@/lib/points'
+import PetTamagotchi from '@/components/PetTamagotchi'
 
 const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'];
 
@@ -121,6 +122,20 @@ export default function ProfilePage() {
             </Card>
 
             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 펫 다마고치 */}
+                <div className="md:col-span-2">
+                    <Card className="bg-[#131316] border-white/10 text-white">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <span className="text-2xl">🐾</span>
+                                My Pet
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <PetTamagotchi />
+                        </CardContent>
+                    </Card>
+                </div>
                 {/* 플레이 통계 (Pie) */}
                 <Card className="bg-[#131316] border-white/10 text-white">
                     <CardHeader>
