@@ -9,18 +9,22 @@ import { toast } from 'sonner'
 
 const pixelFontUrl = "https://fonts.googleapis.com/css2?family=VT323&display=swap";
 
-// ✅ 100% 작동하는 푸신 캣(Pusheen) 웹 GIF 에셋
+// ✅ 100% 안정적이고 동작이 확실한 고퀄리티 Pusheen GIF (Pinterest 원본 서버)
 const PetAssets = {
-  // 대기: 꼬리 흔들기
-  idle: "https://media.tenor.com/aKFaZBrZFYkAAAAi/pusheen-cat.gif",
-  // 걷기/뛰기: 다다다다 달림
-  running: "https://media.tenor.com/Hl5a8t0CV1IAAAAi/pusheen-running.gif",
-  // 먹기: 국수/간식 먹기
-  eating: "https://media.tenor.com/7v1qZk-QoM0AAAAi/pusheen-eat.gif",
-  // 자기: 쿨쿨 잠
-  sleeping: "https://media.tenor.com/P1F9Q4-N0HAAAAAi/pusheen-sleep.gif",
-  // 아픔/슬픔: 눈물 흘림
-  sick: "https://media.tenor.com/1s9-85yvOQ4AAAAi/pusheen-crying.gif",
+  // 대기: 가만히 서서 꼬리 흔들기/숨쉬기
+  idle: "https://i.pinimg.com/originals/f5/67/25/f5672545c9258d4a5209e51296b65376.gif",
+
+  // 걷기/뛰기: 다리를 실제로 움직이며 달리는 모션
+  running: "https://i.pinimg.com/originals/59/a4/09/59a4095493032549d4722513a69b7b92.gif",
+
+  // 먹기: 입을 벌리고 음식을 먹는 모션 (피자/쿠키)
+  eating: "https://i.pinimg.com/originals/eb/8c/8f/eb8c8f5f69c737039c279a78516d2994.gif",
+
+  // 자기: 눈 감고 숨쉬는 모션
+  sleeping: "https://i.pinimg.com/originals/65/c8/da/65c8da2f5e33d02717961b7b04533039.gif",
+
+  // 아픔: 슬픈 표정
+  sick: "https://i.pinimg.com/originals/32/32/ac/3232ac650125881aa17dc78883e03100.gif",
 };
 
 interface Pet {
@@ -28,7 +32,6 @@ interface Pet {
 }
 
 export default function PetTamagotchi() {
-  // 초기 데이터 (행복도 50으로 시작)
   const [pet, setPet] = useState<Pet>({
     id: 1, name: '푸신', level: 1, exp: 0, hunger: 60, happiness: 50, health: 100, poop: 0
   })
@@ -38,7 +41,7 @@ export default function PetTamagotchi() {
   const [isEating, setIsEating] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
 
-  // 산책 시 방향 전환을 위한 상태 (1: 오른쪽, -1: 왼쪽)
+  // 1: 오른쪽 보기, -1: 왼쪽 보기
   const [direction, setDirection] = useState(1);
 
   const [showMessage, setShowMessage] = useState(false)
@@ -63,10 +66,9 @@ export default function PetTamagotchi() {
     return () => clearInterval(interval);
   }, []);
 
-  // 산책 중 방향 전환 로직
+  // 산책 시 방향 전환 로직 (2초마다 방향 바꿈)
   useEffect(() => {
     if (isRunning) {
-      // 2초마다 방향 바꿈
       const dirInterval = setInterval(() => {
         setDirection(prev => prev * -1);
       }, 2000);
@@ -101,7 +103,7 @@ export default function PetTamagotchi() {
 
     if (action === 'feed') {
       setIsEating(true)
-      showFeedback("냠냠! 호로록!");
+      showFeedback("냠냠! 맛있다냥!");
       setTimeout(() => {
         setIsEating(false);
         setPet(prev => ({ ...prev, hunger: Math.min(100, prev.hunger + 30), happiness: Math.min(100, prev.happiness + 10), poop: prev.poop + (Math.random() > 0.8 ? 1 : 0) }))
@@ -122,7 +124,7 @@ export default function PetTamagotchi() {
     }
   }
 
-  // ✅ 핵심 로직: 현재 상태에 맞는 GIF 이미지 주소 반환
+  // ✅ 핵심: 현재 상태에 맞는 GIF URL 반환
   const getPetImage = () => {
     if (isEating) return PetAssets.eating;
     if (isRunning) return PetAssets.running;
@@ -134,16 +136,17 @@ export default function PetTamagotchi() {
   const currentImageSrc = getPetImage();
   const isInactive = petMood === 'sleeping' || petMood === 'sick';
 
-  // 애니메이션 변수 설정
+  // ✅ 화면상 이동 애니메이션 (Locomotion)
+  // GIF 내부에서 다리를 움직이지만, 화면상 위치 이동은 framer-motion이 담당합니다.
   let containerAnimate = {};
   let containerTransition = {};
 
   if (isRunning) {
-    // 산책 중일 때만 좌우로 이동
-    containerAnimate = { x: direction === 1 ? 60 : -60 };
+    // 산책 중: 좌우로 넓게 왔다갔다 함
+    containerAnimate = { x: direction === 1 ? 80 : -80 };
     containerTransition = { duration: 2, ease: "linear" };
   } else {
-    // 그 외에는 제자리
+    // 그 외: 제자리
     containerAnimate = { x: 0 };
     containerTransition = { duration: 0.5 };
   }
@@ -179,19 +182,20 @@ export default function PetTamagotchi() {
                 </AnimatePresence>
 
                 {/* ✅ 펫 이미지 */}
+                {/* key를 변경하여 이미지가 바뀔 때마다 GIF를 처음부터 재생 */}
                 <img
                   key={currentImageSrc}
                   src={currentImageSrc}
                   alt="Pet"
-                  // 산책 중 왼쪽으로 갈 때 이미지 반전 (좌우대칭)
+                  // 왼쪽으로 이동할 때는 이미지를 뒤집어서(scaleX -1) 자연스럽게 만듦
                   style={{
                     transform: isRunning && direction === -1 ? 'scaleX(-1)' : 'none',
                   }}
-                  className={`w-40 h-40 object-contain drop-shadow-md transition-all duration-300 ${petMood === 'sick' ? 'grayscale opacity-80 blur-[1px]' : ''}`}
+                  className={`w-48 h-48 object-contain drop-shadow-md transition-all duration-300 ${petMood === 'sick' ? 'grayscale opacity-80 blur-[1px]' : ''}`}
                 />
 
                 {/* 그림자 */}
-                <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-24 h-3 bg-[#4d5c14]/40 rounded-[100%] blur-[2px] transition-all duration-500 ${isInactive ? 'opacity-40 scale-75' : ''}`} />
+                <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 w-28 h-4 bg-[#4d5c14]/40 rounded-[100%] blur-[2px] transition-all duration-500 ${isInactive ? 'opacity-40 scale-75' : ''}`} />
               </motion.div>
 
               {/* 똥 */}
