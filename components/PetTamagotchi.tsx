@@ -5,23 +5,19 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Droplet, Utensils, Gamepad2, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { toast } from 'sonner'
 
 const pixelFontUrl = "https://fonts.googleapis.com/css2?family=VT323&display=swap";
 
-// ✅ 수정됨: 끊기지 않는 100% 안정적인 PokeAPI 이미지 주소로 변경
+// ✅ 수정됨: 귀여운 픽셀 강아지 에셋 (웹 URL 적용)
+// 출처: itch.io 무료 에셋 데모 이미지
 const PetAssets = {
-  // 5세대(블랙/화이트) 움직이는 스프라이트 (제자리에서 콩콩 뛰는 모션이라 걷는 효과에 딱입니다)
-  idle: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/133.gif",
-
-  // 걷기: 같은 움직이는 GIF를 쓰되, CSS로 좌우 반전 시키며 움직이면 진짜 걷는 것처럼 보입니다.
-  walking: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/133.gif",
-
-  // 먹기: 밥 먹는 전용 GIF가 API에 없으므로, 기본 GIF를 쓰고 애니메이션으로 표현합니다.
-  // (입 벌리는 전용 이미지를 원하시면 아래 '직접 다운로드' 방법을 참고하세요)
-  eating: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/133.gif",
-
-  // 아픔: 움직임이 없는 정지 이미지 (흑백 처리 예정)
-  sick: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/133.png",
+  idle: "https://img.itch.zone/aW1hZ2UvMjE3ODc3LzEwMjY2OTcuZ2lm/original/7s%2F3qX.gif",      // 서서 대기
+  walking: "https://img.itch.zone/aW1hZ2UvMjE3ODc3LzEwMjY3MDAuZ2lm/original/4y%2Bd1s.gif",   // 걷기
+  eating: "https://img.itch.zone/aW1hZ2UvMjE3ODc3LzEwMjY2OTguZ2lm/original/sK%2FqC%2B.gif",  // 밥먹기 (그릇 포함)
+  sleeping: "https://img.itch.zone/aW1hZ2UvMjE3ODc3LzEwMjY2OTkuZ2lm/original/yXq5%2F%2B.gif", // 자기
+  // 아픔: 별도 이미지가 없어 자는 이미지를 흑백처리해서 사용
+  sick: "https://img.itch.zone/aW1hZ2UvMjE3ODc3LzEwMjY2OTkuZ2lm/original/yXq5%2F%2B.gif",
 };
 
 interface Pet {
@@ -42,15 +38,13 @@ export default function PetTamagotchi() {
   const [pet, setPet] = useState<Pet | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [petMood, setPetMood] = useState<'happy' | 'sad' | 'hungry' | 'sick' | 'normal'>('normal')
+  // petMood 타입에 'sleeping' 포함
+  const [petMood, setPetMood] = useState<'happy' | 'sad' | 'hungry' | 'sick' | 'sleeping' | 'normal'>('normal')
   const [showMessage, setShowMessage] = useState(false)
   const [message, setMessage] = useState('')
 
   const [isEating, setIsEating] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-
-  // 걷는 방향을 위한 상태 (오른쪽: 1, 왼쪽: -1)
-  const [direction, setDirection] = useState(1);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -59,19 +53,22 @@ export default function PetTamagotchi() {
     document.head.appendChild(link);
 
     setTimeout(() => {
+      // 초기 데이터: 이름 변경, 자는 모습 테스트를 위해 행복도 낮춤
       setPet({
-        id: 1, name: '이브이', level: 1, exp: 20, hunger: 50, happiness: 60, health: 80, poop: 1,
+        id: 1, name: '멍멍이', level: 1, exp: 20, hunger: 60, happiness: 70, health: 80, poop: 1,
         lastFedAt: null, lastPlayedAt: null, lastCleanedAt: null
       })
       setLoading(false)
     }, 1000)
   }, []);
 
+  // 펫 상태에 따른 기분 결정 로직
   useEffect(() => {
     if (pet) {
       if (pet.health < 30) setPetMood('sick')
+      // 행복도가 너무 낮으면 잠을 자도록 설정
+      else if (pet.happiness < 30) setPetMood('sleeping')
       else if (pet.hunger < 30) setPetMood('hungry')
-      else if (pet.happiness < 30) setPetMood('sad')
       else if (pet.happiness > 70 && pet.hunger > 70) setPetMood('happy')
       else setPetMood('normal')
     }
@@ -79,47 +76,59 @@ export default function PetTamagotchi() {
 
 
   const handleAction = async (action: 'feed' | 'play' | 'clean') => {
-    if (!pet || actionLoading || isEating || isPlaying) return
+    // 자고 있거나 아플 때는 행동 불가능하게 막기
+    if (!pet || actionLoading || isEating || isPlaying || petMood === 'sleeping' || petMood === 'sick') {
+      if (petMood === 'sleeping') toast.error("지금은 자고 있어요. 나중에 놀아주세요.");
+      if (petMood === 'sick') toast.error("아파서 움직일 수 없어요.");
+      return;
+    }
 
     if (action === 'feed') {
       setIsEating(true)
-      setMessage("냠냠! 맛있다!");
+      setMessage("와구와구! 맛있다멍!");
       setShowMessage(true);
       setTimeout(() => {
         setIsEating(false);
         setShowMessage(false);
-        setPet(prev => prev ? { ...prev, hunger: Math.min(100, prev.hunger + 20), poop: prev.poop + (Math.random() > 0.7 ? 1 : 0) } : null)
-      }, 3000)
+        setPet(prev => prev ? { ...prev, hunger: Math.min(100, prev.hunger + 30), happiness: Math.min(100, prev.happiness + 5), poop: prev.poop + (Math.random() > 0.7 ? 1 : 0) } : null)
+      }, 3000) // 먹는 시간 3초
 
     } else if (action === 'play') {
       setIsPlaying(true)
-      setMessage("산책이 즐거워!");
+      setMessage("산책 짱 좋아! 헥헥!");
       setShowMessage(true);
       setTimeout(() => {
         setIsPlaying(false);
         setShowMessage(false);
-        setPet(prev => prev ? { ...prev, happiness: Math.min(100, prev.happiness + 15), hunger: Math.max(0, prev.hunger - 10) } : null)
-      }, 4000)
+        setPet(prev => prev ? { ...prev, happiness: Math.min(100, prev.happiness + 20), hunger: Math.max(0, prev.hunger - 15) } : null)
+      }, 5000) // 산책 시간 5초로 늘림
 
     } else if (action === 'clean') {
-      setMessage("깨끗해졌어!");
+      setMessage("깨끗해졌멍!");
       setShowMessage(true);
       setTimeout(() => {
         setShowMessage(false);
-        setPet(prev => prev ? { ...prev, poop: 0 } : null)
+        setPet(prev => prev ? { ...prev, poop: 0, happiness: Math.min(100, prev.happiness + 10) } : null)
       }, 2000);
     }
   }
 
+  // 상황별 이미지 반환 로직
   const getPetImage = () => {
     if (isEating) return PetAssets.eating;
     if (isPlaying) return PetAssets.walking;
     if (petMood === 'sick') return PetAssets.sick;
+    if (petMood === 'sleeping') return PetAssets.sleeping;
+    // 그 외 모든 상태는 기본 대기 이미지
     return PetAssets.idle;
   }
 
+
   if (loading) return <div className="flex h-screen items-center justify-center bg-slate-100 font-['VT323'] text-xl text-gray-500">Loading...</div>
   if (!pet) return <div className="flex h-screen items-center justify-center bg-slate-100 font-['VT323'] text-xl text-gray-500">No Pet Found</div>
+
+  // 현재 상태가 자거나 아픈 상태인지 확인하는 헬퍼 변수
+  const isInactive = petMood === 'sleeping' || petMood === 'sick';
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-100 p-4 font-['VT323']">
@@ -148,63 +157,55 @@ export default function PetTamagotchi() {
 
               {/* 펫 애니메이션 컨테이너 */}
               <motion.div
+                // 새 GIF 에셋에 맞춰 애니메이션 조정
                 animate={
                   isEating ? {
-                    y: [0, -10, 0], // 밥 먹을 때: 냠냠거리듯 제자리 점프
-                    scaleY: [1, 0.9, 1], // 몸이 눌렸다 펴짐 (씹는 느낌)
+                    y: 0, // 먹는 GIF 자체에 모션이 있으므로 제자리에 고정
                   } : isPlaying ? {
-                    x: [-60, 60, -60], // 놀 때: 화면 좌우로 크게 이동
+                    x: [-40, 40, -40], // 산책: 천천히 좌우로 이동
+                  } : isInactive ? {
+                    y: 0, // 자거나 아플 땐 움직임 없음
                   } : {
-                    y: [0, -4, 0], // 평소: 숨쉬기
+                    y: [0, -3, 0], // 평소: 아주 가벼운 숨쉬기
                   }
                 }
                 transition={
-                  isEating ? { duration: 0.4, repeat: Infinity }
-                    : isPlaying ? {
-                      duration: 4,
-                      ease: "linear",
-                      repeat: Infinity,
-                      // x값이 바뀔 때마다 방향 전환을 위한 onUpdate는 framer-motion에서 복잡하므로
-                      // 아래 CSS transform으로 처리합니다.
-                    }
-                      : { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                  isEating ? { duration: 0 } // 움직임 없음
+                    : isPlaying ? { duration: 6, ease: "linear", repeat: Infinity } // 천천히 걷기
+                      : { duration: 2.5, repeat: Infinity, ease: "easeInOut" }
                 }
                 className="relative"
               >
-                {/* 밥 아이콘 */}
+                {/* 밥 아이콘 제거됨 (GIF에 포함됨) */}
+
+                {/* 자는 표시 (Zzz...) */}
                 <AnimatePresence>
-                  {isEating && (
+                  {petMood === 'sleeping' && (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{ opacity: 1, scale: 1, y: 10 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute -right-8 bottom-0 text-3xl z-20"
+                      initial={{ opacity: 0, x: 0, y: -10 }}
+                      animate={{ opacity: [0, 1, 0], x: 20, y: -30, scale: [0.8, 1.2] }}
+                      transition={{ duration: 2.5, repeat: Infinity }}
+                      className="absolute right-2 -top-6 text-xl z-20 font-bold text-blue-900"
                     >
-                      🍖
+                      Zzz...
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* 펫 이미지 
-                        scaleX(-1): 이미지를 좌우 반전시킵니다.
-                        놀고 있을 때(isPlaying) 움직이는 방향에 따라 이미지를 뒤집어주면 더 리얼합니다.
-                        여기서는 간단하게 CSS 애니메이션이나 Framer Motion의 style로 처리할 수 있습니다.
-                    */}
-                <motion.img
-                  key={getPetImage()}
+                {/* 펫 이미지 */}
+                <img
+                  key={getPetImage()} // src가 바뀔 때마다 새로 렌더링하여 GIF 처음부터 재생
                   src={getPetImage()}
                   alt="Pet"
-                  // 아플 때는 흑백처리, 평소에는 픽셀 처리
-                  className={`w-32 h-32 object-contain drop-shadow-md ${petMood === 'sick' && !isEating && !isPlaying ? 'grayscale opacity-80' : ''}`}
+                  // 아플 때는 흑백처리 및 흐림 효과
+                  className={`w-32 h-32 object-contain drop-shadow-md transition-all duration-300 ${petMood === 'sick' ? 'grayscale opacity-70 blur-[1px]' : ''}`}
                   style={{
                     imageRendering: 'pixelated',
                   }}
-                // 걷는 방향에 따라 이미지 뒤집기 (isPlaying일 때 좌우 왕복에 맞춰 이미지를 반전시키는 것은 
-                // JS로 time 체크가 필요하므로, 여기서는 단순히 움직이는 GIF만 보여줍니다.)
                 />
 
                 {/* 그림자 */}
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-20 h-2 bg-[#4d5c14]/40 rounded-[100%] blur-[1px]" />
+                <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-16 h-2 bg-[#4d5c14]/40 rounded-[100%] blur-[1px] transition-all ${isInactive ? 'opacity-50 scale-90' : ''}`} />
               </motion.div>
 
               {/* 똥 */}
@@ -221,12 +222,17 @@ export default function PetTamagotchi() {
               )}
             </div>
 
+            {/* 상단 정보 */}
             <div className="absolute top-2 left-2 z-30 flex gap-2">
               <div className="bg-[#4d5c14]/90 text-[#9bbc0f] px-2 py-0.5 rounded text-sm border border-[#9bbc0f]">
                 Lv.{pet.level} {pet.name}
               </div>
+              {/* 상태 아이콘 */}
+              {petMood === 'sleeping' && <span className="text-lg">🌙</span>}
+              {petMood === 'sick' && <span className="text-lg">🤒</span>}
             </div>
 
+            {/* 메시지 */}
             <AnimatePresence>
               {showMessage && (
                 <motion.div
@@ -245,6 +251,7 @@ export default function PetTamagotchi() {
           </div>
         </div>
 
+        {/* 하단 컨트롤 패널 */}
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4 bg-[#d4d4d4]/30 p-3 rounded-xl border-2 border-[#c0c0c0]">
             <div className="space-y-1">
@@ -263,10 +270,11 @@ export default function PetTamagotchi() {
             </div>
           </div>
 
+          {/* 버튼 그룹 */}
           <div className="grid grid-cols-3 gap-3">
-            <Button onClick={() => handleAction('feed')} disabled={isEating || isPlaying} className="h-14 rounded-xl bg-amber-300 hover:bg-amber-400 text-amber-900 border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center"><Utensils className="w-5 h-5 mb-0.5" /><span className="text-base">밥주기</span></Button>
-            <Button onClick={() => handleAction('play')} disabled={isEating || isPlaying} className="h-14 rounded-xl bg-sky-300 hover:bg-sky-400 text-sky-900 border-b-4 border-sky-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center"><Gamepad2 className="w-5 h-5 mb-0.5" /><span className="text-base">놀아주기</span></Button>
-            <Button onClick={() => handleAction('clean')} disabled={isEating || isPlaying || pet.poop === 0} className="h-14 rounded-xl bg-emerald-300 hover:bg-emerald-400 text-emerald-900 border-b-4 border-emerald-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50"><Droplet className="w-5 h-5 mb-0.5" /><span className="text-base">치우기</span></Button>
+            <Button onClick={() => handleAction('feed')} disabled={isEating || isPlaying || isInactive} className="h-14 rounded-xl bg-amber-300 hover:bg-amber-400 text-amber-900 border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><Utensils className="w-5 h-5 mb-0.5" /><span className="text-base">밥주기</span></Button>
+            <Button onClick={() => handleAction('play')} disabled={isEating || isPlaying || isInactive} className="h-14 rounded-xl bg-sky-300 hover:bg-sky-400 text-sky-900 border-b-4 border-sky-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><Gamepad2 className="w-5 h-5 mb-0.5" /><span className="text-base">놀아주기</span></Button>
+            <Button onClick={() => handleAction('clean')} disabled={isEating || isPlaying || isInactive || pet.poop === 0} className="h-14 rounded-xl bg-emerald-300 hover:bg-emerald-400 text-emerald-900 border-b-4 border-emerald-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><Droplet className="w-5 h-5 mb-0.5" /><span className="text-base">치우기</span></Button>
           </div>
         </div>
       </div>
