@@ -7,120 +7,164 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 
-// ✅ 픽셀 폰트 로드
 const pixelFontUrl = "https://fonts.googleapis.com/css2?family=VT323&display=swap";
 
 // ------------------------------------------------------------------
-// ✅ [SVG 컴포넌트] 코드로 직접 그린 픽셀 강아지 (이미지 깨짐 없음)
+// ✅ [SVG 컴포넌트] 세련된 픽셀 시바견 & 리얼한 애니메이션
 // ------------------------------------------------------------------
 const PixelDog = ({ action, mood, direction }: { action: string, mood: string, direction: number }) => {
-  // 상태에 따른 애니메이션 변수
   const isEating = action === 'eating';
   const isWalking = action === 'walking' || action === 'running';
   const isSleeping = mood === 'sleeping';
   const isSick = mood === 'sick';
 
+  // 시바견 컬러 팔레트
+  const colors = {
+    main: isSick ? "#A08060" : "#D99058", // 아프면 창백해짐
+    belly: isSick ? "#E0D0B0" : "#F3E5AB",
+    outline: "#5A2F0B",
+    nose: "#3E2723",
+    earInner: "#FFB6C1"
+  };
+
   return (
     <svg
       viewBox="0 0 100 100"
-      className={`w-40 h-40 drop-shadow-md transition-all duration-500 ${isSick ? 'grayscale opacity-80 blur-[0.5px]' : ''}`}
-      style={{
-        transform: `scaleX(${direction})`, // 방향 전환
-        imageRendering: 'pixelated'
-      }}
+      // shape-rendering="crispEdges"는 픽셀을 선명하게 만들어줍니다.
+      shapeRendering="crispEdges"
+      className={`w-44 h-44 drop-shadow-md transition-all duration-500 ${isSick ? 'grayscale-[0.3] blur-[0.5px]' : ''}`}
+      style={{ transform: `scaleX(${direction})` }}
     >
+      {/* 🍖 먹이 아이콘 (입으로 들어가는 애니메이션) */}
+      <AnimatePresence>
+        {isEating && (
+          <motion.g
+            initial={{ opacity: 0, x: 80, y: 60, scale: 0.8, rotate: 0 }}
+            animate={{
+              opacity: [1, 1, 0],
+              x: [80, 65, 60], // 입쪽으로 이동
+              y: [60, 50, 48],
+              scale: [0.8, 0.6, 0], // 작아지며 사라짐
+              rotate: [0, -45, -90]
+            }}
+            transition={{ duration: 2.5, times: [0, 0.7, 1], ease: "easeInOut" }}
+          >
+            {/* 뼈다귀 모양 */}
+            <path d="M5 0 H15 V5 H20 V15 H15 V20 H5 V15 H0 V5 H5 V0 Z" fill="#EEE" stroke={colors.outline} strokeWidth="1" transform="translate(-10, -10) scale(0.8)" />
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+
+      {/* 강아지 몸통 전체 그룹 */}
       <motion.g
-        // 몸통 전체의 움직임 (대기 중 숨쉬기 / 걷기 중 튀기)
         animate={
-          isWalking ? { y: [0, -4, 0] }
-            : isEating ? { y: 0 }
-              : isSleeping ? { y: 5 } // 잘 때는 낮게 웅크림
-                : { y: [0, -1, 0] }
+          isSleeping ? { y: 12, scaleY: 0.9 } // 잘 때는 웅크림
+            : isWalking ? { y: [0, -3, 0] } // 걸을 땐 통통 튐
+              : { y: [0, -1, 0] } // 평소엔 숨쉬기
         }
         transition={{
-          duration: isWalking ? 0.2 : 1.5,
+          duration: isWalking ? 0.25 : 2,
           repeat: Infinity,
           ease: "easeInOut"
         }}
       >
-        {/* 1. 꼬리 (살랑살랑) */}
-        <motion.path
-          d="M25 55 L15 50 L10 55"
-          stroke="#8B4513"
-          strokeWidth="6"
-          fill="none"
-          strokeLinecap="round"
-          animate={{ rotate: isSleeping ? 0 : [0, -20, 0, 10, 0] }}
-          transition={{ duration: 1, repeat: Infinity }}
-          style={{ originX: '100%', originY: '100%' }}
-        />
+        {/* 1. 꼬리 (말린 꼬리 살랑살랑) */}
+        <motion.g
+          animate={{ rotate: isSleeping ? 0 : [0, -15, 0, 10, 0] }}
+          transition={{ duration: 1.2, repeat: Infinity }}
+          style={{ originX: '20px', originY: '55px' }}
+        >
+          <rect x="10" y="45" width="15" height="10" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
+          <rect x="5" y="40" width="10" height="10" fill={colors.belly} stroke={colors.outline} strokeWidth="1" />
+        </motion.g>
 
-        {/* 2. 다리 (걷을 때 교차 애니메이션) */}
-        {/* 뒷다리 */}
-        <motion.rect x="35" y="75" width="8" height="15" fill="#8B4513"
-          animate={isWalking ? { rotate: [-15, 15, -15], y: [0, -2, 0] } : isSleeping ? { height: 5, y: 10 } : {}}
-          transition={{ duration: 0.4, repeat: Infinity }}
-        />
-        <motion.rect x="65" y="75" width="8" height="15" fill="#8B4513"
-          animate={isWalking ? { rotate: [15, -15, 15], y: [0, -2, 0] } : isSleeping ? { height: 5, y: 10 } : {}}
-          transition={{ duration: 0.4, repeat: Infinity, delay: 0.2 }}
-        />
+        {/* 2. 뒷다리 (걷기 교차) */}
+        <motion.g animate={isWalking ? { x: [0, -2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity }}>
+          <rect x="30" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
+            style={isSleeping ? { height: 5, y: 75 } : {}} />
+        </motion.g>
+        <motion.g animate={isWalking ? { x: [0, 2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity, delay: 0.25 }}>
+          <rect x="45" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
+            style={isSleeping ? { height: 5, y: 75 } : {}} />
+        </motion.g>
+
 
         {/* 3. 몸통 */}
-        <rect x="30" y="45" width="50" height="35" rx="5" fill="#CD853F" />
+        <rect x="25" y="40" width="45" height="35" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
+        <rect x="30" y="55" width="35" height="20" fill={colors.belly} /> {/* 배 부분 흰색 */}
 
-        {/* 4. 앞다리 (걷을 때 교차) */}
-        <motion.rect x="35" y="75" width="8" height="15" fill="#CD853F"
-          animate={isWalking ? { rotate: [15, -15, 15], y: [0, -2, 0] } : isSleeping ? { height: 5, y: 10 } : {}}
-          transition={{ duration: 0.4, repeat: Infinity }}
-        />
-        <motion.rect x="65" y="75" width="8" height="15" fill="#CD853F"
-          animate={isWalking ? { rotate: [-15, 15, -15], y: [0, -2, 0] } : isSleeping ? { height: 5, y: 10 } : {}}
-          transition={{ duration: 0.4, repeat: Infinity, delay: 0.2 }}
-        />
+        {/* 4. 앞다리 (걷기 교차) */}
+        <motion.g animate={isWalking ? { x: [0, 2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity }}>
+          <rect x="55" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
+            style={isSleeping ? { height: 5, y: 75 } : {}} />
+        </motion.g>
+        <motion.g animate={isWalking ? { x: [0, -2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity, delay: 0.25 }}>
+          <rect x="70" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
+            style={isSleeping ? { height: 5, y: 75 } : {}} />
+        </motion.g>
 
-        {/* 5. 머리 그룹 */}
-        <motion.g animate={isEating ? { rotate: [0, 5, 0] } : {}} transition={{ duration: 0.3, repeat: Infinity }}>
-          {/* 얼굴 형태 */}
-          <rect x="55" y="25" width="40" height="35" rx="8" fill="#CD853F" />
-
+        {/* 5. 머리 그룹 (먹을 때 까딱거림) */}
+        <motion.g
+          animate={isEating ? { rotate: [0, 10, 0], x: [0, 2, 0] } : {}}
+          transition={{ duration: 0.5, repeat: Infinity }}
+          style={{ originX: '65px', originY: '45px' }}
+        >
           {/* 귀 */}
-          <path d="M60 25 L55 10 L70 25" fill="#8B4513" />
-          <path d="M85 25 L100 10 L95 25" fill="#8B4513" />
+          <polygon points="60,25 55,5 75,25" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
+          <polygon points="62,22 58,8 70,22" fill={colors.earInner} /> {/* 귓속 */}
+          <polygon points="85,25 100,5 95,25" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
+          <polygon points="88,22 97,8 93,22" fill={colors.earInner} />
 
-          {/* 눈 (상태에 따라 변함) */}
-          {isSleeping || isSick ? (
-            // 자거나 아플 때: 감은 눈 (- -)
-            <g>
-              <rect x="65" y="38" width="8" height="2" fill="#333" />
-              <rect x="82" y="38" width="8" height="2" fill="#333" />
+          {/* 얼굴 형태 */}
+          <rect x="55" y="25" width="45" height="40" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
+          {/* 얼굴 흰색 패턴 */}
+          <polygon points="55,45 70,65 95,65 100,45 100,65 55,65" fill={colors.belly} />
+          <rect x="70" y="25" width="15" height="40" fill={colors.belly} />
+
+          {/* 눈 (상태별 변화) */}
+          {isSleeping ? (
+            // 자는 눈 (- -)
+            <g fill={colors.nose}>
+              <rect x="65" y="40" width="8" height="2" />
+              <rect x="87" y="40" width="8" height="2" />
+            </g>
+          ) : isSick ? (
+            // 아픈 눈 (X X)
+            <g stroke={colors.nose} strokeWidth="2">
+              <path d="M65 38 L73 46 M73 38 L65 46" />
+              <path d="M87 38 L95 46 M95 38 L87 46" />
             </g>
           ) : (
-            // 평소: 뜬 눈
-            <g>
-              <circle cx="68" cy="38" r="3" fill="black" />
-              <circle cx="86" cy="38" r="3" fill="black" />
+            // 평소 눈 (초롱초롱)
+            <g fill={colors.nose}>
+              <rect x="66" y="38" width="6" height="6" />
+              <rect x="88" y="38" width="6" height="6" />
+              <rect x="68" y="39" width="2" height="2" fill="white" /> {/* 눈망울 */}
+              <rect x="90" y="39" width="2" height="2" fill="white" />
             </g>
           )}
 
           {/* 코 */}
-          <circle cx="77" cy="45" r="2" fill="black" />
+          <rect x="76" y="48" width="8" height="6" fill={colors.nose} />
 
           {/* 입 (먹을 때 벌림) */}
-          <motion.path
-            d={isEating ? "M72 52 Q77 60 82 52" : "M72 52 Q77 55 82 52"}
-            stroke="black"
-            strokeWidth="2"
-            fill={isEating ? "#FF6347" : "none"} // 먹을 땐 입안이 빨개짐
-            animate={isEating ? { d: ["M72 52 Q77 55 82 52", "M72 52 Q77 65 82 52", "M72 52 Q77 55 82 52"] } : {}}
+          <motion.g
+            animate={isEating ? { scaleY: [1, 1.5, 1] } : { scaleY: 1 }}
             transition={{ duration: 0.4, repeat: Infinity }}
-          />
+            style={{ originY: '55px' }}
+          >
+            {/* 혀 (먹을 때만 보임) */}
+            <motion.rect x="77" y="60" width="6" height="5" fill="#FF6B6B" animate={{ opacity: isEating ? 1 : 0 }} />
+            {/* 입 모양 */}
+            <path d="M75 58 H85 V60 H75 Z" fill={isEating ? "#7A1F1F" : colors.nose} />
+          </motion.g>
 
-          {/* 볼터치 (행복할 때) */}
-          {mood === 'happy' && !isSleeping && (
-            <g opacity="0.6">
-              <circle cx="62" cy="45" r="3" fill="#FF69B4" />
-              <circle cx="92" cy="45" r="3" fill="#FF69B4" />
+          {/* 볼터치 */}
+          {!isSick && !isSleeping && (
+            <g fill="#FFA07A" opacity="0.7">
+              <rect x="60" y="50" width="5" height="3" />
+              <rect x="95" y="50" width="5" height="3" />
             </g>
           )}
         </motion.g>
@@ -128,22 +172,23 @@ const PixelDog = ({ action, mood, direction }: { action: string, mood: string, d
     </svg>
   );
 };
-// ------------------------------------------------------------------
 
+// ------------------------------------------------------------------
+// 메인 컴포넌트
+// ------------------------------------------------------------------
 interface Pet {
   id: number; name: string; level: number; exp: number; hunger: number; happiness: number; health: number; poop: number;
 }
 
 export default function PetTamagotchi() {
+  // 초기 상태: 테스트를 위해 행복도/건강을 조절해보세요. (현재: 건강함)
   const [pet, setPet] = useState<Pet>({
-    id: 1, name: '바둑이', level: 1, exp: 0, hunger: 60, happiness: 50, health: 100, poop: 0
+    id: 1, name: '시바견', level: 1, exp: 0, hunger: 60, happiness: 80, health: 100, poop: 0
   })
   const [loading, setLoading] = useState(true)
 
   const [petMood, setPetMood] = useState<'happy' | 'sad' | 'hungry' | 'sick' | 'sleeping' | 'normal'>('normal')
   const [currentAction, setCurrentAction] = useState<'idle' | 'eating' | 'walking' | 'running'>('idle')
-
-  // 1: 오른쪽, -1: 왼쪽
   const [direction, setDirection] = useState(1);
 
   const [showMessage, setShowMessage] = useState(false)
@@ -162,7 +207,7 @@ export default function PetTamagotchi() {
         ...prev,
         hunger: Math.max(0, prev.hunger - 2),
         happiness: Math.max(0, prev.happiness - 1),
-        poop: Math.random() > 0.9 ? Math.min(3, prev.poop + 1) : prev.poop
+        poop: Math.random() > 0.92 ? Math.min(3, prev.poop + 1) : prev.poop
       }))
     }, 5000);
     return () => clearInterval(interval);
@@ -180,9 +225,10 @@ export default function PetTamagotchi() {
     }
   }, [currentAction]);
 
+  // 기분 결정 로직
   useEffect(() => {
-    if (pet.health < 30) setPetMood('sick')
-    else if (pet.happiness < 30) setPetMood('sleeping')
+    if (pet.health < 40) setPetMood('sick') // 건강이 낮으면 아픔
+    else if (pet.happiness < 30) setPetMood('sleeping') // 행복도 낮으면 잠
     else if (pet.hunger < 30) setPetMood('hungry')
     else if (pet.happiness > 80) setPetMood('happy')
     else setPetMood('normal')
@@ -199,17 +245,18 @@ export default function PetTamagotchi() {
     const isInactive = petMood === 'sleeping' || petMood === 'sick';
     if (currentAction !== 'idle' || isInactive) {
       if (petMood === 'sleeping') toast.error("ZZZ... 펫이 자고 있어요.");
-      else if (petMood === 'sick') toast.error("아파서 움직일 수 없어요.");
+      else if (petMood === 'sick') toast.error("아파서 움직일 수 없어요. 치료가 필요해요.");
       return;
     }
 
     if (action === 'feed') {
       setCurrentAction('eating')
-      showFeedback("냠냠! 맛있다!");
+      showFeedback("냠냠! 맛있다멍!");
+      // 먹는 애니메이션 시간 (2.5초) 후 상태 업데이트
       setTimeout(() => {
         setCurrentAction('idle');
         setPet(prev => ({ ...prev, hunger: Math.min(100, prev.hunger + 30), happiness: Math.min(100, prev.happiness + 10), poop: prev.poop + (Math.random() > 0.8 ? 1 : 0) }))
-      }, 3000)
+      }, 2500)
 
     } else if (action === 'play') {
       setCurrentAction('running')
@@ -228,7 +275,7 @@ export default function PetTamagotchi() {
 
   const isInactive = petMood === 'sleeping' || petMood === 'sick';
 
-  // 컨테이너 이동 애니메이션 (화면 상 위치 이동)
+  // 컨테이너 이동 애니메이션
   let containerAnimate = {};
   if (currentAction === 'running') {
     containerAnimate = { x: direction === 1 ? 60 : -60 };
@@ -257,15 +304,6 @@ export default function PetTamagotchi() {
                 transition={{ duration: 2, ease: "linear" }}
                 className="relative"
               >
-                {/* 밥 아이콘 */}
-                <AnimatePresence>
-                  {currentAction === 'eating' && (
-                    <motion.div initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1, y: -20 }} exit={{ opacity: 0 }} className="absolute left-1/2 -translate-x-1/2 -top-10 text-4xl z-20">
-                      🍖
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
                 {/* 자기 아이콘 */}
                 <AnimatePresence>
                   {petMood === 'sleeping' && <motion.div initial={{ opacity: 0, x: 0, y: -10 }} animate={{ opacity: [0, 1, 0], x: 20, y: -30, scale: [0.8, 1.2] }} transition={{ duration: 2.5, repeat: Infinity }} className="absolute right-0 -top-8 text-2xl z-20 font-bold text-blue-900">Zzz...</motion.div>}
@@ -280,7 +318,7 @@ export default function PetTamagotchi() {
                 <PixelDog action={currentAction} mood={petMood} direction={direction} />
 
                 {/* 그림자 */}
-                <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-20 h-2 bg-[#4d5c14]/40 rounded-[100%] blur-[2px] transition-all duration-500 ${isInactive ? 'opacity-40 scale-75' : ''}`} />
+                <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-24 h-3 bg-[#4d5c14]/40 rounded-[100%] blur-[2px] transition-all duration-500 ${isInactive ? 'opacity-40 scale-90' : ''}`} />
               </motion.div>
 
               {/* 똥 */}
@@ -295,6 +333,7 @@ export default function PetTamagotchi() {
               {petMood === 'sleeping' && <span>🌙</span>}
               {petMood === 'hungry' && <span className="animate-pulse">🥣</span>}
               {petMood === 'happy' && <span className="animate-bounce">❤️</span>}
+              {petMood === 'sick' && <span>🤒</span>}
             </div>
 
             {/* 메시지 */}
@@ -308,7 +347,7 @@ export default function PetTamagotchi() {
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4 bg-[#d4d4d4]/30 p-3 rounded-xl border-2 border-[#c0c0c0]">
             <div className="space-y-1"><div className="flex justify-between text-lg text-gray-600"><span>배고픔</span><span>{Math.round(pet.hunger)}%</span></div><Progress value={pet.hunger} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName="bg-[#8bac0f]" /></div>
-            <div className="space-y-1"><div className="flex justify-between text-lg text-gray-600"><span>행복도</span><span>{Math.round(pet.happiness)}%</span></div><Progress value={pet.happiness} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName="bg-[#8bac0f]" /></div>
+            <div className="space-y-1"><div className="flex justify-between text-lg text-gray-600"><span>건강</span><span>{Math.round(pet.health)}%</span></div><Progress value={pet.health} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName={`bg-[#8bac0f] ${pet.health < 40 ? 'bg-red-500' : ''}`} /></div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <Button onClick={() => handleAction('feed')} disabled={currentAction !== 'idle' || isInactive} className="h-14 rounded-xl bg-amber-300 hover:bg-amber-400 text-amber-900 border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><Utensils className="w-6 h-6 mb-0.5" /><span className="text-lg">밥주기</span></Button>
