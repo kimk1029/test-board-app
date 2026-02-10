@@ -1,0 +1,17 @@
+# Dependabot 설정: 한 종류의 lock 파일만 사용할 것 (yarn.lock 권장)
+# package-lock.json 이 있으면 제거 후 yarn만 사용하세요.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

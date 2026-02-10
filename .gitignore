@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+# use yarn only - avoid Dependabot lock file conflict
+package-lock.json
 /websocket-server/node_modules
 **/node_modules
 /.pnp

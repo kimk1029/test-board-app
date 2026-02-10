@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import HeaderNavigator from '@/components/HeaderNavigator'
 
 type TabKey = 'mbti' | 'tendency' | 'dream' | 'fortune'
@@ -144,6 +145,19 @@ export default function PsychologyPage() {
 
         {tab === 'mbti' && (
           <section className="bg-[#18181b] border border-white/10 rounded-2xl p-5 space-y-4">
+            <Link
+              href="/mbti"
+              className="block mb-6 p-4 rounded-xl bg-gradient-to-r from-violet-600/20 to-pink-600/20 border border-violet-500/30 hover:border-violet-400/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white">밤일 성향 MBTI 테스트</h3>
+                  <p className="text-sm text-slate-400 mt-1">16문항 · 결과 공유 가능</p>
+                </div>
+                <span className="text-violet-400">→</span>
+              </div>
+            </Link>
+            <p className="text-slate-500 text-sm mb-4">아래는 간단 8문항 버전입니다.</p>
             {mbtiQuestions.map((q, idx) => (
               <div key={idx} className="border border-white/10 rounded-xl p-4">
                 <p className="font-semibold mb-3">{idx + 1}. {q.text}</p>
