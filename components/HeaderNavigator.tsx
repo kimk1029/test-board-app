@@ -15,7 +15,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import LoginModal from './LoginModal'
 import { getLevelProgress, getPointsForNextLevel, getPointsForCurrentLevel } from '@/lib/points'
-import { Menu, X, User as UserIcon, Gamepad2, LayoutDashboard, Crown, Bell, Trophy, Zap, Shield } from 'lucide-react'
+import { Menu, X, User as UserIcon, Gamepad2, LayoutDashboard, Crown, Bell, Trophy, Zap, Shield, Sparkles } from 'lucide-react'
 
 interface User {
   id: number
@@ -147,6 +147,7 @@ const HeaderNavigator = () => {
   const navLinks = [
     { href: '/', label: 'HOME', icon: LayoutDashboard },
     { href: '/game', label: 'GAME LOBBY', icon: Gamepad2 },
+    { href: '/psychology', label: '심리테스트', icon: Sparkles },
     { href: '/leaderboard', label: 'LEADERBOARD', icon: Trophy },
     { href: '/board', label: 'BOARD', icon: Crown },
     { href: '/charge', label: 'CHARGE', icon: Zap },

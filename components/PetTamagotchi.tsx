@@ -177,18 +177,28 @@ const PixelDog = ({ action, mood, direction }: { action: string, mood: string, d
 // 메인 컴포넌트
 // ------------------------------------------------------------------
 interface Pet {
-  id: number; name: string; level: number; exp: number; hunger: number; happiness: number; health: number; poop: number;
+  id: number
+  name: string
+  level: number
+  exp: number
+  hunger: number
+  happiness: number
+  health: number
+  poop: number
+  energy: number
+  cleanliness: number
+  affection: number
 }
 
 export default function PetTamagotchi() {
   // 초기 상태: 테스트를 위해 행복도/건강을 조절해보세요. (현재: 건강함)
   const [pet, setPet] = useState<Pet>({
-    id: 1, name: '시바견', level: 1, exp: 0, hunger: 60, happiness: 80, health: 100, poop: 0
+    id: 1, name: '시바견', level: 1, exp: 0, hunger: 60, happiness: 80, health: 100, poop: 0, energy: 75, cleanliness: 85, affection: 60
   })
   const [loading, setLoading] = useState(true)
 
   const [petMood, setPetMood] = useState<'happy' | 'sad' | 'hungry' | 'sick' | 'sleeping' | 'normal'>('normal')
-  const [currentAction, setCurrentAction] = useState<'idle' | 'eating' | 'walking' | 'running'>('idle')
+  const [currentAction, setCurrentAction] = useState<'idle' | 'eating' | 'walking' | 'running' | 'sleeping' | 'healing' | 'petting'>('idle')
   const [direction, setDirection] = useState(1);
 
   const [showMessage, setShowMessage] = useState(false)
@@ -207,6 +217,10 @@ export default function PetTamagotchi() {
         ...prev,
         hunger: Math.max(0, prev.hunger - 2),
         happiness: Math.max(0, prev.happiness - 1),
+        energy: Math.max(0, prev.energy - 1),
+        cleanliness: Math.max(0, prev.cleanliness - (prev.poop > 0 ? 2 : 1)),
+        affection: Math.max(0, prev.affection - 1),
+        health: Math.max(0, prev.health - (prev.cleanliness < 20 ? 1 : 0)),
         poop: Math.random() > 0.92 ? Math.min(3, prev.poop + 1) : prev.poop
       }))
     }, 5000);
@@ -227,12 +241,12 @@ export default function PetTamagotchi() {
 
   // 기분 결정 로직
   useEffect(() => {
-    if (pet.health < 40) setPetMood('sick') // 건강이 낮으면 아픔
-    else if (pet.happiness < 30) setPetMood('sleeping') // 행복도 낮으면 잠
+    if (pet.health < 40 || pet.cleanliness < 15) setPetMood('sick') // 건강/청결이 낮으면 아픔
+    else if (pet.energy < 20) setPetMood('sleeping') // 에너지가 낮으면 잠
     else if (pet.hunger < 30) setPetMood('hungry')
-    else if (pet.happiness > 80) setPetMood('happy')
+    else if (pet.happiness > 80 && pet.affection > 70) setPetMood('happy')
     else setPetMood('normal')
-  }, [pet.hunger, pet.happiness, pet.health])
+  }, [pet.hunger, pet.happiness, pet.health, pet.energy, pet.cleanliness, pet.affection])
 
   const showFeedback = (msg: string, duration = 3000) => {
     if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
@@ -241,9 +255,9 @@ export default function PetTamagotchi() {
     messageTimeoutRef.current = setTimeout(() => setShowMessage(false), duration);
   }
 
-  const handleAction = (action: 'feed' | 'play' | 'clean') => {
+  const handleAction = (action: 'feed' | 'play' | 'clean' | 'sleep' | 'heal' | 'pet') => {
     const isInactive = petMood === 'sleeping' || petMood === 'sick';
-    if (currentAction !== 'idle' || isInactive) {
+    if (currentAction !== 'idle' || (isInactive && action !== 'sleep' && action !== 'heal')) {
       if (petMood === 'sleeping') toast.error("ZZZ... 펫이 자고 있어요.");
       else if (petMood === 'sick') toast.error("아파서 움직일 수 없어요. 치료가 필요해요.");
       return;
@@ -255,7 +269,13 @@ export default function PetTamagotchi() {
       // 먹는 애니메이션 시간 (2.5초) 후 상태 업데이트
       setTimeout(() => {
         setCurrentAction('idle');
-        setPet(prev => ({ ...prev, hunger: Math.min(100, prev.hunger + 30), happiness: Math.min(100, prev.happiness + 10), poop: prev.poop + (Math.random() > 0.8 ? 1 : 0) }))
+        setPet(prev => ({
+          ...prev,
+          hunger: Math.min(100, prev.hunger + 30),
+          happiness: Math.min(100, prev.happiness + 10),
+          affection: Math.min(100, prev.affection + 5),
+          poop: prev.poop + (Math.random() > 0.8 ? 1 : 0),
+        }))
       }, 2500)
 
     } else if (action === 'play') {
@@ -263,17 +283,63 @@ export default function PetTamagotchi() {
       showFeedback("산책 가자! 신난다!");
       setTimeout(() => {
         setCurrentAction('idle');
-        setPet(prev => ({ ...prev, happiness: Math.min(100, prev.happiness + 25), hunger: Math.max(0, prev.hunger - 20) }))
+        setPet(prev => ({
+          ...prev,
+          happiness: Math.min(100, prev.happiness + 25),
+          affection: Math.min(100, prev.affection + 10),
+          energy: Math.max(0, prev.energy - 15),
+          hunger: Math.max(0, prev.hunger - 20),
+        }))
       }, 4000)
 
     } else if (action === 'clean') {
       if (pet.poop === 0) { toast.error("치울 똥이 없어요."); return; }
       showFeedback("깨끗해졌다멍!");
-      setPet(prev => ({ ...prev, poop: 0, happiness: Math.min(100, prev.happiness + 5) }))
+      setPet(prev => ({
+        ...prev,
+        poop: 0,
+        cleanliness: Math.min(100, prev.cleanliness + 35),
+        happiness: Math.min(100, prev.happiness + 5),
+      }))
+    } else if (action === 'sleep') {
+      setCurrentAction('sleeping')
+      showFeedback("코오... 에너지를 충전 중이에요.")
+      setTimeout(() => {
+        setCurrentAction('idle')
+        setPet(prev => ({
+          ...prev,
+          energy: Math.min(100, prev.energy + 45),
+          health: Math.min(100, prev.health + 15),
+          happiness: Math.min(100, prev.happiness + 10),
+        }))
+      }, 3500)
+    } else if (action === 'heal') {
+      if (pet.health > 90) { toast.error('지금은 치료가 필요 없어 보여요.'); return; }
+      setCurrentAction('healing')
+      showFeedback("치료 중... 금방 괜찮아질 거예요.")
+      setTimeout(() => {
+        setCurrentAction('idle')
+        setPet(prev => ({
+          ...prev,
+          health: Math.min(100, prev.health + 30),
+          cleanliness: Math.min(100, prev.cleanliness + 10),
+        }))
+      }, 2000)
+    } else if (action === 'pet') {
+      setCurrentAction('petting')
+      showFeedback("쓰담쓰담... 행복해요!")
+      setTimeout(() => {
+        setCurrentAction('idle')
+        setPet(prev => ({
+          ...prev,
+          affection: Math.min(100, prev.affection + 20),
+          happiness: Math.min(100, prev.happiness + 12),
+        }))
+      }, 1500)
     }
   }
 
-  const isInactive = petMood === 'sleeping' || petMood === 'sick';
+  const isInactive = (petMood === 'sleeping' || petMood === 'sick') && currentAction === 'idle';
 
   // 컨테이너 이동 애니메이션
   let containerAnimate = {};
@@ -313,6 +379,12 @@ export default function PetTamagotchi() {
                 <AnimatePresence>
                   {petMood === 'sick' && <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: -20 }} className="absolute left-0 -top-8 text-3xl z-20">💊</motion.div>}
                 </AnimatePresence>
+                <AnimatePresence>
+                  {currentAction === 'healing' && <motion.div initial={{ opacity: 0, y: 0 }} animate={{ opacity: [0, 1, 0], y: -30 }} transition={{ duration: 1.2, repeat: Infinity }} className="absolute left-10 -top-8 text-2xl z-20">✨</motion.div>}
+                </AnimatePresence>
+                <AnimatePresence>
+                  {currentAction === 'petting' && <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }} transition={{ duration: 1.2, repeat: Infinity }} className="absolute right-8 -top-8 text-2xl z-20">💖</motion.div>}
+                </AnimatePresence>
 
                 {/* ✅ SVG 펫 컴포넌트 호출 */}
                 <PixelDog action={currentAction} mood={petMood} direction={direction} />
@@ -334,6 +406,7 @@ export default function PetTamagotchi() {
               {petMood === 'hungry' && <span className="animate-pulse">🥣</span>}
               {petMood === 'happy' && <span className="animate-bounce">❤️</span>}
               {petMood === 'sick' && <span>🤒</span>}
+              {currentAction === 'sleeping' && <span>🛏️</span>}
             </div>
 
             {/* 메시지 */}
@@ -348,11 +421,17 @@ export default function PetTamagotchi() {
           <div className="grid grid-cols-2 gap-4 bg-[#d4d4d4]/30 p-3 rounded-xl border-2 border-[#c0c0c0]">
             <div className="space-y-1"><div className="flex justify-between text-lg text-gray-600"><span>배고픔</span><span>{Math.round(pet.hunger)}%</span></div><Progress value={pet.hunger} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName="bg-[#8bac0f]" /></div>
             <div className="space-y-1"><div className="flex justify-between text-lg text-gray-600"><span>건강</span><span>{Math.round(pet.health)}%</span></div><Progress value={pet.health} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName={`bg-[#8bac0f] ${pet.health < 40 ? 'bg-red-500' : ''}`} /></div>
+            <div className="space-y-1"><div className="flex justify-between text-lg text-gray-600"><span>에너지</span><span>{Math.round(pet.energy)}%</span></div><Progress value={pet.energy} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName="bg-blue-500" /></div>
+            <div className="space-y-1"><div className="flex justify-between text-lg text-gray-600"><span>청결</span><span>{Math.round(pet.cleanliness)}%</span></div><Progress value={pet.cleanliness} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName="bg-emerald-500" /></div>
+            <div className="space-y-1 col-span-2"><div className="flex justify-between text-lg text-gray-600"><span>애정</span><span>{Math.round(pet.affection)}%</span></div><Progress value={pet.affection} className="h-3 bg-gray-300 rounded-full border border-gray-400" indicatorClassName="bg-pink-500" /></div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <Button onClick={() => handleAction('feed')} disabled={currentAction !== 'idle' || isInactive} className="h-14 rounded-xl bg-amber-300 hover:bg-amber-400 text-amber-900 border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><Utensils className="w-6 h-6 mb-0.5" /><span className="text-lg">밥주기</span></Button>
             <Button onClick={() => handleAction('play')} disabled={currentAction !== 'idle' || isInactive} className="h-14 rounded-xl bg-sky-300 hover:bg-sky-400 text-sky-900 border-b-4 border-sky-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><Gamepad2 className="w-6 h-6 mb-0.5" /><span className="text-lg">놀아주기</span></Button>
             <Button onClick={() => handleAction('clean')} disabled={currentAction !== 'idle' || isInactive || pet.poop === 0} className="h-14 rounded-xl bg-emerald-300 hover:bg-emerald-400 text-emerald-900 border-b-4 border-emerald-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><Droplet className="w-6 h-6 mb-0.5" /><span className="text-lg">치우기</span></Button>
+            <Button onClick={() => handleAction('sleep')} disabled={currentAction !== 'idle'} className="h-14 rounded-xl bg-indigo-300 hover:bg-indigo-400 text-indigo-900 border-b-4 border-indigo-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><span className="text-lg">😴</span><span className="text-lg">재우기</span></Button>
+            <Button onClick={() => handleAction('heal')} disabled={currentAction !== 'idle'} className="h-14 rounded-xl bg-rose-300 hover:bg-rose-400 text-rose-900 border-b-4 border-rose-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><span className="text-lg">💊</span><span className="text-lg">치료</span></Button>
+            <Button onClick={() => handleAction('pet')} disabled={currentAction !== 'idle'} className="h-14 rounded-xl bg-pink-300 hover:bg-pink-400 text-pink-900 border-b-4 border-pink-600 active:border-b-0 active:translate-y-1 transition-all flex flex-col gap-0 items-center justify-center disabled:opacity-50 disabled:border-b-0 disabled:translate-y-1"><span className="text-lg">💖</span><span className="text-lg">쓰담</span></Button>
           </div>
         </div>
       </div>
