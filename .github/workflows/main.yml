@@ -21,8 +21,11 @@ jobs:
           node-version: '20'
           cache: 'yarn'
 
+      - name: Enable Corepack (Yarn Berry)
+        run: corepack enable
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Prisma generate
         run: npx prisma generate
