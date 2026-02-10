@@ -4,31 +4,100 @@ export type Question = {
   id: number;
   text: string;
   type: 'EI' | 'SN' | 'TF' | 'JP';
-  agree: MBTIType;
-  disagree: MBTIType;
+  answerA: string; // A 선택지 멘트
+  answerB: string; // B 선택지 멘트
+  agree: MBTIType;    // A 선택 시 점수
+  disagree: MBTIType; // B 선택 시 점수
 };
 
 export const questions: Question[] = [
-  // E vs I
-  { id: 1, text: "대기실에 들어왔을 때 나는?", type: 'EI', agree: 'E', disagree: 'I' },
-  { id: 2, text: "초이스 보러 룸에 들어갔을 때 내 스타일은?", type: 'EI', agree: 'E', disagree: 'I' },
-  { id: 3, text: "방에서 손님과 단둘이 남았을 때?", type: 'EI', agree: 'E', disagree: 'I' },
-  { id: 4, text: "퇴근 후 내 모습은?", type: 'EI', agree: 'E', disagree: 'I' },
-  // S vs N
-  { id: 5, text: "손님 사이즈(견적)를 잴 때 나는?", type: 'SN', agree: 'S', disagree: 'N' },
-  { id: 6, text: "손님이 돈 자랑을 시작할 때 내 속마음은?", type: 'SN', agree: 'S', disagree: 'N' },
-  { id: 7, text: "손님과 대화할 때 더 편한 주제는?", type: 'SN', agree: 'S', disagree: 'N' },
-  { id: 8, text: "진상 손님이 말도 안 되는 소리를 할 때?", type: 'SN', agree: 'S', disagree: 'N' },
-  // T vs F
-  { id: 9, text: "손님이 힘든 회사 일을 털어놓으며 울먹일 때?", type: 'TF', agree: 'T', disagree: 'F' },
-  { id: 10, text: "담당 실장님이 나한테 쓴소리를 했을 때?", type: 'TF', agree: 'T', disagree: 'F' },
-  { id: 11, text: "동료 언니가 '나 오늘 일하기 싫어'라고 할 때?", type: 'TF', agree: 'T', disagree: 'F' },
-  { id: 12, text: "진상에게 욕먹었을 때 멘탈 회복법은?", type: 'TF', agree: 'T', disagree: 'F' },
-  // J vs P
-  { id: 13, text: "이번 달 목표 매출(TC)은?", type: 'JP', agree: 'J', disagree: 'P' },
-  { id: 14, text: "출근 준비(메이크업/헤어) 스타일은?", type: 'JP', agree: 'J', disagree: 'P' },
-  { id: 15, text: "쉬는 날 갑자기 손님이 나오라고 연락 오면?", type: 'JP', agree: 'J', disagree: 'P' },
-  { id: 16, text: "번 돈 관리는 어떻게 해?", type: 'JP', agree: 'J', disagree: 'P' },
+  // E vs I (에너지 방향)
+  {
+    id: 1, text: "대기실에 들어왔을 때 나는?", type: 'EI',
+    answerA: "언니들이랑 수다 떨면서 텐션 올린다", agree: 'E',
+    answerB: "구석에서 폰 보며 조용히 체력 아낀다", disagree: 'I'
+  },
+  {
+    id: 2, text: "초이스 보러 룸에 들어갔을 때 내 스타일은?", type: 'EI',
+    answerA: "손님이랑 눈 마주치며 생글생글 웃는다", agree: 'E',
+    answerB: "도도하게 앉아서 지명되길 기다린다", disagree: 'I'
+  },
+  {
+    id: 3, text: "방에서 손님과 단둘이 남았을 때?", type: 'EI',
+    answerA: "정적은 싫다! 내가 먼저 말을 건다", agree: 'E',
+    answerB: "손님이 말 걸 때까지 가만히 있는다", disagree: 'I'
+  },
+  {
+    id: 4, text: "퇴근 후 내 모습은?", type: 'EI',
+    answerA: "한 잔 더 하러 멤버들과 뭉친다", agree: 'E',
+    answerB: "기 빨려서 바로 집으로 튀어간다", disagree: 'I'
+  },
+
+  // S vs N (인식 기능)
+  {
+    id: 5, text: "손님 사이즈(견적)를 잴 때 나는?", type: 'SN',
+    answerA: "시계, 차 키, 옷 브랜드 등 팩트를 본다", agree: 'S',
+    answerB: "딱 봤을 때 느껴지는 '촉'과 분위기를 본다", disagree: 'N'
+  },
+  {
+    id: 6, text: "손님이 '나 돈 많아'라고 자랑할 때 내 속마음은?", type: 'SN',
+    answerA: "그래서 지금 현금 얼마 있는데? (현실적)", agree: 'S',
+    answerB: "이 오빠랑 잘되면 가게 차려주려나? (상상력)", disagree: 'N'
+  },
+  {
+    id: 7, text: "손님과 대화할 때 더 편한 주제는?", type: 'SN',
+    answerA: "골프, 주식, 맛집 등 구체적인 얘기", agree: 'S',
+    answerB: "연애관, 인생, 우주 등 뜬구름 잡는 얘기", disagree: 'N'
+  },
+  {
+    id: 8, text: "진상 손님이 말도 안 되는 소리를 할 때?", type: 'SN',
+    answerA: "하나하나 따져서 논리로 이겨먹는다", agree: 'S',
+    answerB: "영혼 없이 '아~ 그렇구나~' 하고 멍때린다", disagree: 'N'
+  },
+
+  // T vs F (판단 기능)
+  {
+    id: 9, text: "손님이 힘든 회사 일을 털어놓으며 울먹일 때?", type: 'TF',
+    answerA: "힘들겠네..(근데 팁은 주나? 시간 언제 끝나지?)", agree: 'T',
+    answerB: "같이 글썽이며 진심으로 위로해 준다", disagree: 'F'
+  },
+  {
+    id: 10, text: "담당 실장님이 나한테 쓴소리를 했을 때?", type: 'TF',
+    answerA: "내가 뭘 실수했지? 원인을 분석한다", agree: 'T',
+    answerB: "나한테 왜 저래? 기분 상해서 마상 입는다", disagree: 'F'
+  },
+  {
+    id: 11, text: "동료 언니가 '나 오늘 일하기 싫어'라고 할 때?", type: 'TF',
+    answerA: "그럼 조퇴해, 아님 그냥 참고 해 (해결책)", agree: 'T',
+    answerB: "맞아ㅠㅠ 오늘따라 손님도 별로고 힘들지 (공감)", disagree: 'F'
+  },
+  {
+    id: 12, text: "진상에게 욕먹었을 때 멘탈 회복법은?", type: 'TF',
+    answerA: "어차피 돈 벌러 왔는데 뭐 (금융치료)", agree: 'T',
+    answerB: "친구한테 전화해서 하소연해야 풀림", disagree: 'F'
+  },
+
+  // J vs P (생활 양식)
+  {
+    id: 13, text: "이번 달 목표 매출(TC)은?", type: 'JP',
+    answerA: "달력에 하루하루 목표치 적어두고 채운다", agree: 'J',
+    answerB: "벌리면 버는 거고, 안 벌리면 마는 거지", disagree: 'P'
+  },
+  {
+    id: 14, text: "출근 준비(메이크업/헤어) 스타일은?", type: 'JP',
+    answerA: "예약 시간 딱 맞춰서 계획대로 움직인다", agree: 'J',
+    answerB: "늦잠 자다가 택시 안에서 화장하거나 지각한다", disagree: 'P'
+  },
+  {
+    id: 15, text: "쉬는 날 갑자기 손님이 나오라고 연락 오면?", type: 'JP',
+    answerA: "아.. 계획 다 틀어지네 (스트레스)", agree: 'J',
+    answerB: "오 꽁돈 개이득! 바로 나감 (융통성)", disagree: 'P'
+  },
+  {
+    id: 16, text: "번 돈 관리는 어떻게 해?", type: 'JP',
+    answerA: "적금, 월세, 생활비 딱딱 나눠서 관리", agree: 'J',
+    answerB: "일단 사고 싶은 명품 지르고 남는 돈으로 생활", disagree: 'P'
+  },
 ];
 
 export const results: Record<string, { title: string; desc: string; imageColor: string }> = {
