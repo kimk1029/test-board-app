@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import HeaderNavigator from '@/components/HeaderNavigator'
 import { decodePayload, getBarColor, getIntensityText, getScoreTextColor, type RoleResult } from '../result-utils'
 
-export default function TendencyResultPage() {
+function TendencyResultContent() {
   const searchParams = useSearchParams()
   const [selectedRoleKey, setSelectedRoleKey] = useState<string | null>(null)
   const [shared, setShared] = useState(false)
@@ -162,6 +162,20 @@ export default function TendencyResultPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function TendencyResultPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#09090b] text-slate-100 flex items-center justify-center">
+          <div className="animate-pulse text-slate-400">결과를 불러오는 중...</div>
+        </div>
+      }
+    >
+      <TendencyResultContent />
+    </Suspense>
   )
 }
 
