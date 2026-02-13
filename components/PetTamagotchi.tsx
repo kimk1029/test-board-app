@@ -53,36 +53,71 @@ const CuteDog = ({ action, mood, direction }: { action: string; mood: string; di
       >
         {/* ── tail ── */}
         <motion.g
-          animate={{ rotate: isSleeping ? 0 : [0, 20, -10, 15, 0] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ transformOrigin: '30px 68px' }}
+          animate={{ rotate: isSleeping ? 0 : [0, 18, -8, 12, 0] }}
+          transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ transformOrigin: '32px 70px' }}
         >
-          <ellipse cx="24" cy="64" rx="8" ry="5" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
-          <ellipse cx="18" cy="58" rx="6" ry="4" fill={c.white} stroke={c.outline} strokeWidth="1.2" />
+          <path d="M20 70 C10 62, 12 50, 24 52 C33 53, 34 64, 28 70 Z" fill={c.fur} stroke={c.outline} strokeWidth="1.6" />
+          <path d="M21 64 C17 60, 18 56, 23 56" fill="none" stroke={c.white} strokeWidth="1.2" />
         </motion.g>
 
-        {/* ── back legs ── */}
-        <motion.g animate={isWalking ? { rotate: [10, -10, 10] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '38px 82px' }}>
-          <rect x="32" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
-          <ellipse cx="38" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        {/* ── back legs (behind torso layer) ── */}
+        <motion.g
+          animate={isWalking ? { rotate: [8, -8, 8] } : {}}
+          transition={{ duration: 0.36, repeat: Infinity }}
+          style={{ transformOrigin: '44px 82px' }}
+        >
+          <rect x="38" y="80" width="11" height={isSleeping ? 6 : 18} rx="5" fill={c.furDark} stroke={c.outline} strokeWidth="1.4" />
+          <ellipse cx="43.5" cy={isSleeping ? 86 : 98} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
         </motion.g>
-        <motion.g animate={isWalking ? { rotate: [-10, 10, -10] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '50px 82px' }}>
-          <rect x="44" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
-          <ellipse cx="50" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        <motion.g
+          animate={isWalking ? { rotate: [-8, 8, -8] } : {}}
+          transition={{ duration: 0.36, repeat: Infinity, delay: 0.18 }}
+          style={{ transformOrigin: '56px 82px' }}
+        >
+          <rect x="50" y="80" width="11" height={isSleeping ? 6 : 18} rx="5" fill={c.furDark} stroke={c.outline} strokeWidth="1.4" />
+          <ellipse cx="55.5" cy={isSleeping ? 86 : 98} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
         </motion.g>
 
-        {/* ── body (round oval) ── */}
-        <ellipse cx="60" cy="72" rx="30" ry="22" fill={c.fur} stroke={c.outline} strokeWidth="2" />
-        <ellipse cx="60" cy="78" rx="22" ry="14" fill={c.white} />
+        {/* ── torso (connected silhouette) ── */}
+        <path
+          d="M34 72
+             C34 58, 46 50, 60 50
+             C78 50, 92 58, 94 72
+             C95 78, 92 83, 88 86
+             C84 89, 76 90, 67 89
+             L52 89
+             C44 89, 37 87, 34 82
+             C32 79, 33 75, 34 72 Z"
+          fill={c.fur}
+          stroke={c.outline}
+          strokeWidth="2"
+        />
+        {/* chest + belly patch */}
+        <path
+          d="M53 62 C62 59, 72 62, 77 68 C82 74, 80 83, 73 86 C66 89, 55 87, 50 81 C46 76, 47 66, 53 62 Z"
+          fill={c.white}
+        />
+        {/* shoulder / hip overlap to visually connect legs */}
+        <ellipse cx="79" cy="77" rx="11" ry="8" fill={c.fur} stroke={c.outline} strokeWidth="1.6" />
+        <ellipse cx="49" cy="78" rx="10" ry="8" fill={c.fur} stroke={c.outline} strokeWidth="1.6" />
 
-        {/* ── front legs ── */}
-        <motion.g animate={isWalking ? { rotate: [-12, 12, -12] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '70px 82px' }}>
-          <rect x="64" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
-          <ellipse cx="70" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        {/* ── front legs (in front layer) ── */}
+        <motion.g
+          animate={isWalking ? { rotate: [-10, 10, -10] } : {}}
+          transition={{ duration: 0.36, repeat: Infinity }}
+          style={{ transformOrigin: '74px 82px' }}
+        >
+          <rect x="68" y="80" width="12" height={isSleeping ? 6 : 18} rx="5" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
+          <ellipse cx="74" cy={isSleeping ? 86 : 98} rx="7.2" ry="3.1" fill={c.white} stroke={c.outline} strokeWidth="1" />
         </motion.g>
-        <motion.g animate={isWalking ? { rotate: [12, -12, 12] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '82px 82px' }}>
-          <rect x="76" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
-          <ellipse cx="82" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        <motion.g
+          animate={isWalking ? { rotate: [10, -10, 10] } : {}}
+          transition={{ duration: 0.36, repeat: Infinity, delay: 0.18 }}
+          style={{ transformOrigin: '86px 82px' }}
+        >
+          <rect x="80" y="80" width="12" height={isSleeping ? 6 : 18} rx="5" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
+          <ellipse cx="86" cy={isSleeping ? 86 : 98} rx="7.2" ry="3.1" fill={c.white} stroke={c.outline} strokeWidth="1" />
         </motion.g>
 
         {/* ── head group ── */}
