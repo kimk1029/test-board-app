@@ -10,168 +10,194 @@ import { toast } from 'sonner'
 const pixelFontUrl = "https://fonts.googleapis.com/css2?family=VT323&display=swap";
 
 // ------------------------------------------------------------------
-// ✅ [SVG 컴포넌트] 세련된 픽셀 시바견 & 리얼한 애니메이션
+// Cute chibi Shiba SVG with smooth framer-motion animations
 // ------------------------------------------------------------------
-const PixelDog = ({ action, mood, direction }: { action: string, mood: string, direction: number }) => {
-  const isEating = action === 'eating';
-  const isWalking = action === 'walking' || action === 'running';
-  const isSleeping = mood === 'sleeping';
-  const isSick = mood === 'sick';
+const CuteDog = ({ action, mood, direction }: { action: string; mood: string; direction: number }) => {
+  const isEating = action === 'eating'
+  const isWalking = action === 'walking' || action === 'running'
+  const isSleeping = mood === 'sleeping'
+  const isSick = mood === 'sick'
+  const isPetting = action === 'petting'
 
-  // 시바견 컬러 팔레트
-  const colors = {
-    main: isSick ? "#A08060" : "#D99058", // 아프면 창백해짐
-    belly: isSick ? "#E0D0B0" : "#F3E5AB",
-    outline: "#5A2F0B",
-    nose: "#3E2723",
-    earInner: "#FFB6C1"
-  };
+  const c = {
+    fur: isSick ? '#C4A47A' : '#E8A855',
+    furDark: isSick ? '#A08060' : '#D09040',
+    white: isSick ? '#EDE0C8' : '#FFF8E7',
+    outline: '#5A3010',
+    nose: '#3E2723',
+    cheek: '#FF9A76',
+    earInner: '#FFB6C1',
+    tongue: '#FF6B8A',
+  }
 
   return (
     <svg
-      viewBox="0 0 100 100"
-      // shape-rendering="crispEdges"는 픽셀을 선명하게 만들어줍니다.
-      shapeRendering="crispEdges"
-      className={`w-44 h-44 drop-shadow-md transition-all duration-500 ${isSick ? 'grayscale-[0.3] blur-[0.5px]' : ''}`}
+      viewBox="0 0 120 120"
+      className={`w-40 h-40 drop-shadow-lg transition-all duration-500 ${isSick ? 'saturate-50' : ''}`}
       style={{ transform: `scaleX(${direction})` }}
     >
-      {/* 🍖 먹이 아이콘 (입으로 들어가는 애니메이션) */}
+      {/* === whole body bounce === */}
+      <motion.g
+        animate={
+          isSleeping
+            ? { y: 6 }
+            : isWalking
+              ? { y: [0, -5, 0] }
+              : { y: [0, -2, 0] }
+        }
+        transition={{
+          duration: isWalking ? 0.35 : 2.5,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+      >
+        {/* ── tail ── */}
+        <motion.g
+          animate={{ rotate: isSleeping ? 0 : [0, 20, -10, 15, 0] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ transformOrigin: '30px 68px' }}
+        >
+          <ellipse cx="24" cy="64" rx="8" ry="5" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
+          <ellipse cx="18" cy="58" rx="6" ry="4" fill={c.white} stroke={c.outline} strokeWidth="1.2" />
+        </motion.g>
+
+        {/* ── back legs ── */}
+        <motion.g animate={isWalking ? { rotate: [10, -10, 10] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '38px 82px' }}>
+          <rect x="32" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
+          <ellipse cx="38" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        </motion.g>
+        <motion.g animate={isWalking ? { rotate: [-10, 10, -10] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '50px 82px' }}>
+          <rect x="44" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
+          <ellipse cx="50" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        </motion.g>
+
+        {/* ── body (round oval) ── */}
+        <ellipse cx="60" cy="72" rx="30" ry="22" fill={c.fur} stroke={c.outline} strokeWidth="2" />
+        <ellipse cx="60" cy="78" rx="22" ry="14" fill={c.white} />
+
+        {/* ── front legs ── */}
+        <motion.g animate={isWalking ? { rotate: [-12, 12, -12] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '70px 82px' }}>
+          <rect x="64" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
+          <ellipse cx="70" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        </motion.g>
+        <motion.g animate={isWalking ? { rotate: [12, -12, 12] } : {}} transition={{ duration: 0.35, repeat: Infinity }} style={{ transformOrigin: '82px 82px' }}>
+          <rect x="76" y="82" width="12" height={isSleeping ? 5 : 16} rx="4" fill={c.fur} stroke={c.outline} strokeWidth="1.5" />
+          <ellipse cx="82" cy={isSleeping ? 87 : 97} rx="7" ry="3" fill={c.white} stroke={c.outline} strokeWidth="1" />
+        </motion.g>
+
+        {/* ── head group ── */}
+        <motion.g
+          animate={
+            isEating
+              ? { rotate: [0, 8, 0], y: [0, 2, 0] }
+              : isPetting
+                ? { rotate: [0, -4, 0, 4, 0] }
+                : {}
+          }
+          transition={{ duration: isEating ? 0.5 : 0.8, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ transformOrigin: '65px 50px' }}
+        >
+          {/* ears */}
+          <ellipse cx="42" cy="28" rx="10" ry="16" fill={c.fur} stroke={c.outline} strokeWidth="1.8" transform="rotate(-15 42 28)" />
+          <ellipse cx="43" cy="30" rx="6" ry="10" fill={c.earInner} transform="rotate(-15 43 30)" />
+          <ellipse cx="88" cy="28" rx="10" ry="16" fill={c.fur} stroke={c.outline} strokeWidth="1.8" transform="rotate(15 88 28)" />
+          <ellipse cx="87" cy="30" rx="6" ry="10" fill={c.earInner} transform="rotate(15 87 30)" />
+
+          {/* head shape */}
+          <ellipse cx="65" cy="44" rx="28" ry="24" fill={c.fur} stroke={c.outline} strokeWidth="2" />
+          {/* face white */}
+          <ellipse cx="65" cy="50" rx="18" ry="16" fill={c.white} />
+
+          {/* eyes */}
+          {isSleeping ? (
+            <g stroke={c.outline} strokeWidth="2" strokeLinecap="round">
+              <path d="M52 42 Q55 45 58 42" fill="none" />
+              <path d="M72 42 Q75 45 78 42" fill="none" />
+            </g>
+          ) : isSick ? (
+            <g stroke={c.outline} strokeWidth="1.8" strokeLinecap="round">
+              <path d="M52 39 L58 45 M58 39 L52 45" fill="none" />
+              <path d="M72 39 L78 45 M78 39 L72 45" fill="none" />
+            </g>
+          ) : (
+            <g>
+              {/* eye whites */}
+              <ellipse cx="55" cy="42" rx="6" ry="6.5" fill="white" stroke={c.outline} strokeWidth="1" />
+              <ellipse cx="75" cy="42" rx="6" ry="6.5" fill="white" stroke={c.outline} strokeWidth="1" />
+              {/* pupils - animate looking around */}
+              <motion.g
+                animate={isWalking ? { x: [0, 2, 0, -2, 0] } : { x: [0, 1, 0, -1, 0] }}
+                transition={{ duration: isWalking ? 1 : 3, repeat: Infinity }}
+              >
+                <circle cx="56" cy="43" r="3.5" fill={c.nose} />
+                <circle cx="76" cy="43" r="3.5" fill={c.nose} />
+                {/* sparkle */}
+                <circle cx="57.5" cy="41.5" r="1.2" fill="white" />
+                <circle cx="77.5" cy="41.5" r="1.2" fill="white" />
+                <circle cx="55" cy="44" r="0.6" fill="white" />
+                <circle cx="75" cy="44" r="0.6" fill="white" />
+              </motion.g>
+            </g>
+          )}
+
+          {/* cheeks */}
+          {!isSick && !isSleeping && (
+            <g opacity="0.5">
+              <ellipse cx="45" cy="50" rx="5" ry="3" fill={c.cheek} />
+              <ellipse cx="85" cy="50" rx="5" ry="3" fill={c.cheek} />
+            </g>
+          )}
+
+          {/* nose */}
+          <ellipse cx="65" cy="52" rx="4" ry="3" fill={c.nose} />
+          <ellipse cx="64" cy="51" rx="1.2" ry="0.8" fill="white" opacity="0.4" />
+
+          {/* mouth */}
+          <motion.g
+            animate={isEating ? { scaleY: [1, 1.4, 1] } : {}}
+            transition={{ duration: 0.4, repeat: Infinity }}
+            style={{ transformOrigin: '65px 55px' }}
+          >
+            <path d="M65 55 Q60 60 57 57" fill="none" stroke={c.nose} strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M65 55 Q70 60 73 57" fill="none" stroke={c.nose} strokeWidth="1.2" strokeLinecap="round" />
+            {/* tongue */}
+            <AnimatePresence>
+              {(isEating || isPetting) && (
+                <motion.ellipse
+                  cx="65"
+                  cy="59"
+                  rx="3"
+                  ry="4"
+                  fill={c.tongue}
+                  initial={{ scaleY: 0, opacity: 0 }}
+                  animate={{ scaleY: 1, opacity: 1 }}
+                  exit={{ scaleY: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  style={{ transformOrigin: '65px 56px' }}
+                />
+              )}
+            </AnimatePresence>
+          </motion.g>
+        </motion.g>
+      </motion.g>
+
+      {/* food floating in when eating */}
       <AnimatePresence>
         {isEating && (
           <motion.g
-            initial={{ opacity: 0, x: 80, y: 60, scale: 0.8, rotate: 0 }}
-            animate={{
-              opacity: [1, 1, 0],
-              x: [80, 65, 60], // 입쪽으로 이동
-              y: [60, 50, 48],
-              scale: [0.8, 0.6, 0], // 작아지며 사라짐
-              rotate: [0, -45, -90]
-            }}
-            transition={{ duration: 2.5, times: [0, 0.7, 1], ease: "easeInOut" }}
+            initial={{ opacity: 0, x: 105, y: 30 }}
+            animate={{ opacity: [0, 1, 1, 0], x: [105, 85, 70, 65], y: [30, 40, 48, 52], scale: [1, 0.8, 0.5, 0] }}
+            transition={{ duration: 2, times: [0, 0.3, 0.7, 1], ease: 'easeInOut' }}
           >
-            {/* 뼈다귀 모양 */}
-            <path d="M5 0 H15 V5 H20 V15 H15 V20 H5 V15 H0 V5 H5 V0 Z" fill="#EEE" stroke={colors.outline} strokeWidth="1" transform="translate(-10, -10) scale(0.8)" />
+            <circle cx="0" cy="0" r="6" fill="#F5D0A9" stroke="#C08040" strokeWidth="1" />
+            <circle cx="-2" cy="-2" r="2" fill="#E0B080" />
+            <circle cx="2" cy="1" r="1.5" fill="#E0B080" />
           </motion.g>
         )}
       </AnimatePresence>
-
-
-      {/* 강아지 몸통 전체 그룹 */}
-      <motion.g
-        animate={
-          isSleeping ? { y: 12, scaleY: 0.9 } // 잘 때는 웅크림
-            : isWalking ? { y: [0, -3, 0] } // 걸을 땐 통통 튐
-              : { y: [0, -1, 0] } // 평소엔 숨쉬기
-        }
-        transition={{
-          duration: isWalking ? 0.25 : 2,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      >
-        {/* 1. 꼬리 (말린 꼬리 살랑살랑) */}
-        <motion.g
-          animate={{ rotate: isSleeping ? 0 : [0, -15, 0, 10, 0] }}
-          transition={{ duration: 1.2, repeat: Infinity }}
-          style={{ originX: '20px', originY: '55px' }}
-        >
-          <rect x="10" y="45" width="15" height="10" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
-          <rect x="5" y="40" width="10" height="10" fill={colors.belly} stroke={colors.outline} strokeWidth="1" />
-        </motion.g>
-
-        {/* 2. 뒷다리 (걷기 교차) */}
-        <motion.g animate={isWalking ? { x: [0, -2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity }}>
-          <rect x="30" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
-            style={isSleeping ? { height: 5, y: 75 } : {}} />
-        </motion.g>
-        <motion.g animate={isWalking ? { x: [0, 2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity, delay: 0.25 }}>
-          <rect x="45" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
-            style={isSleeping ? { height: 5, y: 75 } : {}} />
-        </motion.g>
-
-
-        {/* 3. 몸통 */}
-        <rect x="25" y="40" width="45" height="35" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
-        <rect x="30" y="55" width="35" height="20" fill={colors.belly} /> {/* 배 부분 흰색 */}
-
-        {/* 4. 앞다리 (걷기 교차) */}
-        <motion.g animate={isWalking ? { x: [0, 2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity }}>
-          <rect x="55" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
-            style={isSleeping ? { height: 5, y: 75 } : {}} />
-        </motion.g>
-        <motion.g animate={isWalking ? { x: [0, -2, 0] } : {}} transition={{ duration: 0.5, repeat: Infinity, delay: 0.25 }}>
-          <rect x="70" y="70" width="10" height="15" fill={colors.main} stroke={colors.outline} strokeWidth="1"
-            style={isSleeping ? { height: 5, y: 75 } : {}} />
-        </motion.g>
-
-        {/* 5. 머리 그룹 (먹을 때 까딱거림) */}
-        <motion.g
-          animate={isEating ? { rotate: [0, 10, 0], x: [0, 2, 0] } : {}}
-          transition={{ duration: 0.5, repeat: Infinity }}
-          style={{ originX: '65px', originY: '45px' }}
-        >
-          {/* 귀 */}
-          <polygon points="60,25 55,5 75,25" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
-          <polygon points="62,22 58,8 70,22" fill={colors.earInner} /> {/* 귓속 */}
-          <polygon points="85,25 100,5 95,25" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
-          <polygon points="88,22 97,8 93,22" fill={colors.earInner} />
-
-          {/* 얼굴 형태 */}
-          <rect x="55" y="25" width="45" height="40" fill={colors.main} stroke={colors.outline} strokeWidth="1" />
-          {/* 얼굴 흰색 패턴 */}
-          <polygon points="55,45 70,65 95,65 100,45 100,65 55,65" fill={colors.belly} />
-          <rect x="70" y="25" width="15" height="40" fill={colors.belly} />
-
-          {/* 눈 (상태별 변화) */}
-          {isSleeping ? (
-            // 자는 눈 (- -)
-            <g fill={colors.nose}>
-              <rect x="65" y="40" width="8" height="2" />
-              <rect x="87" y="40" width="8" height="2" />
-            </g>
-          ) : isSick ? (
-            // 아픈 눈 (X X)
-            <g stroke={colors.nose} strokeWidth="2">
-              <path d="M65 38 L73 46 M73 38 L65 46" />
-              <path d="M87 38 L95 46 M95 38 L87 46" />
-            </g>
-          ) : (
-            // 평소 눈 (초롱초롱)
-            <g fill={colors.nose}>
-              <rect x="66" y="38" width="6" height="6" />
-              <rect x="88" y="38" width="6" height="6" />
-              <rect x="68" y="39" width="2" height="2" fill="white" /> {/* 눈망울 */}
-              <rect x="90" y="39" width="2" height="2" fill="white" />
-            </g>
-          )}
-
-          {/* 코 */}
-          <rect x="76" y="48" width="8" height="6" fill={colors.nose} />
-
-          {/* 입 (먹을 때 벌림) */}
-          <motion.g
-            animate={isEating ? { scaleY: [1, 1.5, 1] } : { scaleY: 1 }}
-            transition={{ duration: 0.4, repeat: Infinity }}
-            style={{ originY: '55px' }}
-          >
-            {/* 혀 (먹을 때만 보임) */}
-            <motion.rect x="77" y="60" width="6" height="5" fill="#FF6B6B" animate={{ opacity: isEating ? 1 : 0 }} />
-            {/* 입 모양 */}
-            <path d="M75 58 H85 V60 H75 Z" fill={isEating ? "#7A1F1F" : colors.nose} />
-          </motion.g>
-
-          {/* 볼터치 */}
-          {!isSick && !isSleeping && (
-            <g fill="#FFA07A" opacity="0.7">
-              <rect x="60" y="50" width="5" height="3" />
-              <rect x="95" y="50" width="5" height="3" />
-            </g>
-          )}
-        </motion.g>
-      </motion.g>
     </svg>
-  );
-};
+  )
+}
 
 // ------------------------------------------------------------------
 // 메인 컴포넌트
@@ -386,8 +412,8 @@ export default function PetTamagotchi() {
                   {currentAction === 'petting' && <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }} transition={{ duration: 1.2, repeat: Infinity }} className="absolute right-8 -top-8 text-2xl z-20">💖</motion.div>}
                 </AnimatePresence>
 
-                {/* ✅ SVG 펫 컴포넌트 호출 */}
-                <PixelDog action={currentAction} mood={petMood} direction={direction} />
+                {/* SVG 펫 컴포넌트 */}
+                <CuteDog action={currentAction} mood={petMood} direction={direction} />
 
                 {/* 그림자 */}
                 <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-24 h-3 bg-[#4d5c14]/40 rounded-[100%] blur-[2px] transition-all duration-500 ${isInactive ? 'opacity-40 scale-90' : ''}`} />
