@@ -108,10 +108,17 @@ export default function ProfilePage() {
                         <Progress value={progress} className="h-2 bg-white/10" indicatorClassName="bg-gradient-to-r from-violet-600 to-indigo-600" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 w-full">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                        <div className="bg-white/5 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 uppercase font-bold mb-1">Weekly Profit</div>
+                            <div className={`text-xl font-bold ${(stats.weeklySummary?.totalProfit || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {(stats.weeklySummary?.totalProfit || 0) > 0 ? '+' : ''}
+                                {Number(stats.weeklySummary?.totalProfit || 0).toLocaleString()}
+                            </div>
+                        </div>
                         <div className="bg-white/5 rounded-lg p-3 text-center">
                             <div className="text-xs text-slate-500 uppercase font-bold mb-1">Total Points</div>
-                            <div className="text-xl font-bold text-emerald-400">{points.toLocaleString()}</div>
+                            <div className="text-xl font-bold text-violet-400">{points.toLocaleString()}</div>
                         </div>
                         <div className="bg-white/5 rounded-lg p-3 text-center">
                             <div className="text-xs text-slate-500 uppercase font-bold mb-1">Achievements</div>
@@ -141,7 +148,7 @@ export default function ProfilePage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg">
                             <Gamepad2 className="w-5 h-5 text-blue-400" />
-                            Most Played Games
+                            Most Played Games (This Week)
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="h-[250px] min-h-[250px]">
@@ -179,7 +186,7 @@ export default function ProfilePage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg">
                             <Target className="w-5 h-5 text-red-400" />
-                            Win Rate by Game
+                            Win Rate by Game (This Week)
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="h-[250px] min-h-[250px]">
@@ -212,7 +219,7 @@ export default function ProfilePage() {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-emerald-400" />
-                    Daily Profit History (30 Days)
+                    Daily Profit History (This Week)
                 </CardTitle>
             </CardHeader>
             <CardContent className="h-[300px] min-h-[300px]">

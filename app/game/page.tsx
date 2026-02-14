@@ -253,11 +253,11 @@ export default function GameLobby() {
                             className="flex gap-4"
                         >
                             <div className="bg-[#18181b] border border-white/5 rounded-xl px-4 py-2 text-right">
-                                <div className="text-xs text-slate-500">Live Win Rate</div>
+                                <div className="text-xs text-slate-500">Live Win Rate (Weekly Reset)</div>
                                 <div className="text-xl font-bold text-emerald-400">{stats.summary.winRate.toFixed(1)}%</div>
                             </div>
                             <div className="bg-[#18181b] border border-white/5 rounded-xl px-4 py-2 text-right">
-                                <div className="text-xs text-slate-500">Total Profit</div>
+                                <div className="text-xs text-slate-500">Total Profit (Weekly Reset)</div>
                                 <div className={`text-xl font-bold ${stats.summary.totalProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
                                     {stats.summary.totalProfit > 0 ? '+' : ''}{stats.summary.totalProfit.toLocaleString()}
                                 </div>

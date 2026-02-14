@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getWeeklyRange } from '@/lib/weekly-window'
 
 export const dynamic = 'force-dynamic' // 캐싱 방지
 
 export async function GET() {
   try {
+    const { start: weekStart } = getWeeklyRange()
+
     // 1. 전체 요약 (개별 try-catch로 처리)
     let totalGames = 0
     let winGames = 0
@@ -14,7 +17,9 @@ export async function GET() {
     let avgMultiplier = 0
 
     try {
-      totalGames = await prisma.gameLog.count()
+      totalGames = await prisma.gameLog.count({
+        where: { createdAt: { gte: weekStart } },
+      })
     } catch (e) {
       console.error('Total games count error:', e)
     }
@@ -22,8 +27,9 @@ export async function GET() {
     try {
       winGames = await prisma.gameLog.count({
         where: {
-          result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] }
-        }
+          createdAt: { gte: weekStart },
+          result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] },
+        },
       })
     } catch (e) {
       console.error('Win games count error:', e)
@@ -31,6 +37,7 @@ export async function GET() {
 
     try {
       const aggregations = await prisma.gameLog.aggregate({
+        where: { createdAt: { gte: weekStart } },
         _sum: {
           betAmount: true,
           payout: true,
@@ -57,6 +64,7 @@ export async function GET() {
     try {
       games = await prisma.gameLog.groupBy({
         by: ['gameType'] as const,
+        where: { createdAt: { gte: weekStart } },
         _count: { _all: true },
         _sum: { betAmount: true, payout: true, profit: true },
         _avg: { multiplier: true }
@@ -71,8 +79,9 @@ export async function GET() {
         const wins = await prisma.gameLog.count({
           where: {
             gameType: g.gameType,
-            result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] }
-          }
+            createdAt: { gte: weekStart },
+            result: { in: ['WIN', 'BLACKJACK', 'JACKPOT'] },
+          },
         })
 
         // 최대 승리 금액 조회
@@ -81,6 +90,7 @@ export async function GET() {
           const maxPayoutRecord = await prisma.gameLog.findFirst({
             where: {
               gameType: g.gameType,
+              createdAt: { gte: weekStart },
               payout: { gt: 0 }
             },
             orderBy: {
@@ -105,7 +115,7 @@ export async function GET() {
             where: {
               gameType: g.gameType,
               createdAt: {
-                gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                gte: new Date(Math.max(weekStart.getTime(), Date.now() - 24 * 60 * 60 * 1000))
               }
             }
           })
@@ -149,7 +159,7 @@ export async function GET() {
       }
     }))
 
-    // 3. 날짜별 추이 (최근 7일) - PostgreSQL
+    // 3. 날짜별 추이 (이번 주) - PostgreSQL
     // 주의: Prisma 모델명이 GameLog라면 테이블명도 "GameLog" (대소문자 구분) 일 수 있음
     let serializedDailyStats: any[] = [];
     try {
@@ -160,7 +170,7 @@ export async function GET() {
           SUM(CASE WHEN "result" IN ('WIN', 'BLACKJACK', 'JACKPOT') THEN 1 ELSE 0 END)::int as wins,
           SUM("profit")::int as profit
         FROM "GameLog"
-        WHERE "createdAt" >= NOW() - INTERVAL '7 days'
+        WHERE "createdAt" >= ${weekStart}
         GROUP BY TO_CHAR("createdAt", 'MM-DD')
         ORDER BY date ASC
       `
@@ -226,6 +236,8 @@ export async function GET() {
 
     return NextResponse.json({
       summary: {
+        period: 'weekly',
+        weekStart,
         totalGames,
         winRate,
         rtp,

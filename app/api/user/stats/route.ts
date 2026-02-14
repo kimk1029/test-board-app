@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { getWeeklyRange } from '@/lib/weekly-window'
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest) {
   const userId = payload.userId
 
   try {
+    const { start: weekStart } = getWeeklyRange()
+
     // 1. 유저 정보
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -24,7 +27,7 @@ export async function GET(request: NextRequest) {
     // 2. 게임별 통계
     const stats = await prisma.gameLog.groupBy({
       by: ['gameType'],
-      where: { userId },
+      where: { userId, createdAt: { gte: weekStart } },
       _count: { _all: true },
       _sum: { profit: true, betAmount: true, payout: true },
     })
@@ -35,6 +38,7 @@ export async function GET(request: NextRequest) {
       by: ['gameType'],
       where: { 
         userId, 
+        createdAt: { gte: weekStart },
         result: { in: ['WIN', 'JACKPOT', 'BLACKJACK', 'win', 'blackjack'] } // 대소문자 혼용 주의
       },
       _count: { _all: true }
@@ -55,14 +59,25 @@ export async function GET(request: NextRequest) {
         };
     });
 
-    // 3. 일자별 수익 (최근 30일)
+    const weeklySummary = mergedStats.reduce(
+      (acc, cur) => {
+        acc.totalGames += Number(cur.totalGames || 0)
+        acc.totalProfit += Number(cur.totalProfit || 0)
+        acc.totalBet += Number(cur.totalBet || 0)
+        acc.totalPayout += Number(cur.totalPayout || 0)
+        return acc
+      },
+      { totalGames: 0, totalProfit: 0, totalBet: 0, totalPayout: 0 }
+    )
+
+    // 3. 일자별 수익 (이번 주)
     const dailyProfits: any[] = await prisma.$queryRaw`
       SELECT TO_CHAR("createdAt", 'YYYY-MM-DD') as date, SUM(profit) as profit
       FROM "GameLog"
       WHERE "userId" = ${userId}
+        AND "createdAt" >= ${weekStart}
       GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
       ORDER BY date ASC
-      LIMIT 30
     `;
 
     // 4. 쿠지 당첨 내역
@@ -71,7 +86,8 @@ export async function GET(request: NextRequest) {
         where: { 
             userId, 
             gameType: 'kuji',
-            result: 'WIN' 
+            result: 'WIN',
+            createdAt: { gte: weekStart },
         },
         select: { metadata: true },
         take: 1000 // 너무 많으면 성능 이슈, 적당히 제한
@@ -92,6 +108,9 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
+        period: 'weekly',
+        weekStart,
+        weeklySummary,
         user,
         gameStats: mergedStats,
         dailyStats: dailyProfits,

@@ -143,6 +143,8 @@ const HeaderNavigator = () => {
   const nextLevelPoints = getPointsForNextLevel(level)
   const pointsNeeded = nextLevelPoints - points
   const isAdmin = user?.userType === 1
+  const psychologyAllowedEmail = 'kimk1029@naver.com'
+  const canSeePsychologyMenu = user?.email?.toLowerCase() === psychologyAllowedEmail
 
   const navLinks = [
     { href: '/', label: 'HOME', icon: LayoutDashboard },
@@ -153,6 +155,7 @@ const HeaderNavigator = () => {
     { href: '/charge', label: 'CHARGE', icon: Zap },
     { href: '/notice', label: 'NOTICE', icon: Bell },
   ]
+  const visibleNavLinks = navLinks.filter((link) => link.href !== '/psychology' || canSeePsychologyMenu)
 
   return (
     <>
@@ -175,7 +178,7 @@ const HeaderNavigator = () => {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
+            {visibleNavLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -269,7 +272,7 @@ const HeaderNavigator = () => {
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
           <div className="md:hidden absolute top-full left-0 w-full bg-[#0a0a0c]/95 backdrop-blur-xl border-b border-white/10 p-4 flex flex-col gap-4 shadow-2xl animate-in slide-in-from-top-5">
-            {navLinks.map((link) => (
+            {visibleNavLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
